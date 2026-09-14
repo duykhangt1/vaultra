@@ -1,0 +1,30 @@
+node_modules
+dist
+dist-test
+*.tsbuildinfo
+.env
+.env.local
+apps/api/storage
+apps/api/.keys
+apps/api/src/generated
+*.log
+.DS_Store
+coverage
+.wrangler
+tools/media-studio/studio/lib/
+tools/media-studio/out/
+
+# local credential notes - never commit
+tkmk.txt
+
+tools/cloudflared.exe
+apps/api/.active-tunnel-url.txt
+apps/api/storage/r2-db-backup.json
+
+apps/api/backend*.log
+
+vaultra-vps.zip
+
+# local verification artefacts and build output
+.verify-shots/
+dist-fix/
