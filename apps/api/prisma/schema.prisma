@@ -1,0 +1,3338 @@
+// Vaultra — Self-Storage Facility Rental and Management System
+// Prisma is the schema source (spec §10). Things Prisma cannot express are declared with
+// triple-slash annotations consumed by prisma/tools/generate-ddl.cjs:
+//   /// generated: <SQL expr>          -> GENERATED ALWAYS AS (expr) STORED  (field must be optional)
+//   /// fk: <table>.<col> <ACTION>      -> FOREIGN KEY without a Prisma relation
+//   /// check: <SQL expr>               -> CHECK constraint (model level)
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ============================================================================
+// Group 1 — Accounts, authentication, authorization
+// ============================================================================
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  LOCKED
+  DISABLED
+}
+
+enum Locale {
+  vi
+  en
+}
+
+model User {
+  id                 BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id          String     @unique @db.Char(26)
+  email              String     @unique @db.VarChar(254)
+  email_verified_at  DateTime?  @db.DateTime(3)
+  password_hash      String?    @db.VarChar(255)
+  full_name          String     @db.VarChar(150)
+  phone              String?    @db.VarChar(20)
+  /// fk: media_files.id SET NULL
+  avatar_media_id    BigInt?    @db.UnsignedBigInt
+  status             UserStatus @default(ACTIVE)
+  locked_until       DateTime?  @db.DateTime(3)
+  failed_login_count Int        @default(0) @db.UnsignedSmallInt
+  lock_level         Int        @default(0) @db.UnsignedTinyInt
+  locale             Locale     @default(vi)
+  mfa_enabled        Boolean    @default(false)
+  mfa_secret_enc     Bytes?     @db.VarBinary(256)
+  password_changed_at DateTime? @db.DateTime(3)
+  last_login_at      DateTime?  @db.DateTime(3)
+  token_version      Int        @default(0) @db.UnsignedInt
+  created_at         DateTime   @default(now()) @db.DateTime(3)
+  updated_at         DateTime   @updatedAt @db.DateTime(3)
+  deleted_at         DateTime?  @db.DateTime(3)
+
+  customer      Customer?
+  roles         UserRole[]       @relation("UserRoleUser")
+  oauth         OAuthAccount[]
+  sessions      UserSession[]
+  auth_tokens   AuthToken[]
+  consents      UserConsent[]
+  notifications Notification[]
+  tasks         WorkTask[]       @relation("TaskAssignee")
+  shifts        StaffShift[]     @relation("ShiftUser")
+  tickets_assigned SupportTicket[] @relation("TicketAssignee")
+
+  @@index([status])
+  @@index([phone])
+  @@map("users")
+}
+
+enum CustomerType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum IdDocumentType {
+  CCCD
+  PASSPORT
+  OTHER
+}
+
+model Customer {
+  id                       BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id                String          @unique @db.Char(26)
+  code                     String          @unique @db.VarChar(32)
+  user_id                  BigInt?         @unique @db.UnsignedBigInt
+  type                     CustomerType    @default(INDIVIDUAL)
+  full_name                String          @db.VarChar(150)
+  email                    String?         @db.VarChar(254)
+  phone                    String?         @db.VarChar(20)
+  date_of_birth            DateTime?       @db.Date
+  address_line             String?         @db.VarChar(255)
+  ward                     String?         @db.VarChar(100)
+  district                 String?         @db.VarChar(100)
+  province                 String?         @db.VarChar(100)
+  id_document_type         IdDocumentType?
+  id_document_last4        String?         @db.Char(4)
+  id_document_number_enc   Bytes?          @db.VarBinary(256)
+  company_name             String?         @db.VarChar(200)
+  tax_code                 String?         @db.VarChar(20)
+  emergency_contact_name   String?         @db.VarChar(150)
+  emergency_contact_phone  String?         @db.VarChar(20)
+  booking_blocked          Boolean         @default(false)
+  booking_blocked_reason   String?         @db.VarChar(255)
+  balance_cached           Decimal         @default(0) @db.Decimal(15, 2)
+  marketing_opt_in         Boolean         @default(false)
+  email_suppressed         Boolean         @default(false)
+  /// fk: users.id SET NULL
+  created_by               BigInt?         @db.UnsignedBigInt
+  created_at               DateTime        @default(now()) @db.DateTime(3)
+  updated_at               DateTime        @updatedAt @db.DateTime(3)
+  deleted_at               DateTime?       @db.DateTime(3)
+
+  user         User?          @relation(fields: [user_id], references: [id], onDelete: Restrict)
+  reservations Reservation[]
+  contracts    Contract[]
+  invoices     Invoice[]
+  payments     Payment[]
+  tickets      SupportTicket[]
+  appointments Appointment[]
+  ledger       CustomerLedgerEntry[]
+
+  @@index([phone])
+  @@index([email])
+  @@fulltext([full_name, email, phone])
+  @@map("customers")
+}
+
+enum RoleCode {
+  CUSTOMER
+  FACILITY_STAFF
+  FACILITY_MANAGER
+  BUSINESS_OPS_MANAGER
+  SYSTEM_ADMIN
+}
+
+model Role {
+  id                 Int              @id @db.UnsignedTinyInt
+  code               RoleCode         @unique
+  name               String           @db.VarChar(100)
+  description        String?          @db.VarChar(255)
+  is_facility_scoped Boolean          @default(false)
+  permissions        RolePermission[]
+  users              UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          Int              @id @db.UnsignedSmallInt
+  code        String           @unique @db.VarChar(64)
+  module      String           @db.VarChar(40)
+  description String?          @db.VarChar(255)
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+enum PermissionScope {
+  OWN
+  FACILITY
+  GLOBAL
+}
+
+model RolePermission {
+  role_id       Int             @db.UnsignedTinyInt
+  permission_id Int             @db.UnsignedSmallInt
+  scope         PermissionScope
+  read_only     Boolean         @default(false)
+  role          Role            @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  permission    Permission      @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  @@id([role_id, permission_id])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id           BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id      BigInt    @db.UnsignedBigInt
+  role_id      Int       @db.UnsignedTinyInt
+  facility_id  BigInt?   @db.UnsignedBigInt
+  /// generated: COALESCE(`facility_id`, 0)
+  facility_key BigInt?   @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  assigned_by  BigInt?   @db.UnsignedBigInt
+  assigned_at  DateTime  @default(now()) @db.DateTime(3)
+  revoked_at   DateTime? @db.DateTime(3)
+  /// fk: users.id SET NULL
+  revoked_by   BigInt?   @db.UnsignedBigInt
+  /// generated: IF(`revoked_at` IS NULL, 1, NULL)
+  active_key   Int?      @db.TinyInt
+
+  user     User      @relation("UserRoleUser", fields: [user_id], references: [id], onDelete: Restrict)
+  role     Role      @relation(fields: [role_id], references: [id], onDelete: Restrict)
+  facility Facility? @relation(fields: [facility_id], references: [id], onDelete: Restrict)
+
+  @@unique([user_id, role_id, facility_key, active_key])
+  @@index([facility_id, role_id])
+  @@map("user_roles")
+}
+
+enum OAuthProvider {
+  GOOGLE
+}
+
+model OAuthAccount {
+  id               BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id          BigInt        @db.UnsignedBigInt
+  provider         OAuthProvider
+  provider_subject String        @db.VarChar(255)
+  email_at_link    String?       @db.VarChar(254)
+  linked_at        DateTime      @default(now()) @db.DateTime(3)
+  last_used_at     DateTime?     @db.DateTime(3)
+  user             User          @relation(fields: [user_id], references: [id], onDelete: Restrict)
+
+  @@unique([provider, provider_subject])
+  @@unique([user_id, provider])
+  @@map("oauth_accounts")
+}
+
+enum AuthMethod {
+  PASSWORD
+  GOOGLE
+  INVITE
+  PASSWORD_RESET
+}
+
+enum SessionRevokeReason {
+  LOGOUT
+  ADMIN
+  PASSWORD_CHANGED
+  TOKEN_REUSE
+  ROLE_CHANGED
+  EXPIRED
+}
+
+model UserSession {
+  id             BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id      String               @unique @db.Char(26)
+  user_id        BigInt               @db.UnsignedBigInt
+  auth_method    AuthMethod
+  ip_address     String?              @db.VarChar(45)
+  user_agent     String?              @db.VarChar(512)
+  device_label   String?              @db.VarChar(100)
+  country        String?              @db.Char(2)
+  created_at     DateTime             @default(now()) @db.DateTime(3)
+  last_seen_at   DateTime             @default(now()) @db.DateTime(3)
+  expires_at     DateTime             @db.DateTime(3)
+  revoked_at     DateTime?            @db.DateTime(3)
+  revoked_reason SessionRevokeReason?
+  user           User                 @relation(fields: [user_id], references: [id], onDelete: Restrict)
+  refresh_tokens RefreshToken[]
+
+  @@index([user_id, revoked_at])
+  @@map("user_sessions")
+}
+
+model RefreshToken {
+  id         BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  session_id BigInt         @db.UnsignedBigInt
+  token_hash String         @unique @db.Char(64)
+  parent_id  BigInt?        @db.UnsignedBigInt
+  issued_at  DateTime       @default(now()) @db.DateTime(3)
+  expires_at DateTime       @db.DateTime(3)
+  used_at    DateTime?      @db.DateTime(3)
+  revoked_at DateTime?      @db.DateTime(3)
+  session    UserSession    @relation(fields: [session_id], references: [id], onDelete: Cascade)
+  parent     RefreshToken?  @relation("TokenChain", fields: [parent_id], references: [id], onDelete: SetNull)
+  children   RefreshToken[] @relation("TokenChain")
+
+  @@index([session_id])
+  @@index([expires_at])
+  @@map("refresh_tokens")
+}
+
+enum AuthTokenPurpose {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+  INVITE
+  EMAIL_CHANGE
+  ACCOUNT_LINK
+  SIGN_OTP
+}
+
+model AuthToken {
+  id         BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id    BigInt           @db.UnsignedBigInt
+  purpose    AuthTokenPurpose
+  token_hash String           @unique @db.Char(64)
+  payload    Json?
+  expires_at DateTime         @db.DateTime(3)
+  used_at    DateTime?        @db.DateTime(3)
+  created_ip String?          @db.VarChar(45)
+  created_at DateTime         @default(now()) @db.DateTime(3)
+  user       User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, purpose])
+  @@map("auth_tokens")
+}
+
+enum LoginMethod {
+  PASSWORD
+  GOOGLE
+  REFRESH
+}
+
+enum LoginFailure {
+  BAD_CREDENTIALS
+  LOCKED
+  DISABLED
+  UNVERIFIED
+  MFA_FAILED
+  OAUTH_ERROR
+  RATE_LIMITED
+  TOKEN_REUSE
+}
+
+model LoginHistory {
+  id              BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  user_id         BigInt?       @db.UnsignedBigInt
+  email_attempted String?       @db.VarChar(254)
+  method          LoginMethod
+  success         Boolean
+  failure_reason  LoginFailure?
+  ip_address      String?       @db.VarChar(45)
+  user_agent      String?       @db.VarChar(512)
+  country         String?       @db.Char(2)
+  /// fk: user_sessions.id SET NULL
+  session_id      BigInt?       @db.UnsignedBigInt
+  created_at      DateTime      @default(now()) @db.DateTime(3)
+
+  @@index([user_id, created_at])
+  @@index([ip_address, created_at])
+  @@index([created_at])
+  @@map("login_history")
+}
+
+enum ConsentType {
+  TERMS
+  PRIVACY
+  MARKETING
+}
+
+model UserConsent {
+  id           BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id      BigInt      @db.UnsignedBigInt
+  type         ConsentType
+  version      String      @db.VarChar(20)
+  accepted_at  DateTime    @default(now()) @db.DateTime(3)
+  ip_address   String?     @db.VarChar(45)
+  withdrawn_at DateTime?   @db.DateTime(3)
+  user         User        @relation(fields: [user_id], references: [id], onDelete: Restrict)
+
+  @@index([user_id])
+  @@map("user_consents")
+}
+
+model Sequence {
+  name       String @db.VarChar(32)
+  year       Int    @db.UnsignedSmallInt
+  next_value Int    @default(0) @db.UnsignedInt
+
+  @@id([name, year])
+  @@map("sequences")
+}
+
+model IpBlock {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  cidr       String    @unique @db.VarChar(64)
+  reason     String?   @db.VarChar(255)
+  expires_at DateTime? @db.DateTime(3)
+  /// fk: users.id SET NULL
+  created_by BigInt?   @db.UnsignedBigInt
+  created_at DateTime  @default(now()) @db.DateTime(3)
+
+  @@map("ip_blocks")
+}
+
+// ============================================================================
+// Group 2 — Facilities, unit types, units
+// ============================================================================
+
+enum FacilityStatus {
+  DRAFT
+  ACTIVE
+  TEMPORARILY_CLOSED
+  INACTIVE
+}
+
+model Facility {
+  id               BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id        String         @unique @db.Char(26)
+  code             String         @unique @db.VarChar(16)
+  name             String         @db.VarChar(150)
+  slug             String         @unique @db.VarChar(160)
+  status           FacilityStatus @default(DRAFT)
+  accepts_bookings Boolean        @default(true)
+  address_line     String         @db.VarChar(255)
+  ward             String?        @db.VarChar(100)
+  district         String         @db.VarChar(100)
+  province         String         @db.VarChar(100)
+  province_slug    String         @db.VarChar(100)
+  latitude         Decimal?       @db.Decimal(9, 6)
+  longitude        Decimal?       @db.Decimal(9, 6)
+  timezone         String         @default("Asia/Ho_Chi_Minh") @db.VarChar(40)
+  phone            String?        @db.VarChar(20)
+  email            String?        @db.VarChar(254)
+  hotline          String?        @db.VarChar(20)
+  office_hours     Json
+  access_hours     Json
+  amenities        Json
+  description      String?        @db.Text
+  auto_assign      Boolean        @default(true)
+  auto_dispatch    Boolean        @default(false)
+  total_area_m2    Decimal?       @db.Decimal(10, 2)
+  opened_at        DateTime?      @db.Date
+  /// fk: media_files.id SET NULL
+  cover_media_id   BigInt?        @db.UnsignedBigInt
+  created_at       DateTime       @default(now()) @db.DateTime(3)
+  updated_at       DateTime       @updatedAt @db.DateTime(3)
+  deleted_at       DateTime?      @db.DateTime(3)
+
+  zones        Zone[]
+  unit_types   UnitType[]
+  units        Unit[]
+  user_roles   UserRole[]
+  notices      FacilityNotice[]
+  reservations Reservation[]
+  contracts    Contract[]
+  invoices     Invoice[]
+  tickets      SupportTicket[]
+  tasks        WorkTask[]
+  shifts       StaffShift[]
+  work_orders  WorkOrder[]
+  appointments Appointment[]
+  slots        AppointmentSlot[]
+  closures     FacilityClosure[]
+
+  @@index([province, district])
+  @@index([status])
+  @@map("facilities")
+}
+
+enum NoticeSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model FacilityNotice {
+  id          BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  facility_id BigInt         @db.UnsignedBigInt
+  title       String         @db.VarChar(200)
+  body        String         @db.Text
+  severity    NoticeSeverity @default(INFO)
+  starts_at   DateTime       @db.DateTime(3)
+  ends_at     DateTime?      @db.DateTime(3)
+  /// fk: users.id SET NULL
+  created_by  BigInt?        @db.UnsignedBigInt
+  created_at  DateTime       @default(now()) @db.DateTime(3)
+  facility    Facility       @relation(fields: [facility_id], references: [id], onDelete: Restrict)
+
+  @@index([facility_id, starts_at])
+  @@map("facility_notices")
+}
+
+model Zone {
+  id                 BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  facility_id        BigInt     @db.UnsignedBigInt
+  code               String     @db.VarChar(16)
+  name               String     @db.VarChar(100)
+  floor              Int        @default(1) @db.TinyInt
+  has_elevator       Boolean    @default(false)
+  drive_up           Boolean    @default(false)
+  climate_controlled Boolean    @default(false)
+  sort_order         Int        @default(0) @db.SmallInt
+  status             String     @default("ACTIVE") @db.VarChar(16)
+  facility           Facility   @relation(fields: [facility_id], references: [id], onDelete: Restrict)
+  units              Unit[]
+  floor_plan         FloorPlan?
+
+  @@unique([facility_id, code])
+  @@map("zones")
+}
+
+enum SizeCategory {
+  XS
+  S
+  M
+  L
+  XL
+  VEHICLE
+  LOCKER
+}
+
+enum UnitTypeStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+/// check: `width_m` > 0 AND `depth_m` > 0 AND `height_m` > 0
+/// check: `online_price` <= `list_price`
+model UnitType {
+  id                   BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id            String         @unique @db.Char(26)
+  facility_id          BigInt         @db.UnsignedBigInt
+  code                 String         @db.VarChar(32)
+  name                 String         @db.VarChar(120)
+  size_category        SizeCategory
+  width_m              Decimal        @db.Decimal(5, 2)
+  depth_m              Decimal        @db.Decimal(5, 2)
+  height_m             Decimal        @db.Decimal(5, 2)
+  /// generated: (`width_m` * `depth_m`)
+  area_m2              Decimal?       @db.Decimal(7, 2)
+  /// generated: (`width_m` * `depth_m` * `height_m`)
+  volume_m3            Decimal?       @db.Decimal(8, 2)
+  climate_controlled   Boolean        @default(false)
+  indoor               Boolean        @default(true)
+  drive_up             Boolean        @default(false)
+  power_outlet         Boolean        @default(false)
+  ground_floor         Boolean        @default(false)
+  fits_description     String?        @db.VarChar(255)
+  description          String?        @db.Text
+  list_price           Decimal        @db.Decimal(15, 2)
+  online_price         Decimal        @db.Decimal(15, 2)
+  deposit_override     Decimal?       @db.Decimal(15, 2)
+  is_bookable          Boolean        @default(true)
+  status               UnitTypeStatus @default(DRAFT)
+  inspection_checklist Json?
+  version              Int            @default(0) @db.UnsignedInt
+  created_at           DateTime       @default(now()) @db.DateTime(3)
+  updated_at           DateTime       @updatedAt @db.DateTime(3)
+  deleted_at           DateTime?      @db.DateTime(3)
+
+  facility      Facility             @relation(fields: [facility_id], references: [id], onDelete: Restrict)
+  units         Unit[]
+  reservations  Reservation[]
+  contracts     Contract[]
+  quotes        Quote[]
+  price_history PriceHistory[]
+  price_requests PriceChangeRequest[]
+
+  @@unique([facility_id, code])
+  @@index([facility_id, status, is_bookable])
+  @@index([size_category])
+  @@index([area_m2])
+  @@index([online_price])
+  @@map("unit_types")
+}
+
+enum UnitStatus {
+  AVAILABLE
+  RESERVED
+  OCCUPIED
+  OVERLOCKED
+  PENDING_INSPECTION
+  MAINTENANCE
+  OUT_OF_SERVICE
+  RETIRED
+}
+
+enum OperationalFlag {
+  NONE
+  INSPECTION_DUE
+  MAINTENANCE_SCHEDULED
+  ISSUE_REPORTED
+}
+
+enum DoorType {
+  ROLL_UP
+  SWING
+  LOCKER
+}
+
+model Unit {
+  id                  BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id           String          @unique @db.Char(26)
+  facility_id         BigInt          @db.UnsignedBigInt
+  unit_type_id        BigInt          @db.UnsignedBigInt
+  zone_id             BigInt          @db.UnsignedBigInt
+  code                String          @db.VarChar(20)
+  status              UnitStatus      @default(AVAILABLE)
+  operational_flag    OperationalFlag @default(NONE)
+  status_reason       String?         @db.VarChar(255)
+  allocation_priority Int             @default(100) @db.SmallInt
+  last_vacated_at     DateTime?       @db.DateTime(3)
+  door_type           DoorType        @default(ROLL_UP)
+  notes               String?         @db.VarChar(500)
+  cleaned_at          DateTime?       @db.DateTime(3)
+  version             Int             @default(0) @db.UnsignedInt
+  created_at          DateTime        @default(now()) @db.DateTime(3)
+  updated_at          DateTime        @updatedAt @db.DateTime(3)
+  deleted_at          DateTime?       @db.DateTime(3)
+
+  facility       Facility            @relation(fields: [facility_id], references: [id], onDelete: Restrict)
+  unit_type      UnitType            @relation(fields: [unit_type_id], references: [id], onDelete: Restrict)
+  zone           Zone                @relation(fields: [zone_id], references: [id], onDelete: Restrict)
+  allocations    UnitAllocation[]
+  contracts      Contract[]
+  status_history UnitStatusHistory[]
+  shape          UnitShape?
+  inspections    Inspection[]
+  work_orders    WorkOrder[]
+
+  @@unique([facility_id, code])
+  @@index([facility_id, status])
+  @@index([unit_type_id, status, allocation_priority, last_vacated_at])
+  @@index([zone_id])
+  @@map("units")
+}
+
+model UnitStatusHistory {
+  id            BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  unit_id       BigInt           @db.UnsignedBigInt
+  from_status   UnitStatus?
+  to_status     UnitStatus
+  from_flag     OperationalFlag?
+  to_flag       OperationalFlag?
+  reason        String?          @db.VarChar(255)
+  related_type  String?          @db.VarChar(40)
+  related_id    BigInt?          @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  actor_user_id BigInt?          @db.UnsignedBigInt
+  created_at    DateTime         @default(now()) @db.DateTime(3)
+  unit          Unit             @relation(fields: [unit_id], references: [id], onDelete: Restrict)
+
+  @@index([unit_id, created_at])
+  @@map("unit_status_history")
+}
+
+model FloorPlan {
+  id                  BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  /// fk: facilities.id RESTRICT
+  facility_id         BigInt      @db.UnsignedBigInt
+  zone_id             BigInt      @unique @db.UnsignedBigInt
+  name                String      @db.VarChar(100)
+  /// fk: media_files.id SET NULL
+  background_media_id BigInt?     @db.UnsignedBigInt
+  width               Int         @default(40) @db.UnsignedSmallInt
+  height              Int         @default(24) @db.UnsignedSmallInt
+  grid_size           Int         @default(1) @db.UnsignedSmallInt
+  version             Int         @default(0) @db.UnsignedInt
+  published_at        DateTime?   @db.DateTime(3)
+  zone                Zone        @relation(fields: [zone_id], references: [id], onDelete: Restrict)
+  shapes              UnitShape[]
+
+  @@map("floor_plans")
+}
+
+model UnitShape {
+  id            BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  floor_plan_id BigInt    @db.UnsignedBigInt
+  unit_id       BigInt    @unique @db.UnsignedBigInt
+  x             Decimal   @db.Decimal(8, 2)
+  y             Decimal   @db.Decimal(8, 2)
+  w             Decimal   @db.Decimal(8, 2)
+  h             Decimal   @db.Decimal(8, 2)
+  rotation      Int       @default(0) @db.SmallInt
+  floor_plan    FloorPlan @relation(fields: [floor_plan_id], references: [id], onDelete: Cascade)
+  unit          Unit      @relation(fields: [unit_id], references: [id], onDelete: Restrict)
+
+  @@map("unit_shapes")
+}
+
+enum PriceField {
+  LIST_PRICE
+  ONLINE_PRICE
+  DEPOSIT_OVERRIDE
+}
+
+model PriceHistory {
+  id                BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  unit_type_id      BigInt     @db.UnsignedBigInt
+  field             PriceField
+  old_value         Decimal?   @db.Decimal(15, 2)
+  new_value         Decimal?   @db.Decimal(15, 2)
+  reason            String?    @db.VarChar(255)
+  /// fk: price_change_requests.id SET NULL
+  change_request_id BigInt?    @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  changed_by        BigInt?    @db.UnsignedBigInt
+  created_at        DateTime   @default(now()) @db.DateTime(3)
+  unit_type         UnitType   @relation(fields: [unit_type_id], references: [id], onDelete: Restrict)
+
+  @@index([unit_type_id, created_at])
+  @@map("price_history")
+}
+
+enum MediaBucket {
+  PUBLIC
+  PRIVATE
+}
+
+enum MediaPurpose {
+  FACILITY_PHOTO
+  UNIT_TYPE_PHOTO
+  UNIT_PHOTO
+  FLOOR_PLAN
+  INSPECTION_PHOTO
+  TICKET_ATTACHMENT
+  WORK_ORDER_PHOTO
+  CONTRACT_PDF
+  HANDOVER_PDF
+  RECEIPT_PDF
+  INVOICE_PDF
+  REPORT_EXPORT
+  AVATAR
+  SIGNATURE
+  OVERLOCK_PHOTO
+  ABANDONED_GOODS_PHOTO
+  COLLECTION_EVIDENCE
+}
+
+enum MediaStatus {
+  PENDING
+  READY
+  REJECTED
+  DELETED
+}
+
+/// check: `size_bytes` <= 15728640
+model MediaFile {
+  id           BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id    String       @unique @db.Char(26)
+  bucket       MediaBucket
+  object_key   String       @unique @db.VarChar(512)
+  purpose      MediaPurpose
+  related_type String?      @db.VarChar(40)
+  related_id   BigInt?      @db.UnsignedBigInt
+  /// fk: facilities.id SET NULL
+  facility_id  BigInt?      @db.UnsignedBigInt
+  mime_type    String       @db.VarChar(100)
+  size_bytes   Int          @db.UnsignedInt
+  width        Int?         @db.UnsignedSmallInt
+  height       Int?         @db.UnsignedSmallInt
+  sha256       String?      @db.Char(64)
+  etag         String?      @db.VarChar(64)
+  status       MediaStatus  @default(PENDING)
+  taken_at     DateTime?    @db.DateTime(3)
+  /// fk: users.id SET NULL
+  uploaded_by  BigInt?      @db.UnsignedBigInt
+  is_locked    Boolean      @default(false)
+  caption      String?      @db.VarChar(255)
+  sort_order   Int          @default(0) @db.SmallInt
+  created_at   DateTime     @default(now()) @db.DateTime(3)
+
+  @@index([related_type, related_id])
+  @@index([status, created_at])
+  @@index([facility_id, purpose])
+  @@map("media_files")
+}
+
+// ============================================================================
+// Group 3 — Reservations, contracts, handover, access, move-out, renewal, delinquency
+// ============================================================================
+
+enum BillingMode {
+  MONTHLY
+  PREPAID_TERM
+}
+
+enum QuotePurpose {
+  NEW_RENTAL
+  RENEWAL
+  TRANSFER
+}
+
+enum QuoteStatus {
+  ACTIVE
+  USED
+  EXPIRED
+}
+
+model Quote {
+  id                BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id         String       @unique @db.Char(26)
+  /// fk: customers.id SET NULL
+  customer_id       BigInt?      @db.UnsignedBigInt
+  /// fk: facilities.id RESTRICT
+  facility_id       BigInt       @db.UnsignedBigInt
+  unit_type_id      BigInt       @db.UnsignedBigInt
+  start_date        DateTime     @db.Date
+  term_months       Int          @db.UnsignedTinyInt
+  billing_mode      BillingMode
+  /// fk: promotions.id SET NULL
+  promotion_id      BigInt?      @db.UnsignedBigInt
+  /// fk: policy_versions.id RESTRICT
+  policy_version_id BigInt       @db.UnsignedBigInt
+  currency          String       @default("VND") @db.Char(3)
+  monthly_rent      Decimal      @db.Decimal(15, 2)
+  discount_total    Decimal      @default(0) @db.Decimal(15, 2)
+  admin_fee         Decimal      @default(0) @db.Decimal(15, 2)
+  deposit_amount    Decimal      @default(0) @db.Decimal(15, 2)
+  tax_total         Decimal      @default(0) @db.Decimal(15, 2)
+  due_now_total     Decimal      @db.Decimal(15, 2)
+  line_items        Json
+  purpose           QuotePurpose @default(NEW_RENTAL)
+  status            QuoteStatus  @default(ACTIVE)
+  anon_token_hash   String?      @db.Char(64)
+  expires_at        DateTime     @db.DateTime(3)
+  created_at        DateTime     @default(now()) @db.DateTime(3)
+  unit_type         UnitType     @relation(fields: [unit_type_id], references: [id], onDelete: Restrict)
+  reservation       Reservation?
+
+  @@index([customer_id, created_at])
+  @@map("quotes")
+}
+
+enum ReservationStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  UNIT_ASSIGNED
+  MOVE_IN_SCHEDULED
+  CHECKED_IN
+  EXPIRED
+  CANCELLED
+  NO_SHOW
+}
+
+enum ReservationChannel {
+  ONLINE
+  COUNTER
+  PHONE
+}
+
+/// check: `end_date` > `start_date`
+model Reservation {
+  id                 BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id          String             @unique @db.Char(26)
+  code               String             @unique @db.VarChar(32)
+  customer_id        BigInt             @db.UnsignedBigInt
+  facility_id        BigInt             @db.UnsignedBigInt
+  unit_type_id       BigInt             @db.UnsignedBigInt
+  quote_id           BigInt             @unique @db.UnsignedBigInt
+  start_date         DateTime           @db.Date
+  end_date           DateTime           @db.Date
+  term_months        Int                @db.UnsignedTinyInt
+  billing_mode       BillingMode
+  status             ReservationStatus  @default(PENDING_PAYMENT)
+  hold_expires_at    DateTime?          @db.DateTime(3)
+  channel            ReservationChannel @default(ONLINE)
+  /// fk: users.id SET NULL
+  created_by_user_id BigInt?            @db.UnsignedBigInt
+  confirmed_at       DateTime?          @db.DateTime(3)
+  cancelled_at       DateTime?          @db.DateTime(3)
+  cancel_reason      String?            @db.VarChar(255)
+  /// fk: users.id SET NULL
+  cancelled_by       BigInt?            @db.UnsignedBigInt
+  checked_in_at      DateTime?          @db.DateTime(3)
+  /// fk: contracts.id SET NULL
+  contract_id        BigInt?            @db.UnsignedBigInt
+  notes              String?            @db.VarChar(500)
+  version            Int                @default(0) @db.UnsignedInt
+  created_at         DateTime           @default(now()) @db.DateTime(3)
+  updated_at         DateTime           @updatedAt @db.DateTime(3)
+
+  customer       Customer                   @relation(fields: [customer_id], references: [id], onDelete: Restrict)
+  facility       Facility                   @relation(fields: [facility_id], references: [id], onDelete: Restrict)
+  unit_type      UnitType                   @relation(fields: [unit_type_id], references: [id], onDelete: Restrict)
+  quote          Quote                      @relation(fields: [quote_id], references: [id], onDelete: Restrict)
+  allocations    UnitAllocation[]
+  status_history ReservationStatusHistory[]
+  invoices       Invoice[]
+  appointments   Appointment[]
+  deposit        Deposit?
+  contract       Contract?                  @relation("ContractReservation")
+  checkin_sessions CheckinSession[]
+
+  @@index([customer_id, status])
+  @@index([facility_id, start_date])
+  @@index([unit_type_id, status, start_date, end_date])
+  @@index([status, hold_expires_at])
+  @@map("reservations")
+}
+
+model ReservationStatusHistory {
+  id             BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  reservation_id BigInt             @db.UnsignedBigInt
+  from_status    ReservationStatus?
+  to_status      ReservationStatus
+  reason         String?            @db.VarChar(255)
+  /// fk: users.id SET NULL
+  actor_user_id  BigInt?            @db.UnsignedBigInt
+  created_at     DateTime           @default(now()) @db.DateTime(3)
+  reservation    Reservation        @relation(fields: [reservation_id], references: [id], onDelete: Restrict)
+
+  @@index([reservation_id, created_at])
+  @@map("reservation_status_history")
+}
+
+enum AllocationStatus {
+  ACTIVE
+  RELEASED
+}
+
+enum AssignmentMethod {
+  AUTO
+  MANUAL
+}
+
+enum AllocationReleaseReason {
+  CANCELLED
+  NO_SHOW
+  TRANSFERRED
+  MOVED_OUT
+  TERMINATED
+  UNIT_UNFIT
+}
+
+model UnitAllocation {
+  id                BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
+  unit_id           BigInt                   @db.UnsignedBigInt
+  reservation_id    BigInt                   @db.UnsignedBigInt
+  /// fk: contracts.id SET NULL
+  contract_id       BigInt?                  @db.UnsignedBigInt
+  status            AllocationStatus         @default(ACTIVE)
+  /// generated: IF(`status` = 'ACTIVE', `unit_id`, NULL)
+  open_unit_key     BigInt?                  @unique @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  assigned_by       BigInt?                  @db.UnsignedBigInt
+  assigned_at       DateTime                 @default(now()) @db.DateTime(3)
+  assignment_method AssignmentMethod
+  released_at       DateTime?                @db.DateTime(3)
+  release_reason    AllocationReleaseReason?
+  unit              Unit                     @relation(fields: [unit_id], references: [id], onDelete: Restrict)
+  reservation       Reservation              @relation(fields: [reservation_id], references: [id], onDelete: Restrict)
+
+  @@index([reservation_id])
+  @@index([contract_id])
+  @@map("unit_allocations")
+}
+
+enum SlotType {
+  MOVE_IN
+  MOVE_OUT
+  BOTH
+}
+
+model AppointmentSlot {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  facility_id BigInt   @db.UnsignedBigInt
+  type        SlotType @default(BOTH)
+  weekday     Int      @db.UnsignedTinyInt
+  start_time  String   @db.Char(5)
+  end_time    String   @db.Char(5)
+  capacity    Int      @default(2) @db.UnsignedTinyInt
+  active      Boolean  @default(true)
+  facility    Facility @relation(fields: [facility_id], references: [id], onDelete: Restrict)
+
+  @@index([facility_id, weekday])
+  @@map("appointment_slots")
+}
+
+model FacilityClosure {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  facility_id BigInt   @db.UnsignedBigInt
+  date        DateTime @db.Date
+  reason      String   @db.VarChar(255)
+  facility    Facility @relation(fields: [facility_id], references: [id], onDelete: Restrict)
+
+  @@unique([facility_id, date])
+  @@map("facility_closures")
+}
+
+enum AppointmentType {
+  MOVE_IN
+  MOVE_OUT
+  INSPECTION
+}
+
+enum AppointmentStatus {
+  BOOKED
+  ARRIVED
+  COMPLETED
+  MISSED
+  CANCELLED
+  RESCHEDULED
+}
+
+model Appointment {
+  id                BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id         String            @unique @db.Char(26)
+  facility_id       BigInt            @db.UnsignedBigInt
+  type              AppointmentType
+  reservation_id    BigInt?           @db.UnsignedBigInt
+  contract_id       BigInt?           @db.UnsignedBigInt
+  customer_id       BigInt            @db.UnsignedBigInt
+  /// fk: appointment_slots.id SET NULL
+  slot_id           BigInt?           @db.UnsignedBigInt
+  scheduled_start   DateTime          @db.DateTime(3)
+  scheduled_end     DateTime          @db.DateTime(3)
+  status            AppointmentStatus @default(BOOKED)
+  /// fk: users.id SET NULL
+  assigned_staff_id BigInt?           @db.UnsignedBigInt
+  notes             String?           @db.VarChar(500)
+  reminded_24h_at   DateTime?         @db.DateTime(3)
+  reminded_2h_at    DateTime?         @db.DateTime(3)
+  created_at        DateTime          @default(now()) @db.DateTime(3)
+  updated_at        DateTime          @updatedAt @db.DateTime(3)
+  facility          Facility          @relation(fields: [facility_id], references: [id], onDelete: Restrict)
+  reservation       Reservation?      @relation(fields: [reservation_id], references: [id], onDelete: SetNull)
+  contract          Contract?         @relation(fields: [contract_id], references: [id], onDelete: SetNull)
+  customer          Customer          @relation(fields: [customer_id], references: [id], onDelete: Restrict)
+
+  @@index([facility_id, scheduled_start])
+  @@index([assigned_staff_id, scheduled_start])
+  @@map("appointments")
+}
+
+enum ContractStatus {
+  PENDING_SIGNATURE
+  SIGNED
+  ACTIVE
+  MOVE_OUT_SCHEDULED
+  EXPIRED
+  ENDED
+  TERMINATED
+  CLOSED
+  CANCELLED
+}
+
+enum DelinquencyStatus {
+  CURRENT
+  GRACE
+  LATE
+  LOCKED_OUT
+  FINAL_NOTICE
+  DEFAULT_PENDING
+  DEFAULTED
+}
+
+enum TerminationReason {
+  MOVE_OUT
+  DEFAULT
+  FACILITY_CLOSURE
+  MUTUAL
+  OTHER
+}
+
+model Contract {
+  id                     BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id              String             @unique @db.Char(26)
+  code                   String             @unique @db.VarChar(32)
+  customer_id            BigInt             @db.UnsignedBigInt
+  facility_id            BigInt             @db.UnsignedBigInt
+  unit_id                BigInt             @db.UnsignedBigInt
+  unit_type_id           BigInt             @db.UnsignedBigInt
+  reservation_id         BigInt             @unique @db.UnsignedBigInt
+  status                 ContractStatus     @default(PENDING_SIGNATURE)
+  delinquency_status     DelinquencyStatus  @default(CURRENT)
+  start_date             DateTime           @db.Date
+  current_end_date       DateTime           @db.Date
+  effective_end_date     DateTime?          @db.Date
+  billing_mode           BillingMode
+  billing_day            Int                @db.UnsignedTinyInt
+  monthly_rent           Decimal            @db.Decimal(15, 2)
+  /// fk: deposits.id RESTRICT
+  deposit_id             BigInt?            @db.UnsignedBigInt
+  /// fk: policy_versions.id RESTRICT
+  policy_version_id      BigInt             @db.UnsignedBigInt
+  auto_renew             Boolean            @default(false)
+  renewal_blocked        Boolean            @default(false)
+  renewal_blocked_reason String?            @db.VarChar(255)
+  is_holdover            Boolean            @default(false)
+  signed_at              DateTime?          @db.DateTime(3)
+  activated_at           DateTime?          @db.DateTime(3)
+  ended_at               DateTime?          @db.DateTime(3)
+  closed_at              DateTime?          @db.DateTime(3)
+  termination_reason     TerminationReason?
+  snapshot               Json
+  version                Int                @default(0) @db.UnsignedInt
+  created_at             DateTime           @default(now()) @db.DateTime(3)
+  updated_at             DateTime           @updatedAt @db.DateTime(3)
+
+  customer       Customer               @relation(fields: [customer_id], references: [id], onDelete: Restrict)
+  facility       Facility               @relation(fields: [facility_id], references: [id], onDelete: Restrict)
+  unit           Unit                   @relation(fields: [unit_id], references: [id], onDelete: Restrict)
+  unit_type      UnitType               @relation(fields: [unit_type_id], references: [id], onDelete: Restrict)
+  reservation    Reservation            @relation("ContractReservation", fields: [reservation_id], references: [id], onDelete: Restrict)
+  terms          ContractTerm[]
+  documents      ContractDocument[]
+  amendments     ContractAmendment[]
+  status_history ContractStatusHistory[]
+  credentials    AccessCredential[]
+  invoices       Invoice[]
+  appointments   Appointment[]
+  move_outs      MoveOutRequest[]
+  renewal_offers RenewalOffer[]
+  handovers      HandoverRecord[]
+  inspections    Inspection[]
+  delinquency_events DelinquencyEvent[]
+  collection_notes CollectionNote[]
+  billing_schedule BillingSchedule?
+  settlement     DepositSettlement?
+  tickets        SupportTicket[]
+
+  @@index([customer_id, status])
+  @@index([facility_id, status, current_end_date])
+  @@index([facility_id, delinquency_status])
+  @@index([unit_type_id, status, start_date])
+  @@index([unit_id])
+  @@map("contracts")
+}
+
+enum TermType {
+  INITIAL
+  RENEWAL
+  HOLDOVER
+}
+
+enum TermStatus {
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model ContractTerm {
+  id                BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  contract_id       BigInt     @db.UnsignedBigInt
+  sequence_no       Int        @db.UnsignedTinyInt
+  type              TermType
+  start_date        DateTime   @db.Date
+  end_date          DateTime?  @db.Date
+  monthly_rent      Decimal    @db.Decimal(15, 2)
+  term_months       Int        @db.UnsignedTinyInt
+  /// fk: policy_versions.id RESTRICT
+  policy_version_id BigInt     @db.UnsignedBigInt
+  /// fk: renewal_offers.id SET NULL
+  renewal_offer_id  BigInt?    @db.UnsignedBigInt
+  status            TermStatus @default(SCHEDULED)
+  created_at        DateTime   @default(now()) @db.DateTime(3)
+  contract          Contract   @relation(fields: [contract_id], references: [id], onDelete: Restrict)
+
+  @@unique([contract_id, sequence_no])
+  @@map("contract_terms")
+}
+
+enum ContractDocType {
+  CONTRACT
+  RENEWAL_ADDENDUM
+  TRANSFER_ADDENDUM
+  TERMINATION_NOTICE
+  FINAL_NOTICE
+  HANDOVER_MOVE_IN
+  HANDOVER_MOVE_OUT
+}
+
+model ContractDocument {
+  id               BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  contract_id      BigInt              @db.UnsignedBigInt
+  type             ContractDocType
+  template_version String              @db.VarChar(20)
+  /// fk: media_files.id RESTRICT
+  media_file_id    BigInt              @db.UnsignedBigInt
+  sha256           String              @db.Char(64)
+  generated_at     DateTime            @default(now()) @db.DateTime(3)
+  contract         Contract            @relation(fields: [contract_id], references: [id], onDelete: Restrict)
+  signatures       ContractSignature[]
+
+  @@index([contract_id])
+  @@map("contract_documents")
+}
+
+enum SignerType {
+  CUSTOMER
+  LESSOR
+}
+
+enum SignMethod {
+  OTP_EMAIL
+  DRAWN_SIGNATURE
+  SYSTEM_SEAL
+}
+
+model ContractSignature {
+  id                 BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  document_id        BigInt           @db.UnsignedBigInt
+  signer_type        SignerType
+  /// fk: users.id SET NULL
+  signer_user_id     BigInt?          @db.UnsignedBigInt
+  method             SignMethod
+  /// fk: media_files.id SET NULL
+  signature_media_id BigInt?          @db.UnsignedBigInt
+  otp_verified_at    DateTime?        @db.DateTime(3)
+  ip_address         String?          @db.VarChar(45)
+  user_agent         String?          @db.VarChar(512)
+  signed_at          DateTime         @default(now()) @db.DateTime(3)
+  document_sha256    String           @db.Char(64)
+  document           ContractDocument @relation(fields: [document_id], references: [id], onDelete: Restrict)
+
+  @@map("contract_signatures")
+}
+
+enum AmendmentType {
+  RENEWAL
+  UNIT_TRANSFER
+  PRICE_CHANGE
+  INFO_UPDATE
+  TERMINATION
+  AUTO_RENEW_TOGGLE
+  RENEWAL_BLOCK
+}
+
+model ContractAmendment {
+  id             BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  contract_id    BigInt        @db.UnsignedBigInt
+  type           AmendmentType
+  before         Json?
+  after          Json?
+  reason         String?       @db.VarChar(500)
+  /// fk: contract_documents.id SET NULL
+  document_id    BigInt?       @db.UnsignedBigInt
+  effective_date DateTime      @db.Date
+  /// fk: users.id SET NULL
+  created_by     BigInt?       @db.UnsignedBigInt
+  created_at     DateTime      @default(now()) @db.DateTime(3)
+  contract       Contract      @relation(fields: [contract_id], references: [id], onDelete: Restrict)
+
+  @@index([contract_id])
+  @@map("contract_amendments")
+}
+
+model ContractStatusHistory {
+  id            BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  contract_id   BigInt   @db.UnsignedBigInt
+  field         String   @default("STATUS") @db.VarChar(16)
+  from_status   String?  @db.VarChar(32)
+  to_status     String   @db.VarChar(32)
+  reason        String?  @db.VarChar(255)
+  /// fk: users.id SET NULL
+  actor_user_id BigInt?  @db.UnsignedBigInt
+  created_at    DateTime @default(now()) @db.DateTime(3)
+  contract      Contract @relation(fields: [contract_id], references: [id], onDelete: Restrict)
+
+  @@index([contract_id, created_at])
+  @@map("contract_status_history")
+}
+
+enum CheckinStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABORTED
+}
+
+enum CheckinStep {
+  ARRIVED
+  IDENTITY_VERIFIED
+  PAYMENT_DONE
+  CONTRACT_SIGNED
+  INSPECTED
+  ACCESS_ISSUED
+  HANDOVER_SIGNED
+}
+
+enum CheckinAbortReason {
+  IDENTITY_MISMATCH
+  PAYMENT_NOT_COMPLETED
+  CONTRACT_DECLINED
+  UNIT_UNFIT
+  CUSTOMER_LEFT
+}
+
+model CheckinSession {
+  id               BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id        String              @unique @db.Char(26)
+  reservation_id   BigInt              @db.UnsignedBigInt
+  /// fk: users.id RESTRICT
+  staff_user_id    BigInt              @db.UnsignedBigInt
+  status           CheckinStatus       @default(IN_PROGRESS)
+  current_step     CheckinStep         @default(ARRIVED)
+  abort_reason     CheckinAbortReason?
+  recorded_offline Boolean             @default(false)
+  /// fk: inspections.id SET NULL
+  inspection_id    BigInt?             @db.UnsignedBigInt
+  started_at       DateTime            @default(now()) @db.DateTime(3)
+  completed_at     DateTime?           @db.DateTime(3)
+  reservation      Reservation         @relation(fields: [reservation_id], references: [id], onDelete: Restrict)
+
+  @@index([reservation_id])
+  @@map("checkin_sessions")
+}
+
+model IdentityVerification {
+  id                 BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  /// fk: customers.id RESTRICT
+  customer_id        BigInt          @db.UnsignedBigInt
+  /// fk: checkin_sessions.id SET NULL
+  checkin_session_id BigInt?         @db.UnsignedBigInt
+  document_type      IdDocumentType
+  document_last4     String          @db.Char(4)
+  name_matched       Boolean
+  /// fk: users.id RESTRICT
+  verified_by        BigInt          @db.UnsignedBigInt
+  verified_at        DateTime        @default(now()) @db.DateTime(3)
+  notes              String?         @db.VarChar(255)
+
+  @@map("identity_verifications")
+}
+
+enum InspectionType {
+  MOVE_IN
+  MOVE_OUT
+  ROUTINE
+  POST_MAINTENANCE
+}
+
+enum InspectionStatus {
+  DRAFT
+  COMPLETED
+}
+
+enum OverallCondition {
+  GOOD
+  FAIR
+  DAMAGED
+}
+
+model Inspection {
+  id                       BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id                String            @unique @db.Char(26)
+  unit_id                  BigInt            @db.UnsignedBigInt
+  contract_id              BigInt?           @db.UnsignedBigInt
+  type                     InspectionType
+  /// fk: users.id RESTRICT
+  performed_by             BigInt            @db.UnsignedBigInt
+  status                   InspectionStatus  @default(DRAFT)
+  overall_condition        OverallCondition?
+  compared_to_inspection_id BigInt?          @db.UnsignedBigInt
+  notes                    String?           @db.Text
+  recorded_offline         Boolean           @default(false)
+  completed_at             DateTime?         @db.DateTime(3)
+  created_at               DateTime          @default(now()) @db.DateTime(3)
+  unit                     Unit              @relation(fields: [unit_id], references: [id], onDelete: Restrict)
+  contract                 Contract?         @relation(fields: [contract_id], references: [id], onDelete: SetNull)
+  compared_to              Inspection?       @relation("InspectionCompare", fields: [compared_to_inspection_id], references: [id], onDelete: SetNull)
+  compared_by              Inspection[]      @relation("InspectionCompare")
+  items                    InspectionItem[]
+  damage_items             DamageItem[]
+
+  @@index([unit_id, created_at])
+  @@map("inspections")
+}
+
+enum ItemCondition {
+  OK
+  MINOR_ISSUE
+  DAMAGED
+  NOT_APPLICABLE
+}
+
+model InspectionItem {
+  id            BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  inspection_id BigInt        @db.UnsignedBigInt
+  item_code     String        @db.VarChar(32)
+  condition     ItemCondition
+  note          String?       @db.VarChar(500)
+  inspection    Inspection    @relation(fields: [inspection_id], references: [id], onDelete: Cascade)
+
+  @@index([inspection_id])
+  @@map("inspection_items")
+}
+
+enum HandoverType {
+  MOVE_IN
+  MOVE_OUT
+}
+
+enum HandoverStatus {
+  DRAFT
+  SIGNED
+  DISPUTED
+}
+
+model HandoverRecord {
+  id                    BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id             String         @unique @db.Char(26)
+  contract_id           BigInt         @db.UnsignedBigInt
+  type                  HandoverType
+  /// fk: inspections.id RESTRICT
+  inspection_id         BigInt         @db.UnsignedBigInt
+  items_handed          Json
+  status                HandoverStatus @default(DRAFT)
+  /// fk: contract_signatures.id SET NULL
+  customer_signature_id BigInt?        @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  staff_user_id         BigInt?        @db.UnsignedBigInt
+  dispute_reason        String?        @db.VarChar(500)
+  /// fk: contract_documents.id SET NULL
+  document_id           BigInt?        @db.UnsignedBigInt
+  signed_at             DateTime?      @db.DateTime(3)
+  created_at            DateTime       @default(now()) @db.DateTime(3)
+  contract              Contract       @relation(fields: [contract_id], references: [id], onDelete: Restrict)
+
+  @@unique([contract_id, type])
+  @@map("handover_records")
+}
+
+enum HolderType {
+  TENANT
+  AUTHORIZED_USER
+}
+
+enum CredentialType {
+  PIN_CODE
+  ACCESS_CARD
+  FACILITY_LOCK
+  CUSTOMER_LOCK
+  DIGITAL_KEY
+}
+
+enum CredentialStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+  LOST
+  EXPIRED
+}
+
+model AccessCredential {
+  id              BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id       String           @unique @db.Char(26)
+  contract_id     BigInt           @db.UnsignedBigInt
+  /// fk: facilities.id RESTRICT
+  facility_id     BigInt           @db.UnsignedBigInt
+  holder_type     HolderType       @default(TENANT)
+  holder_name     String           @db.VarChar(150)
+  type            CredentialType
+  identifier      String?          @db.VarChar(64)
+  pin_enc         Bytes?           @db.VarBinary(128)
+  pin_lookup_hash String?          @db.VarChar(64)
+  status          CredentialStatus @default(ACTIVE)
+  /// generated: IF(`status` IN ('ACTIVE','SUSPENDED') AND `type` = 'PIN_CODE', `pin_lookup_hash`, NULL)
+  active_pin_key  String?          @unique @db.VarChar(64)
+  valid_from      DateTime         @db.DateTime(3)
+  valid_to        DateTime?        @db.DateTime(3)
+  /// fk: users.id SET NULL
+  issued_by       BigInt?          @db.UnsignedBigInt
+  issued_at       DateTime         @default(now()) @db.DateTime(3)
+  /// fk: users.id SET NULL
+  revoked_by      BigInt?          @db.UnsignedBigInt
+  revoked_at      DateTime?        @db.DateTime(3)
+  status_reason   String?          @db.VarChar(255)
+  contract        Contract         @relation(fields: [contract_id], references: [id], onDelete: Restrict)
+
+  @@index([contract_id, status])
+  @@index([facility_id, type, identifier])
+  @@map("access_credentials")
+}
+
+enum AccessEventType {
+  GATE_ENTRY
+  GATE_EXIT
+  UNIT_OPEN
+  UNIT_CLOSE
+  DENIED
+}
+
+enum AccessEventSource {
+  SIMULATOR
+  DEVICE
+}
+
+model AccessEvent {
+  id            BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  /// fk: facilities.id RESTRICT
+  facility_id   BigInt            @db.UnsignedBigInt
+  /// fk: access_credentials.id SET NULL
+  credential_id BigInt?           @db.UnsignedBigInt
+  /// fk: units.id SET NULL
+  unit_id       BigInt?           @db.UnsignedBigInt
+  event         AccessEventType
+  deny_reason   String?           @db.VarChar(100)
+  occurred_at   DateTime          @default(now()) @db.DateTime(3)
+  source        AccessEventSource @default(SIMULATOR)
+
+  @@index([unit_id, occurred_at])
+  @@index([facility_id, occurred_at])
+  @@map("access_events")
+}
+
+enum MoveOutStatus {
+  SCHEDULED
+  CANCELLED
+  INSPECTED
+  COMPLETED
+}
+
+model MoveOutRequest {
+  id                   BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id            String        @unique @db.Char(26)
+  contract_id          BigInt        @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  requested_by         BigInt?       @db.UnsignedBigInt
+  requested_date       DateTime      @db.Date
+  /// fk: appointments.id SET NULL
+  appointment_id       BigInt?       @db.UnsignedBigInt
+  status               MoveOutStatus @default(SCHEDULED)
+  notice_ok            Boolean       @default(true)
+  estimated_settlement Json?
+  /// fk: inspections.id SET NULL
+  inspection_id        BigInt?       @db.UnsignedBigInt
+  cancelled_at         DateTime?     @db.DateTime(3)
+  created_at           DateTime      @default(now()) @db.DateTime(3)
+  contract             Contract      @relation(fields: [contract_id], references: [id], onDelete: Restrict)
+
+  @@index([contract_id])
+  @@map("move_out_requests")
+}
+
+enum ApprovalStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model DamageItem {
+  id                 BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  inspection_id      BigInt         @db.UnsignedBigInt
+  /// fk: inspection_items.id SET NULL
+  inspection_item_id BigInt?        @db.UnsignedBigInt
+  /// fk: fee_types.id RESTRICT
+  fee_type_id        BigInt         @db.UnsignedBigInt
+  description        String         @db.VarChar(500)
+  amount             Decimal        @db.Decimal(15, 2)
+  approval_status    ApprovalStatus @default(NOT_REQUIRED)
+  /// fk: users.id SET NULL
+  approved_by        BigInt?        @db.UnsignedBigInt
+  /// fk: invoice_items.id SET NULL
+  invoice_item_id    BigInt?        @db.UnsignedBigInt
+  created_at         DateTime       @default(now()) @db.DateTime(3)
+  inspection         Inspection     @relation(fields: [inspection_id], references: [id], onDelete: Restrict)
+
+  @@map("damage_items")
+}
+
+enum SettlementStatus {
+  DRAFT
+  DISPUTED
+  FINALIZED
+}
+
+model DepositSettlement {
+  id                    BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id             String           @unique @db.Char(26)
+  contract_id           BigInt           @unique @db.UnsignedBigInt
+  deposit_amount        Decimal          @db.Decimal(15, 2)
+  outstanding_applied   Decimal          @default(0) @db.Decimal(15, 2)
+  damage_total          Decimal          @default(0) @db.Decimal(15, 2)
+  cleaning_total        Decimal          @default(0) @db.Decimal(15, 2)
+  prepaid_refund        Decimal          @default(0) @db.Decimal(15, 2)
+  net_amount            Decimal          @db.Decimal(15, 2)
+  status                SettlementStatus @default(DRAFT)
+  dispute_deadline      DateTime         @db.DateTime(3)
+  dispute_reason        String?          @db.VarChar(500)
+  /// fk: refunds.id SET NULL
+  refund_id             BigInt?          @db.UnsignedBigInt
+  /// fk: invoices.id SET NULL
+  settlement_invoice_id BigInt?          @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  finalized_by          BigInt?          @db.UnsignedBigInt
+  finalized_at          DateTime?        @db.DateTime(3)
+  created_at            DateTime         @default(now()) @db.DateTime(3)
+  contract              Contract         @relation(fields: [contract_id], references: [id], onDelete: Restrict)
+
+  @@map("deposit_settlements")
+}
+
+enum RenewalOfferStatus {
+  OPEN
+  ACCEPTED
+  LAPSED
+  WITHDRAWN
+}
+
+model RenewalOffer {
+  id                          BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id                   String             @unique @db.Char(26)
+  contract_id                 BigInt             @db.UnsignedBigInt
+  offered_monthly_rent        Decimal            @db.Decimal(15, 2)
+  allowed_terms               Json
+  renewal_fee                 Decimal            @default(0) @db.Decimal(15, 2)
+  price_change_notice_sent_at DateTime?          @db.DateTime(3)
+  expires_on                  DateTime           @db.Date
+  status                      RenewalOfferStatus @default(OPEN)
+  accepted_term_months        Int?               @db.UnsignedTinyInt
+  accepted_at                 DateTime?          @db.DateTime(3)
+  /// fk: users.id SET NULL
+  accepted_by                 BigInt?            @db.UnsignedBigInt
+  /// fk: invoices.id SET NULL
+  invoice_id                  BigInt?            @db.UnsignedBigInt
+  auto                        Boolean            @default(false)
+  reminders_sent              Json?
+  created_at                  DateTime           @default(now()) @db.DateTime(3)
+  contract                    Contract           @relation(fields: [contract_id], references: [id], onDelete: Restrict)
+
+  @@index([contract_id, status])
+  @@map("renewal_offers")
+}
+
+model DelinquencyEvent {
+  id           BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  contract_id  BigInt            @db.UnsignedBigInt
+  /// fk: invoices.id RESTRICT
+  invoice_id   BigInt            @db.UnsignedBigInt
+  from_stage   DelinquencyStatus
+  to_stage     DelinquencyStatus
+  days_overdue Int               @db.SmallInt
+  actions      Json?
+  created_at   DateTime          @default(now()) @db.DateTime(3)
+  contract     Contract          @relation(fields: [contract_id], references: [id], onDelete: Restrict)
+
+  @@index([contract_id, created_at])
+  @@map("delinquency_events")
+}
+
+enum CollectionChannel {
+  CALL
+  SMS
+  EMAIL
+  IN_PERSON
+  LETTER
+}
+
+model CollectionNote {
+  id                BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  contract_id       BigInt            @db.UnsignedBigInt
+  channel           CollectionChannel
+  outcome           String            @db.VarChar(100)
+  note              String?           @db.Text
+  /// fk: media_files.id SET NULL
+  evidence_media_id BigInt?           @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  created_by        BigInt?           @db.UnsignedBigInt
+  created_at        DateTime          @default(now()) @db.DateTime(3)
+  contract          Contract          @relation(fields: [contract_id], references: [id], onDelete: Restrict)
+
+  @@index([contract_id, created_at])
+  @@map("collection_notes")
+}
+
+enum PromiseStatus {
+  ACTIVE
+  KEPT
+  BROKEN
+  CANCELLED
+}
+
+model PromiseToPay {
+  id              BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  /// fk: contracts.id RESTRICT
+  contract_id     BigInt        @db.UnsignedBigInt
+  promised_amount Decimal       @db.Decimal(15, 2)
+  promised_date   DateTime      @db.Date
+  status          PromiseStatus @default(ACTIVE)
+  /// fk: users.id SET NULL
+  created_by      BigInt?       @db.UnsignedBigInt
+  created_at      DateTime      @default(now()) @db.DateTime(3)
+
+  @@index([contract_id, status])
+  @@map("promise_to_pay")
+}
+
+model Overlock {
+  id               BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  /// fk: contracts.id RESTRICT
+  contract_id      BigInt    @db.UnsignedBigInt
+  /// fk: units.id RESTRICT
+  unit_id          BigInt    @db.UnsignedBigInt
+  lock_serial      String    @db.VarChar(64)
+  /// fk: users.id SET NULL
+  placed_by        BigInt?   @db.UnsignedBigInt
+  placed_at        DateTime  @default(now()) @db.DateTime(3)
+  /// fk: media_files.id SET NULL
+  placed_photo_id  BigInt?   @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  removed_by       BigInt?   @db.UnsignedBigInt
+  removed_at       DateTime? @db.DateTime(3)
+  /// fk: media_files.id SET NULL
+  removed_photo_id BigInt?   @db.UnsignedBigInt
+
+  @@index([unit_id, removed_at])
+  @@map("overlocks")
+}
+
+enum TerminationRequestReason {
+  DEFAULT
+  FACILITY_CLOSURE
+  OTHER
+}
+
+enum BomDecision {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model TerminationRequest {
+  id              BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id       String                   @unique @db.Char(26)
+  /// fk: contracts.id RESTRICT
+  contract_id     BigInt                   @db.UnsignedBigInt
+  reason          TerminationRequestReason
+  evidence        Json?
+  /// fk: users.id SET NULL
+  fm_confirmed_by BigInt?                  @db.UnsignedBigInt
+  fm_confirmed_at DateTime?                @db.DateTime(3)
+  bom_decision    BomDecision              @default(PENDING)
+  /// fk: users.id SET NULL
+  bom_decided_by  BigInt?                  @db.UnsignedBigInt
+  bom_decided_at  DateTime?                @db.DateTime(3)
+  note            String?                  @db.VarChar(500)
+  created_at      DateTime                 @default(now()) @db.DateTime(3)
+
+  @@index([contract_id])
+  @@map("termination_requests")
+}
+
+enum Disposition {
+  PENDING
+  RETURNED_TO_TENANT
+  DISPOSED
+  SOLD
+}
+
+model AbandonedGoodsRecord {
+  id                     BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id              String      @unique @db.Char(26)
+  /// fk: contracts.id RESTRICT
+  contract_id            BigInt      @db.UnsignedBigInt
+  /// fk: units.id RESTRICT
+  unit_id                BigInt      @db.UnsignedBigInt
+  inventory_list         Json
+  /// fk: users.id RESTRICT
+  witness_1_user_id      BigInt      @db.UnsignedBigInt
+  /// fk: users.id RESTRICT
+  witness_2_user_id      BigInt      @db.UnsignedBigInt
+  stored_location        String?     @db.VarChar(255)
+  hold_until             DateTime    @db.Date
+  disposition            Disposition @default(PENDING)
+  /// fk: users.id SET NULL
+  disposition_approved_by BigInt?    @db.UnsignedBigInt
+  disposition_at         DateTime?   @db.DateTime(3)
+  proceeds_amount        Decimal?    @db.Decimal(15, 2)
+  created_at             DateTime    @default(now()) @db.DateTime(3)
+
+  @@map("abandoned_goods_records")
+}
+
+// ============================================================================
+// Group 4 — Policy, pricing, invoices, payments, refunds, receivables
+// ============================================================================
+
+enum PolicyScope {
+  GLOBAL
+  FACILITY
+}
+
+model Policy {
+  id           BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  code         String          @default("RENTAL_POLICY") @db.VarChar(32)
+  scope        PolicyScope
+  /// fk: facilities.id RESTRICT
+  facility_id  BigInt?         @db.UnsignedBigInt
+  /// generated: COALESCE(`facility_id`, 0)
+  facility_key BigInt?         @db.UnsignedBigInt
+  name         String          @db.VarChar(150)
+  created_at   DateTime        @default(now()) @db.DateTime(3)
+  versions     PolicyVersion[]
+
+  @@unique([code, scope, facility_key])
+  @@map("policies")
+}
+
+enum PolicyVersionStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  SUPERSEDED
+  CANCELLED
+}
+
+model PolicyVersion {
+  id             BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id      String              @unique @db.Char(26)
+  policy_id      BigInt              @db.UnsignedBigInt
+  version_no     Int                 @db.UnsignedInt
+  params         Json
+  status         PolicyVersionStatus @default(DRAFT)
+  effective_from DateTime?           @db.DateTime(3)
+  effective_to   DateTime?           @db.DateTime(3)
+  change_reason  String?             @db.VarChar(500)
+  /// fk: users.id SET NULL
+  created_by     BigInt?             @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  published_by   BigInt?             @db.UnsignedBigInt
+  published_at   DateTime?           @db.DateTime(3)
+  version        Int                 @default(0) @db.UnsignedInt
+  created_at     DateTime            @default(now()) @db.DateTime(3)
+  policy         Policy              @relation(fields: [policy_id], references: [id], onDelete: Restrict)
+
+  @@unique([policy_id, version_no])
+  @@index([policy_id, status, effective_from])
+  @@map("policy_versions")
+}
+
+/// check: `max_monthly_price` >= `min_monthly_price`
+model PriceBand {
+  id                BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  /// fk: facilities.id RESTRICT
+  facility_id       BigInt?      @db.UnsignedBigInt
+  size_category     SizeCategory
+  min_monthly_price Decimal      @db.Decimal(15, 2)
+  max_monthly_price Decimal      @db.Decimal(15, 2)
+  effective_from    DateTime     @default(now()) @db.DateTime(3)
+  /// fk: users.id SET NULL
+  created_by        BigInt?      @db.UnsignedBigInt
+  created_at        DateTime     @default(now()) @db.DateTime(3)
+
+  @@index([facility_id, size_category])
+  @@map("price_bands")
+}
+
+enum PriceRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+model PriceChangeRequest {
+  id             BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id      String             @unique @db.Char(26)
+  unit_type_id   BigInt             @db.UnsignedBigInt
+  field          PriceField
+  proposed_value Decimal            @db.Decimal(15, 2)
+  current_value  Decimal            @db.Decimal(15, 2)
+  reason         String             @db.VarChar(500)
+  status         PriceRequestStatus @default(PENDING)
+  /// fk: users.id SET NULL
+  requested_by   BigInt?            @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  decided_by     BigInt?            @db.UnsignedBigInt
+  decided_at     DateTime?          @db.DateTime(3)
+  decision_note  String?            @db.VarChar(500)
+  created_at     DateTime           @default(now()) @db.DateTime(3)
+  unit_type      UnitType           @relation(fields: [unit_type_id], references: [id], onDelete: Restrict)
+
+  @@index([status])
+  @@map("price_change_requests")
+}
+
+enum FeeCalcType {
+  FIXED
+  PERCENT_OF_RENT
+  GREATER_OF
+}
+
+model FeeType {
+  id             BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  code           String      @unique @db.VarChar(40)
+  name           String      @db.VarChar(150)
+  calc_type      FeeCalcType @default(FIXED)
+  amount         Decimal     @default(0) @db.Decimal(15, 2)
+  percent        Decimal?    @db.Decimal(5, 2)
+  cap_amount     Decimal?    @db.Decimal(15, 2)
+  taxable        Boolean     @default(true)
+  refundable     Boolean     @default(false)
+  editable_amount Boolean    @default(false)
+  allowed_roles  Json
+  active         Boolean     @default(true)
+  created_at     DateTime    @default(now()) @db.DateTime(3)
+  updated_at     DateTime    @updatedAt @db.DateTime(3)
+  deleted_at     DateTime?   @db.DateTime(3)
+
+  @@map("fee_types")
+}
+
+enum PromotionType {
+  PERCENT
+  FIXED_AMOUNT
+  FREE_MONTHS
+  FIRST_MONTH_PRICE
+}
+
+enum PromotionStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+model Promotion {
+  id                 BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id          String          @unique @db.Char(26)
+  code               String?         @unique @db.VarChar(32)
+  name               String          @db.VarChar(150)
+  description        String?         @db.VarChar(500)
+  type               PromotionType
+  value              Decimal         @db.Decimal(15, 2)
+  applies_to_periods Int             @default(1) @db.UnsignedTinyInt
+  min_term_months    Int             @default(1) @db.UnsignedTinyInt
+  new_customers_only Boolean         @default(false)
+  stackable          Boolean         @default(false)
+  facility_ids       Json?
+  unit_type_ids      Json?
+  starts_at          DateTime        @db.DateTime(3)
+  ends_at            DateTime?       @db.DateTime(3)
+  max_redemptions    Int?            @db.UnsignedInt
+  max_per_customer   Int             @default(1) @db.UnsignedInt
+  redeemed_count     Int             @default(0) @db.UnsignedInt
+  status             PromotionStatus @default(DRAFT)
+  /// fk: facilities.id SET NULL
+  proposed_for_facility_id BigInt?   @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  created_by         BigInt?         @db.UnsignedBigInt
+  created_at         DateTime        @default(now()) @db.DateTime(3)
+  updated_at         DateTime        @updatedAt @db.DateTime(3)
+  deleted_at         DateTime?       @db.DateTime(3)
+  redemptions        PromotionRedemption[]
+
+  @@index([status, starts_at, ends_at])
+  @@map("promotions")
+}
+
+enum RedemptionStatus {
+  HELD
+  CONSUMED
+  RELEASED
+}
+
+model PromotionRedemption {
+  id              BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  promotion_id    BigInt           @db.UnsignedBigInt
+  /// fk: customers.id RESTRICT
+  customer_id     BigInt           @db.UnsignedBigInt
+  /// fk: reservations.id RESTRICT
+  reservation_id  BigInt           @unique @db.UnsignedBigInt
+  status          RedemptionStatus @default(HELD)
+  discount_amount Decimal          @db.Decimal(15, 2)
+  created_at      DateTime         @default(now()) @db.DateTime(3)
+  promotion       Promotion        @relation(fields: [promotion_id], references: [id], onDelete: Restrict)
+
+  @@index([promotion_id, customer_id])
+  @@map("promotion_redemptions")
+}
+
+enum ScheduleStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+model BillingSchedule {
+  id                BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  contract_id       BigInt         @unique @db.UnsignedBigInt
+  next_period_start DateTime       @db.Date
+  next_invoice_date DateTime       @db.Date
+  period_months     Int            @default(1) @db.UnsignedTinyInt
+  amount            Decimal        @db.Decimal(15, 2)
+  status            ScheduleStatus @default(ACTIVE)
+  updated_at        DateTime       @updatedAt @db.DateTime(3)
+  contract          Contract       @relation(fields: [contract_id], references: [id], onDelete: Restrict)
+
+  @@index([status, next_invoice_date])
+  @@map("billing_schedules")
+}
+
+enum InvoiceType {
+  RESERVATION
+  MOVE_IN
+  RECURRING
+  RENEWAL
+  AD_HOC
+  SETTLEMENT
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  VOID
+  REFUNDED
+  PARTIALLY_REFUNDED
+  WRITTEN_OFF
+}
+
+/// check: `contract_id` IS NOT NULL OR `reservation_id` IS NOT NULL
+/// check: `total` = `subtotal` - `discount_total` + `tax_total`
+model Invoice {
+  id               BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id        String        @unique @db.Char(26)
+  code             String        @unique @db.VarChar(32)
+  customer_id      BigInt        @db.UnsignedBigInt
+  facility_id      BigInt        @db.UnsignedBigInt
+  contract_id      BigInt?       @db.UnsignedBigInt
+  reservation_id   BigInt?       @db.UnsignedBigInt
+  type             InvoiceType
+  period_start     DateTime?     @db.Date
+  period_end       DateTime?     @db.Date
+  issue_date       DateTime      @db.Date
+  due_date         DateTime      @db.Date
+  status           InvoiceStatus @default(ISSUED)
+  subtotal         Decimal       @db.Decimal(15, 2)
+  discount_total   Decimal       @default(0) @db.Decimal(15, 2)
+  tax_total        Decimal       @default(0) @db.Decimal(15, 2)
+  total            Decimal       @db.Decimal(15, 2)
+  amount_paid      Decimal       @default(0) @db.Decimal(15, 2)
+  amount_credited  Decimal       @default(0) @db.Decimal(15, 2)
+  /// generated: (`total` - `amount_paid` - `amount_credited`)
+  balance_due      Decimal?      @db.Decimal(15, 2)
+  currency         String        @default("VND") @db.Char(3)
+  late_fee_applied Boolean       @default(false)
+  dispute_hold     Boolean       @default(false)
+  move_in_due      Boolean       @default(false)
+  /// fk: media_files.id SET NULL
+  pdf_media_id     BigInt?       @db.UnsignedBigInt
+  paid_at          DateTime?     @db.DateTime(3)
+  voided_at        DateTime?     @db.DateTime(3)
+  void_reason      String?       @db.VarChar(255)
+  version          Int           @default(0) @db.UnsignedInt
+  created_at       DateTime      @default(now()) @db.DateTime(3)
+  updated_at       DateTime      @updatedAt @db.DateTime(3)
+
+  customer    Customer            @relation(fields: [customer_id], references: [id], onDelete: Restrict)
+  facility    Facility            @relation(fields: [facility_id], references: [id], onDelete: Restrict)
+  contract    Contract?           @relation(fields: [contract_id], references: [id], onDelete: Restrict)
+  reservation Reservation?        @relation(fields: [reservation_id], references: [id], onDelete: Restrict)
+  items       InvoiceItem[]
+  allocations PaymentAllocation[]
+  credit_notes CreditNote[]
+
+  @@index([customer_id, status])
+  @@index([contract_id, due_date])
+  @@index([facility_id, status, due_date])
+  @@index([issue_date])
+  @@map("invoices")
+}
+
+enum InvoiceItemType {
+  RENT
+  DEPOSIT
+  FEE
+  DISCOUNT
+  PRORATION
+  DAMAGE
+  ADJUSTMENT
+}
+
+model InvoiceItem {
+  id                   BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  invoice_id           BigInt          @db.UnsignedBigInt
+  item_type            InvoiceItemType
+  /// fk: fee_types.id SET NULL
+  fee_type_id          BigInt?         @db.UnsignedBigInt
+  description          String          @db.VarChar(255)
+  quantity             Decimal         @default(1) @db.Decimal(8, 2)
+  unit_price           Decimal         @db.Decimal(15, 2)
+  amount               Decimal         @db.Decimal(15, 2)
+  tax_rate             Decimal         @default(0) @db.Decimal(5, 2)
+  tax_amount           Decimal         @default(0) @db.Decimal(15, 2)
+  service_period_start DateTime?       @db.Date
+  service_period_end   DateTime?       @db.Date
+  /// fk: promotions.id SET NULL
+  promotion_id         BigInt?         @db.UnsignedBigInt
+  source_type          String?         @db.VarChar(40)
+  source_id            BigInt?         @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  created_by           BigInt?         @db.UnsignedBigInt
+  created_at           DateTime        @default(now()) @db.DateTime(3)
+  invoice              Invoice         @relation(fields: [invoice_id], references: [id], onDelete: Restrict)
+
+  @@index([invoice_id])
+  @@map("invoice_items")
+}
+
+enum PaymentMethod {
+  GATEWAY
+  CASH
+  BANK_TRANSFER
+  CARD_ON_FILE
+  CREDIT_BALANCE
+}
+
+enum PaymentProviderCode {
+  VNPAY
+  MOMO
+  STRIPE
+  MOCK
+  PAYOS
+  CASH
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  EXPIRED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum ReconStatus {
+  UNRECONCILED
+  MATCHED
+  MISMATCH
+}
+
+/// check: `refunded_amount` <= `amount`
+model Payment {
+  id                    BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id             String               @unique @db.Char(26)
+  code                  String               @unique @db.VarChar(32)
+  customer_id           BigInt               @db.UnsignedBigInt
+  /// fk: facilities.id RESTRICT
+  facility_id           BigInt               @db.UnsignedBigInt
+  method                PaymentMethod
+  provider              PaymentProviderCode?
+  provider_txn_id       String?              @db.VarChar(128)
+  provider_order_ref    String?              @db.VarChar(128)
+  amount                Decimal              @db.Decimal(15, 2)
+  currency              String               @default("VND") @db.Char(3)
+  status                PaymentStatus        @default(PENDING)
+  failure_code          String?              @db.VarChar(64)
+  failure_message       String?              @db.VarChar(255)
+  attempt_no            Int                  @default(1) @db.UnsignedTinyInt
+  idempotency_key       String?              @unique @db.VarChar(64)
+  /// fk: users.id SET NULL
+  recorded_by           BigInt?              @db.UnsignedBigInt
+  bank_reference        String?              @db.VarChar(100)
+  intended_invoice_ids  Json?
+  paid_at               DateTime?            @db.DateTime(3)
+  expires_at            DateTime?            @db.DateTime(3)
+  refunded_amount       Decimal              @default(0) @db.Decimal(15, 2)
+  raw_response          Json?
+  reconciliation_status ReconStatus          @default(UNRECONCILED)
+  created_at            DateTime             @default(now()) @db.DateTime(3)
+  updated_at            DateTime             @updatedAt @db.DateTime(3)
+  customer              Customer             @relation(fields: [customer_id], references: [id], onDelete: Restrict)
+  allocations           PaymentAllocation[]
+  refunds               Refund[]
+
+  @@unique([provider, provider_txn_id])
+  @@index([customer_id, created_at])
+  @@index([status, created_at])
+  @@index([facility_id, paid_at])
+  @@map("payments")
+}
+
+model PaymentAllocation {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  payment_id BigInt   @db.UnsignedBigInt
+  invoice_id BigInt   @db.UnsignedBigInt
+  amount     Decimal  @db.Decimal(15, 2)
+  created_at DateTime @default(now()) @db.DateTime(3)
+  payment    Payment  @relation(fields: [payment_id], references: [id], onDelete: Restrict)
+  invoice    Invoice  @relation(fields: [invoice_id], references: [id], onDelete: Restrict)
+
+  @@unique([payment_id, invoice_id])
+  @@map("payment_allocations")
+}
+
+enum WebhookResult {
+  PROCESSED
+  DUPLICATE
+  IGNORED
+  FAILED
+}
+
+model PaymentWebhookEvent {
+  id              BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  provider        PaymentProviderCode
+  event_id        String              @db.VarChar(128)
+  signature_valid Boolean
+  payload         Json
+  received_at     DateTime            @default(now()) @db.DateTime(3)
+  processed_at    DateTime?           @db.DateTime(3)
+  process_result  WebhookResult?
+  error           String?             @db.VarChar(500)
+
+  @@unique([provider, event_id])
+  @@map("payment_webhook_events")
+}
+
+enum RefundReason {
+  CANCELLATION
+  DEPOSIT_RETURN
+  OVERPAYMENT
+  DUPLICATE_CHARGE
+  LATE_WEBHOOK
+  GOODWILL
+  PREPAID_RETURN
+}
+
+enum RefundStatus {
+  PENDING_APPROVAL
+  APPROVED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  MANUAL_REQUIRED
+  REJECTED
+}
+
+enum RefundMethod {
+  ORIGINAL_METHOD
+  BANK_TRANSFER
+  CASH
+}
+
+model Refund {
+  id                 BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id          String       @unique @db.Char(26)
+  payment_id         BigInt?      @db.UnsignedBigInt
+  /// fk: customers.id RESTRICT
+  customer_id        BigInt       @db.UnsignedBigInt
+  /// fk: facilities.id RESTRICT
+  facility_id        BigInt       @db.UnsignedBigInt
+  /// fk: contracts.id SET NULL
+  contract_id        BigInt?      @db.UnsignedBigInt
+  /// fk: reservations.id SET NULL
+  reservation_id     BigInt?      @db.UnsignedBigInt
+  reason             RefundReason
+  amount             Decimal      @db.Decimal(15, 2)
+  deposit_portion    Decimal      @default(0) @db.Decimal(15, 2)
+  status             RefundStatus @default(PENDING_APPROVAL)
+  method             RefundMethod @default(ORIGINAL_METHOD)
+  bank_info_enc      Bytes?       @db.VarBinary(512)
+  provider_refund_id String?      @db.VarChar(128)
+  required_approver_role RoleCode @default(FACILITY_MANAGER)
+  /// fk: users.id SET NULL
+  requested_by       BigInt?      @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  approved_by        BigInt?      @db.UnsignedBigInt
+  approved_at        DateTime?    @db.DateTime(3)
+  processed_at       DateTime?    @db.DateTime(3)
+  attempts           Int          @default(0) @db.UnsignedTinyInt
+  manual_reference   String?      @db.VarChar(100)
+  note               String?      @db.VarChar(500)
+  /// fk: support_tickets.id SET NULL
+  ticket_id          BigInt?      @db.UnsignedBigInt
+  idempotency_key    String?      @unique @db.VarChar(64)
+  created_at         DateTime     @default(now()) @db.DateTime(3)
+  payment            Payment?     @relation(fields: [payment_id], references: [id], onDelete: Restrict)
+
+  @@index([status, created_at])
+  @@map("refunds")
+}
+
+enum DepositStatus {
+  HELD
+  APPLIED
+  PARTIALLY_REFUNDED
+  REFUNDED
+  FORFEITED
+}
+
+/// check: `applied_amount` + `refunded_amount` + `forfeited_amount` <= `amount`
+model Deposit {
+  id                BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  /// fk: customers.id RESTRICT
+  customer_id       BigInt        @db.UnsignedBigInt
+  reservation_id    BigInt        @unique @db.UnsignedBigInt
+  /// fk: contracts.id SET NULL
+  contract_id       BigInt?       @db.UnsignedBigInt
+  amount            Decimal       @db.Decimal(15, 2)
+  held_amount       Decimal       @db.Decimal(15, 2)
+  applied_amount    Decimal       @default(0) @db.Decimal(15, 2)
+  refunded_amount   Decimal       @default(0) @db.Decimal(15, 2)
+  forfeited_amount  Decimal       @default(0) @db.Decimal(15, 2)
+  status            DepositStatus @default(HELD)
+  /// fk: payments.id RESTRICT
+  source_payment_id BigInt?       @db.UnsignedBigInt
+  created_at        DateTime      @default(now()) @db.DateTime(3)
+  updated_at        DateTime      @updatedAt @db.DateTime(3)
+  reservation       Reservation   @relation(fields: [reservation_id], references: [id], onDelete: Restrict)
+
+  @@map("deposits")
+}
+
+model CreditNote {
+  id            BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  code          String   @unique @db.VarChar(32)
+  invoice_id    BigInt   @db.UnsignedBigInt
+  amount        Decimal  @db.Decimal(15, 2)
+  reason        String   @db.VarChar(500)
+  /// fk: fee_waivers.id SET NULL
+  fee_waiver_id BigInt?  @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  issued_by     BigInt?  @db.UnsignedBigInt
+  issued_at     DateTime @default(now()) @db.DateTime(3)
+  invoice       Invoice  @relation(fields: [invoice_id], references: [id], onDelete: Restrict)
+
+  @@map("credit_notes")
+}
+
+enum WaiverStatus {
+  PENDING
+  APPROVED
+  PARTIALLY_APPROVED
+  REJECTED
+}
+
+model FeeWaiver {
+  id                     BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id              String       @unique @db.Char(26)
+  /// fk: invoice_items.id RESTRICT
+  invoice_item_id        BigInt       @db.UnsignedBigInt
+  /// fk: facilities.id RESTRICT
+  facility_id            BigInt       @db.UnsignedBigInt
+  requested_amount       Decimal      @db.Decimal(15, 2)
+  approved_amount        Decimal?     @db.Decimal(15, 2)
+  reason                 String       @db.VarChar(500)
+  /// fk: support_tickets.id SET NULL
+  ticket_id              BigInt?      @db.UnsignedBigInt
+  status                 WaiverStatus @default(PENDING)
+  required_approver_role RoleCode
+  /// fk: users.id SET NULL
+  requested_by           BigInt?      @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  decided_by             BigInt?      @db.UnsignedBigInt
+  decided_at             DateTime?    @db.DateTime(3)
+  decision_note          String?      @db.VarChar(500)
+  created_at             DateTime     @default(now()) @db.DateTime(3)
+
+  @@index([status])
+  @@map("fee_waivers")
+}
+
+enum LedgerEntryType {
+  INVOICE
+  PAYMENT
+  CREDIT_NOTE
+  REFUND
+  DEPOSIT_HELD
+  DEPOSIT_APPLIED
+  DEPOSIT_REFUNDED
+  DEPOSIT_FORFEITED
+  WRITE_OFF
+  ADJUSTMENT
+}
+
+model CustomerLedgerEntry {
+  id          BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  customer_id BigInt          @db.UnsignedBigInt
+  /// fk: contracts.id SET NULL
+  contract_id BigInt?         @db.UnsignedBigInt
+  entry_type  LedgerEntryType
+  amount      Decimal         @db.Decimal(15, 2)
+  source_type String          @db.VarChar(40)
+  source_id   BigInt          @db.UnsignedBigInt
+  description String?         @db.VarChar(255)
+  occurred_at DateTime        @default(now()) @db.DateTime(3)
+  /// fk: users.id SET NULL
+  created_by  BigInt?         @db.UnsignedBigInt
+  customer    Customer        @relation(fields: [customer_id], references: [id], onDelete: Restrict)
+
+  @@unique([source_type, source_id, entry_type])
+  @@index([customer_id, occurred_at])
+  @@map("customer_ledger_entries")
+}
+
+enum ReconBatchStatus {
+  PENDING
+  MATCHED
+  HAS_MISMATCH
+  RESOLVED
+}
+
+model ReconciliationBatch {
+  id             BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id      String              @unique @db.Char(26)
+  provider       PaymentProviderCode
+  period_date    DateTime            @db.Date
+  /// fk: media_files.id SET NULL
+  file_media_id  BigInt?             @db.UnsignedBigInt
+  total_provider Decimal             @db.Decimal(15, 2)
+  total_system   Decimal             @db.Decimal(15, 2)
+  status         ReconBatchStatus    @default(PENDING)
+  /// fk: users.id SET NULL
+  run_by         BigInt?             @db.UnsignedBigInt
+  created_at     DateTime            @default(now()) @db.DateTime(3)
+  items          ReconciliationItem[]
+
+  @@map("reconciliation_batches")
+}
+
+enum ReconItemResult {
+  MATCHED
+  MISSING_IN_SYSTEM
+  MISSING_IN_PROVIDER
+  AMOUNT_MISMATCH
+}
+
+model ReconciliationItem {
+  id              BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  batch_id        BigInt              @db.UnsignedBigInt
+  /// fk: payments.id SET NULL
+  payment_id      BigInt?             @db.UnsignedBigInt
+  provider_txn_id String?             @db.VarChar(128)
+  provider_amount Decimal?            @db.Decimal(15, 2)
+  system_amount   Decimal?            @db.Decimal(15, 2)
+  result          ReconItemResult
+  resolution_note String?             @db.VarChar(500)
+  batch           ReconciliationBatch @relation(fields: [batch_id], references: [id], onDelete: Cascade)
+
+  @@map("reconciliation_items")
+}
+
+model IdempotencyKey {
+  key             String   @db.VarChar(64)
+  user_id         BigInt   @db.UnsignedBigInt
+  endpoint        String   @db.VarChar(100)
+  request_hash    String   @db.Char(64)
+  response_status Int      @db.UnsignedSmallInt
+  response_body   Json
+  created_at      DateTime @default(now()) @db.DateTime(3)
+  expires_at      DateTime @db.DateTime(3)
+
+  @@id([user_id, key])
+  @@index([expires_at])
+  @@map("idempotency_keys")
+}
+
+// ============================================================================
+// Group 5 — Operations, workforce, maintenance, support
+// ============================================================================
+
+model ShiftTemplate {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  /// fk: facilities.id RESTRICT
+  facility_id BigInt   @db.UnsignedBigInt
+  name        String   @db.VarChar(60)
+  start_time  String   @db.Char(5)
+  end_time    String   @db.Char(5)
+  color       String?  @db.VarChar(16)
+
+  @@map("shift_templates")
+}
+
+enum ShiftStatus {
+  PLANNED
+  PUBLISHED
+  CANCELLED
+}
+
+enum ShiftRole {
+  COUNTER
+  FLOOR
+  ON_CALL
+}
+
+/// check: `ends_at` > `starts_at`
+model StaffShift {
+  id            BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id     String      @unique @db.Char(26)
+  facility_id   BigInt      @db.UnsignedBigInt
+  user_id       BigInt      @db.UnsignedBigInt
+  /// fk: shift_templates.id SET NULL
+  template_id   BigInt?     @db.UnsignedBigInt
+  starts_at     DateTime    @db.DateTime(3)
+  ends_at       DateTime    @db.DateTime(3)
+  status        ShiftStatus @default(PLANNED)
+  role_on_shift ShiftRole   @default(COUNTER)
+  note          String?     @db.VarChar(255)
+  /// fk: users.id SET NULL
+  created_by    BigInt?     @db.UnsignedBigInt
+  created_at    DateTime    @default(now()) @db.DateTime(3)
+  facility      Facility    @relation(fields: [facility_id], references: [id], onDelete: Restrict)
+  user          User        @relation("ShiftUser", fields: [user_id], references: [id], onDelete: Restrict)
+  swaps         ShiftSwapRequest[]
+
+  @@index([facility_id, starts_at])
+  @@index([user_id, starts_at])
+  @@map("staff_shifts")
+}
+
+enum SwapStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model ShiftSwapRequest {
+  id               BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id        String     @unique @db.Char(26)
+  shift_id         BigInt     @db.UnsignedBigInt
+  /// fk: users.id RESTRICT
+  requested_by     BigInt     @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  proposed_user_id BigInt?    @db.UnsignedBigInt
+  reason           String     @db.VarChar(255)
+  status           SwapStatus @default(PENDING)
+  /// fk: users.id SET NULL
+  decided_by       BigInt?    @db.UnsignedBigInt
+  decided_at       DateTime?  @db.DateTime(3)
+  created_at       DateTime   @default(now()) @db.DateTime(3)
+  shift            StaffShift @relation(fields: [shift_id], references: [id], onDelete: Restrict)
+
+  @@map("shift_swap_requests")
+}
+
+enum TaskType {
+  ALLOCATE_UNIT
+  HANDOVER
+  MOVE_OUT_INSPECTION
+  ROUTINE_INSPECTION
+  OVERLOCK
+  REMOVE_OVERLOCK
+  SUPPORT_TICKET
+  MAINTENANCE
+  CLEANING
+  COLLECTION_CALL
+  OTHER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum TaskSource {
+  SYSTEM
+  MANUAL
+}
+
+model WorkTask {
+  id              BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id       String     @unique @db.Char(26)
+  facility_id     BigInt     @db.UnsignedBigInt
+  type            TaskType
+  title           String     @db.VarChar(200)
+  description     String?    @db.Text
+  related_type    String?    @db.VarChar(40)
+  related_id      BigInt?    @db.UnsignedBigInt
+  /// fk: units.id SET NULL
+  unit_id         BigInt?    @db.UnsignedBigInt
+  priority        Priority   @default(MEDIUM)
+  status          TaskStatus @default(OPEN)
+  assignee_id     BigInt?    @db.UnsignedBigInt
+  due_at          DateTime?  @db.DateTime(3)
+  started_at      DateTime?  @db.DateTime(3)
+  completed_at    DateTime?  @db.DateTime(3)
+  is_overdue      Boolean    @default(false)
+  requires_photo  Boolean    @default(false)
+  completion_note String?    @db.Text
+  blocked_reason  String?    @db.VarChar(255)
+  source          TaskSource @default(MANUAL)
+  dedupe_key      String?    @unique @db.VarChar(100)
+  version         Int        @default(0) @db.UnsignedInt
+  created_at      DateTime   @default(now()) @db.DateTime(3)
+  updated_at      DateTime   @updatedAt @db.DateTime(3)
+  facility        Facility   @relation(fields: [facility_id], references: [id], onDelete: Restrict)
+  assignee        User?      @relation("TaskAssignee", fields: [assignee_id], references: [id], onDelete: SetNull)
+  events          TaskEvent[]
+
+  @@index([facility_id, status, due_at])
+  @@index([assignee_id, status])
+  @@index([related_type, related_id])
+  @@map("work_tasks")
+}
+
+enum TaskEventType {
+  CREATED
+  ASSIGNED
+  REASSIGNED
+  STARTED
+  BLOCKED
+  UNBLOCKED
+  COMPLETED
+  CANCELLED
+  COMMENTED
+}
+
+model TaskEvent {
+  id            BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  task_id       BigInt        @db.UnsignedBigInt
+  event         TaskEventType
+  /// fk: users.id SET NULL
+  from_user_id  BigInt?       @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  to_user_id    BigInt?       @db.UnsignedBigInt
+  note          String?       @db.VarChar(500)
+  /// fk: users.id SET NULL
+  actor_user_id BigInt?       @db.UnsignedBigInt
+  created_at    DateTime      @default(now()) @db.DateTime(3)
+  task          WorkTask      @relation(fields: [task_id], references: [id], onDelete: Restrict)
+
+  @@index([task_id, created_at])
+  @@map("task_events")
+}
+
+enum WorkOrderCategory {
+  DOOR
+  LOCK
+  ELECTRICAL
+  LEAK
+  PEST
+  CLEANING
+  FIRE_SAFETY
+  STRUCTURE
+  OTHER
+}
+
+enum WorkOrderStatus {
+  REPORTED
+  APPROVED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  VERIFIED
+  CANCELLED
+}
+
+model WorkOrder {
+  id             BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id      String            @unique @db.Char(26)
+  code           String            @unique @db.VarChar(32)
+  facility_id    BigInt            @db.UnsignedBigInt
+  unit_id        BigInt?           @db.UnsignedBigInt
+  /// fk: support_tickets.id SET NULL
+  ticket_id      BigInt?           @db.UnsignedBigInt
+  /// fk: inspections.id SET NULL
+  inspection_id  BigInt?           @db.UnsignedBigInt
+  /// fk: maintenance_plans.id SET NULL
+  plan_id        BigInt?           @db.UnsignedBigInt
+  category       WorkOrderCategory
+  description    String            @db.Text
+  status         WorkOrderStatus   @default(REPORTED)
+  priority       Priority          @default(MEDIUM)
+  /// fk: users.id SET NULL
+  assignee_id    BigInt?           @db.UnsignedBigInt
+  vendor_name    String?           @db.VarChar(150)
+  estimated_cost Decimal?          @db.Decimal(15, 2)
+  actual_cost    Decimal?          @db.Decimal(15, 2)
+  scheduled_for  DateTime?         @db.DateTime(3)
+  completed_at   DateTime?         @db.DateTime(3)
+  completion_note String?          @db.Text
+  /// fk: users.id SET NULL
+  reported_by    BigInt?           @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  verified_by    BigInt?           @db.UnsignedBigInt
+  verified_at    DateTime?         @db.DateTime(3)
+  created_at     DateTime          @default(now()) @db.DateTime(3)
+  updated_at     DateTime          @updatedAt @db.DateTime(3)
+  facility       Facility          @relation(fields: [facility_id], references: [id], onDelete: Restrict)
+  unit           Unit?             @relation(fields: [unit_id], references: [id], onDelete: SetNull)
+
+  @@index([facility_id, status])
+  @@index([unit_id, created_at])
+  @@map("work_orders")
+}
+
+enum MaintenanceScope {
+  FACILITY
+  ZONE
+  UNIT_TYPE
+}
+
+model MaintenancePlan {
+  id            BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id     String            @unique @db.Char(26)
+  /// fk: facilities.id RESTRICT
+  facility_id   BigInt            @db.UnsignedBigInt
+  name          String            @db.VarChar(150)
+  category      WorkOrderCategory
+  scope         MaintenanceScope  @default(FACILITY)
+  scope_id      BigInt?           @db.UnsignedBigInt
+  interval_days Int               @db.UnsignedSmallInt
+  next_due_date DateTime          @db.Date
+  active        Boolean           @default(true)
+  created_at    DateTime          @default(now()) @db.DateTime(3)
+
+  @@map("maintenance_plans")
+}
+
+enum TicketCategory {
+  ACCESS_CODE
+  LOCK_KEY
+  UNIT_DAMAGE
+  STORED_ITEMS
+  PAYMENT
+  CONTRACT
+  OTHER
+}
+
+enum TicketStatus {
+  NEW
+  ASSIGNED
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+  REOPENED
+  CANCELLED
+}
+
+enum TicketChannel {
+  PORTAL
+  COUNTER
+  PHONE
+  STAFF_DETECTED
+  ASSISTANT
+}
+
+enum ResolutionCode {
+  FIXED
+  CREDENTIAL_REISSUED
+  REFUNDED
+  FEE_WAIVED
+  UNIT_TRANSFERRED
+  INFO_PROVIDED
+  NO_ACTION_NEEDED
+  DUPLICATE
+  OTHER
+}
+
+model SupportTicket {
+  id                    BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id             String          @unique @db.Char(26)
+  code                  String          @unique @db.VarChar(32)
+  facility_id           BigInt          @db.UnsignedBigInt
+  customer_id           BigInt?         @db.UnsignedBigInt
+  contract_id           BigInt?         @db.UnsignedBigInt
+  /// fk: units.id SET NULL
+  unit_id               BigInt?         @db.UnsignedBigInt
+  /// fk: invoices.id SET NULL
+  invoice_id            BigInt?         @db.UnsignedBigInt
+  category              TicketCategory
+  priority              Priority
+  subject               String          @db.VarChar(200)
+  description           String          @db.Text
+  status                TicketStatus    @default(NEW)
+  channel               TicketChannel   @default(PORTAL)
+  assignee_id           BigInt?         @db.UnsignedBigInt
+  escalation_level      Int             @default(0) @db.UnsignedTinyInt
+  first_response_due_at DateTime        @db.DateTime(3)
+  resolution_due_at     DateTime        @db.DateTime(3)
+  first_response_at     DateTime?       @db.DateTime(3)
+  resolved_at           DateTime?       @db.DateTime(3)
+  closed_at             DateTime?       @db.DateTime(3)
+  waiting_since         DateTime?       @db.DateTime(3)
+  sla_paused_seconds    Int             @default(0) @db.UnsignedInt
+  sla_warned            Boolean         @default(false)
+  sla_breached          Boolean         @default(false)
+  resolution_code       ResolutionCode?
+  resolution_note       String?         @db.Text
+  merged_into_id        BigInt?         @db.UnsignedBigInt
+  reopened_count        Int             @default(0) @db.UnsignedTinyInt
+  /// fk: users.id SET NULL
+  created_by            BigInt?         @db.UnsignedBigInt
+  version               Int             @default(0) @db.UnsignedInt
+  created_at            DateTime        @default(now()) @db.DateTime(3)
+  updated_at            DateTime        @updatedAt @db.DateTime(3)
+  facility              Facility        @relation(fields: [facility_id], references: [id], onDelete: Restrict)
+  customer              Customer?       @relation(fields: [customer_id], references: [id], onDelete: SetNull)
+  contract              Contract?       @relation(fields: [contract_id], references: [id], onDelete: SetNull)
+  assignee              User?           @relation("TicketAssignee", fields: [assignee_id], references: [id], onDelete: SetNull)
+  merged_into           SupportTicket?  @relation("TicketMerge", fields: [merged_into_id], references: [id], onDelete: SetNull)
+  merged                SupportTicket[] @relation("TicketMerge")
+  messages              TicketMessage[]
+  events                TicketEvent[]
+  rating                TicketRating?
+
+  @@index([facility_id, status, priority])
+  @@index([customer_id, created_at])
+  @@index([assignee_id, status])
+  @@index([status, resolution_due_at])
+  @@map("support_tickets")
+}
+
+enum AuthorRole {
+  CUSTOMER
+  STAFF
+  SYSTEM
+}
+
+model TicketMessage {
+  id             BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id      String        @unique @db.Char(26)
+  ticket_id      BigInt        @db.UnsignedBigInt
+  /// fk: users.id SET NULL
+  author_user_id BigInt?       @db.UnsignedBigInt
+  author_role    AuthorRole
+  body           String        @db.Text
+  is_internal    Boolean       @default(false)
+  created_at     DateTime      @default(now()) @db.DateTime(3)
+  edited_at      DateTime?     @db.DateTime(3)
+  ticket         SupportTicket @relation(fields: [ticket_id], references: [id], onDelete: Restrict)
+
+  @@index([ticket_id, created_at])
+  @@map("ticket_messages")
+}
+
+enum TicketEventType {
+  CREATED
+  ASSIGNED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  ESCALATED
+  SLA_WARNING
+  SLA_BREACHED
+  MERGED
+  REOPENED
+  LINKED_ACTION
+}
+
+model TicketEvent {
+  id            BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  ticket_id     BigInt          @db.UnsignedBigInt
+  event         TicketEventType
+  data          Json?
+  /// fk: users.id SET NULL
+  actor_user_id BigInt?         @db.UnsignedBigInt
+  created_at    DateTime        @default(now()) @db.DateTime(3)
+  ticket        SupportTicket   @relation(fields: [ticket_id], references: [id], onDelete: Restrict)
+
+  @@index([ticket_id, created_at])
+  @@map("ticket_events")
+}
+
+model SlaPolicy {
+  id                     BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  /// fk: facilities.id RESTRICT
+  facility_id            BigInt?        @db.UnsignedBigInt
+  /// generated: COALESCE(`facility_id`, 0)
+  facility_key           BigInt?        @db.UnsignedBigInt
+  category               TicketCategory
+  priority               Priority
+  first_response_minutes Int            @db.UnsignedInt
+  resolution_minutes     Int            @db.UnsignedInt
+  business_hours_only    Boolean        @default(true)
+
+  @@unique([facility_key, category, priority])
+  @@map("sla_policies")
+}
+
+/// check: `score` BETWEEN 1 AND 5
+model TicketRating {
+  ticket_id  BigInt        @id @db.UnsignedBigInt
+  score      Int           @db.UnsignedTinyInt
+  comment    String?       @db.VarChar(500)
+  created_at DateTime      @default(now()) @db.DateTime(3)
+  ticket     SupportTicket @relation(fields: [ticket_id], references: [id], onDelete: Restrict)
+
+  @@map("ticket_ratings")
+}
+
+// ============================================================================
+// Group 6 — Notifications, logs, configuration, reports
+// ============================================================================
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  PUSH
+}
+
+model NotificationTemplate {
+  id           BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  event_code   String              @db.VarChar(64)
+  channel      NotificationChannel
+  locale       Locale              @default(vi)
+  subject      String              @db.VarChar(255)
+  body         String              @db.Text
+  is_mandatory Boolean             @default(false)
+  active       Boolean             @default(true)
+  version      Int                 @default(1) @db.UnsignedInt
+  /// fk: users.id SET NULL
+  updated_by   BigInt?             @db.UnsignedBigInt
+  updated_at   DateTime            @updatedAt @db.DateTime(3)
+
+  @@unique([event_code, channel, locale])
+  @@map("notification_templates")
+}
+
+enum NotificationPriority {
+  NORMAL
+  HIGH
+}
+
+model Notification {
+  id           BigInt                 @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id    String                 @unique @db.Char(26)
+  user_id      BigInt                 @db.UnsignedBigInt
+  event_code   String                 @db.VarChar(64)
+  title        String                 @db.VarChar(255)
+  body         String                 @db.Text
+  link         String?                @db.VarChar(255)
+  related_type String?                @db.VarChar(40)
+  related_id   BigInt?                @db.UnsignedBigInt
+  priority     NotificationPriority   @default(NORMAL)
+  dedupe_key   String?                @unique @db.VarChar(160)
+  read_at      DateTime?              @db.DateTime(3)
+  created_at   DateTime               @default(now()) @db.DateTime(3)
+  user         User                   @relation(fields: [user_id], references: [id], onDelete: Restrict)
+  deliveries   NotificationDelivery[]
+
+  @@index([user_id, read_at, created_at])
+  @@map("notifications")
+}
+
+enum DeliveryStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  BOUNCED
+  SUPPRESSED
+}
+
+model NotificationDelivery {
+  id                  BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  notification_id     BigInt              @db.UnsignedBigInt
+  channel             NotificationChannel
+  recipient           String              @db.VarChar(254)
+  subject             String?             @db.VarChar(255)
+  provider_message_id String?             @db.VarChar(128)
+  status              DeliveryStatus      @default(QUEUED)
+  attempts            Int                 @default(0) @db.UnsignedTinyInt
+  last_error          String?             @db.VarChar(500)
+  next_attempt_at     DateTime?           @db.DateTime(3)
+  sent_at             DateTime?           @db.DateTime(3)
+  created_at          DateTime            @default(now()) @db.DateTime(3)
+  notification        Notification        @relation(fields: [notification_id], references: [id], onDelete: Cascade)
+
+  @@index([status, created_at])
+  @@map("notification_deliveries")
+}
+
+enum EventGroup {
+  BILLING
+  CONTRACT
+  RENEWAL
+  SUPPORT
+  OPERATIONS
+  MARKETING
+}
+
+model NotificationPreference {
+  /// fk: users.id CASCADE
+  user_id     BigInt              @db.UnsignedBigInt
+  event_group EventGroup
+  channel     NotificationChannel
+  enabled     Boolean             @default(true)
+
+  @@id([user_id, event_group, channel])
+  @@map("notification_preferences")
+}
+
+enum AuditCategory {
+  BUSINESS
+  SECURITY
+  CONFIG
+}
+
+model AuditLog {
+  id            BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  occurred_at   DateTime      @default(now()) @db.DateTime(3)
+  /// fk: users.id SET NULL
+  actor_user_id BigInt?       @db.UnsignedBigInt
+  actor_role    String?       @db.VarChar(32)
+  facility_id   BigInt?       @db.UnsignedBigInt
+  action        String        @db.VarChar(64)
+  entity_type   String        @db.VarChar(40)
+  entity_id     BigInt?       @db.UnsignedBigInt
+  entity_ref    String?       @db.VarChar(64)
+  before        Json?
+  after         Json?
+  reason        String?       @db.VarChar(500)
+  request_id    String?       @db.VarChar(64)
+  ip_address    String?       @db.VarChar(45)
+  user_agent    String?       @db.VarChar(512)
+  category      AuditCategory @default(BUSINESS)
+
+  @@index([occurred_at])
+  @@index([entity_type, entity_id])
+  @@index([actor_user_id, occurred_at])
+  @@index([facility_id, occurred_at])
+  @@index([category, occurred_at])
+  @@map("audit_logs")
+}
+
+enum OutboxStatus {
+  PENDING
+  DISPATCHED
+  FAILED
+}
+
+model OutboxEvent {
+  id             BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  event_type     String       @db.VarChar(64)
+  aggregate_type String       @db.VarChar(40)
+  aggregate_id   BigInt?      @db.UnsignedBigInt
+  payload        Json
+  status         OutboxStatus @default(PENDING)
+  attempts       Int          @default(0) @db.UnsignedTinyInt
+  last_error     String?      @db.VarChar(500)
+  available_at   DateTime     @default(now()) @db.DateTime(3)
+  dispatched_at  DateTime?    @db.DateTime(3)
+  created_at     DateTime     @default(now()) @db.DateTime(3)
+
+  @@index([status, available_at])
+  @@map("outbox_events")
+}
+
+enum JobStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model JobRun {
+  id              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  job_name        String    @db.VarChar(64)
+  lock_key        String?   @unique @db.VarChar(64)
+  started_at      DateTime  @default(now()) @db.DateTime(3)
+  finished_at     DateTime? @db.DateTime(3)
+  status          JobStatus @default(RUNNING)
+  processed_count Int       @default(0) @db.UnsignedInt
+  error           String?   @db.Text
+
+  @@index([job_name, started_at])
+  @@map("job_runs")
+}
+
+enum ExportFormat {
+  CSV
+  XLSX
+  PDF
+}
+
+enum ExportStatus {
+  QUEUED
+  RUNNING
+  READY
+  FAILED
+  EXPIRED
+}
+
+model ReportExport {
+  id            BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id     String       @unique @db.Char(26)
+  /// fk: users.id RESTRICT
+  requested_by  BigInt       @db.UnsignedBigInt
+  report_code   String       @db.VarChar(40)
+  params        Json
+  format        ExportFormat
+  status        ExportStatus @default(QUEUED)
+  /// fk: media_files.id SET NULL
+  media_file_id BigInt?      @db.UnsignedBigInt
+  row_count     Int?         @db.UnsignedInt
+  error         String?      @db.VarChar(500)
+  expires_at    DateTime?    @db.DateTime(3)
+  created_at    DateTime     @default(now()) @db.DateTime(3)
+
+  @@index([requested_by, created_at])
+  @@map("report_exports")
+}
+
+model DailyFacilityMetric {
+  metric_date            DateTime @db.Date
+  /// fk: facilities.id RESTRICT
+  facility_id            BigInt   @db.UnsignedBigInt
+  unit_type_key          BigInt   @default(0) @db.UnsignedBigInt
+  units_total            Int      @default(0) @db.UnsignedInt
+  units_available        Int      @default(0) @db.UnsignedInt
+  units_reserved         Int      @default(0) @db.UnsignedInt
+  units_occupied         Int      @default(0) @db.UnsignedInt
+  units_overlocked       Int      @default(0) @db.UnsignedInt
+  units_unavailable      Int      @default(0) @db.UnsignedInt
+  area_total_m2          Decimal  @default(0) @db.Decimal(12, 2)
+  area_occupied_m2       Decimal  @default(0) @db.Decimal(12, 2)
+  potential_rent         Decimal  @default(0) @db.Decimal(15, 2)
+  actual_rent            Decimal  @default(0) @db.Decimal(15, 2)
+  billed_amount          Decimal  @default(0) @db.Decimal(15, 2)
+  collected_amount       Decimal  @default(0) @db.Decimal(15, 2)
+  refunded_amount        Decimal  @default(0) @db.Decimal(15, 2)
+  recognized_revenue     Decimal  @default(0) @db.Decimal(15, 2)
+  ar_0_30                Decimal  @default(0) @db.Decimal(15, 2)
+  ar_31_60               Decimal  @default(0) @db.Decimal(15, 2)
+  ar_61_90               Decimal  @default(0) @db.Decimal(15, 2)
+  ar_90_plus             Decimal  @default(0) @db.Decimal(15, 2)
+  move_ins               Int      @default(0) @db.UnsignedInt
+  move_outs              Int      @default(0) @db.UnsignedInt
+  reservations_created   Int      @default(0) @db.UnsignedInt
+  reservations_cancelled Int      @default(0) @db.UnsignedInt
+  renewals_due           Int      @default(0) @db.UnsignedInt
+  renewals_done          Int      @default(0) @db.UnsignedInt
+  delinquent_contracts   Int      @default(0) @db.UnsignedInt
+  tickets_opened         Int      @default(0) @db.UnsignedInt
+  tickets_breached       Int      @default(0) @db.UnsignedInt
+
+  @@id([metric_date, facility_id, unit_type_key])
+  @@index([facility_id, metric_date])
+  @@map("daily_facility_metrics")
+}
+
+enum SettingType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
+enum SettingCategory {
+  SECURITY
+  BRANDING
+  FEATURE_FLAG
+  INTEGRATION
+  NOTIFICATION
+  AI
+}
+
+model SystemSetting {
+  key        String          @id @db.VarChar(100)
+  value      Json
+  value_type SettingType
+  category   SettingCategory
+  is_secret  Boolean         @default(false)
+  description String?        @db.VarChar(255)
+  /// fk: users.id SET NULL
+  updated_by BigInt?         @db.UnsignedBigInt
+  updated_at DateTime        @updatedAt @db.DateTime(3)
+  version    Int             @default(0) @db.UnsignedInt
+
+  @@map("system_settings")
+}
+
+// ============================================================================
+// Module 25 — AI assistant (spec §22.7)
+// ============================================================================
+
+enum ConversationChannel {
+  PUBLIC
+  CUSTOMER
+  OPS
+}
+
+enum ConversationStatus {
+  OPEN
+  HANDED_OFF
+  CLOSED
+}
+
+model AssistantConversation {
+  id                BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id         String              @unique @db.Char(26)
+  /// fk: users.id SET NULL
+  user_id           BigInt?             @db.UnsignedBigInt
+  anon_session_hash String?             @db.Char(64)
+  channel           ConversationChannel
+  locale            Locale              @default(vi)
+  status            ConversationStatus  @default(OPEN)
+  /// fk: support_tickets.id SET NULL
+  ticket_id         BigInt?             @db.UnsignedBigInt
+  message_count     Int                 @default(0) @db.UnsignedInt
+  last_message_at   DateTime?           @db.DateTime(3)
+  expires_at        DateTime            @db.DateTime(3)
+  created_at        DateTime            @default(now()) @db.DateTime(3)
+  deleted_at        DateTime?           @db.DateTime(3)
+  messages          AssistantMessage[]
+
+  @@index([user_id, last_message_at])
+  @@index([anon_session_hash])
+  @@map("assistant_conversations")
+}
+
+enum AssistantRole {
+  USER
+  ASSISTANT
+  TOOL
+}
+
+model AssistantMessage {
+  id              BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id       String                @unique @db.Char(26)
+  conversation_id BigInt                @db.UnsignedBigInt
+  role            AssistantRole
+  content         String                @db.Text
+  cards           Json?
+  model           String?               @db.VarChar(64)
+  input_tokens    Int?                  @db.UnsignedInt
+  output_tokens   Int?                  @db.UnsignedInt
+  latency_ms      Int?                  @db.UnsignedInt
+  finish_reason   String?               @db.VarChar(32)
+  is_fallback     Boolean               @default(false)
+  created_at      DateTime              @default(now()) @db.DateTime(3)
+  conversation    AssistantConversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  tool_calls      AssistantToolCall[]
+  feedback        AssistantFeedback?
+
+  @@index([conversation_id, created_at])
+  @@map("assistant_messages")
+}
+
+enum ToolCallStatus {
+  OK
+  DENIED
+  ERROR
+}
+
+model AssistantToolCall {
+  id             BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  message_id     BigInt           @db.UnsignedBigInt
+  tool_name      String           @db.VarChar(64)
+  arguments      Json
+  result_summary Json?
+  status         ToolCallStatus
+  duration_ms    Int              @db.UnsignedInt
+  message        AssistantMessage @relation(fields: [message_id], references: [id], onDelete: Cascade)
+
+  @@map("assistant_tool_calls")
+}
+
+enum FeedbackRating {
+  UP
+  DOWN
+}
+
+enum FeedbackReason {
+  WRONG
+  NOT_HELPFUL
+  UNSAFE
+  OTHER
+}
+
+model AssistantFeedback {
+  message_id BigInt           @id @db.UnsignedBigInt
+  rating     FeedbackRating
+  reason     FeedbackReason?
+  comment    String?          @db.VarChar(500)
+  created_at DateTime         @default(now()) @db.DateTime(3)
+  message    AssistantMessage @relation(fields: [message_id], references: [id], onDelete: Cascade)
+
+  @@map("assistant_feedback")
+}
+
+enum KbCategory {
+  FAQ
+  SIZE_GUIDE
+  POLICY
+  RULES
+  FACILITY_INFO
+  SOP
+}
+
+enum KbAudience {
+  PUBLIC
+  CUSTOMER
+  INTERNAL
+}
+
+enum KbSource {
+  MANUAL
+  AUTO_POLICY
+  AUTO_FACILITY
+}
+
+enum KbStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model KbArticle {
+  id          BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  public_id   String     @unique @db.Char(26)
+  /// fk: facilities.id SET NULL
+  facility_id BigInt?    @db.UnsignedBigInt
+  category    KbCategory
+  audience    KbAudience @default(PUBLIC)
+  locale      Locale     @default(vi)
+  title       String     @db.VarChar(200)
+  body        String     @db.Text
+  source      KbSource   @default(MANUAL)
+  status      KbStatus   @default(DRAFT)
+  version     Int        @default(1) @db.UnsignedInt
+  /// fk: users.id SET NULL
+  updated_by  BigInt?    @db.UnsignedBigInt
+  created_at  DateTime   @default(now()) @db.DateTime(3)
+  updated_at  DateTime   @updatedAt @db.DateTime(3)
+  chunks      KbChunk[]
+
+  @@index([status, audience])
+  @@map("kb_articles")
+}
+
+model KbChunk {
+  id          BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  article_id  BigInt     @db.UnsignedBigInt
+  chunk_no    Int        @db.UnsignedSmallInt
+  content     String     @db.Text
+  audience    KbAudience
+  facility_id BigInt?    @db.UnsignedBigInt
+  vector_id   String?    @db.VarChar(64)
+  article     KbArticle  @relation(fields: [article_id], references: [id], onDelete: Cascade)
+
+  @@fulltext([content])
+  @@map("kb_chunks")
+}
+
+model AssistantUsageDaily {
+  usage_date         DateTime            @db.Date
+  channel            ConversationChannel
+  model              String              @db.VarChar(64)
+  conversations      Int                 @default(0) @db.UnsignedInt
+  messages           Int                 @default(0) @db.UnsignedInt
+  input_tokens       Int                 @default(0) @db.UnsignedInt
+  output_tokens      Int                 @default(0) @db.UnsignedInt
+  estimated_cost_usd Decimal             @default(0) @db.Decimal(10, 4)
+  fallback_count     Int                 @default(0) @db.UnsignedInt
+  handoff_count      Int                 @default(0) @db.UnsignedInt
+
+  @@id([usage_date, channel, model])
+  @@map("assistant_usage_daily")
+}
