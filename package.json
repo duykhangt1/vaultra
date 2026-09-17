@@ -1,0 +1,28 @@
+{
+  "name": "vaultra",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Vaultra — Self-Storage Facility Rental and Management System",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build:shared": "pnpm --filter @vaultra/shared build",
+    "dev": "pnpm build:shared && pnpm -r --parallel --filter @vaultra/api --filter @vaultra/web dev",
+    "dev:api": "pnpm --filter @vaultra/api dev",
+    "dev:web": "pnpm --filter @vaultra/web dev",
+    "build": "pnpm build:shared && pnpm --filter @vaultra/api build && pnpm --filter @vaultra/web build",
+    "typecheck": "pnpm -r typecheck",
+    "db:migrate": "pnpm --filter @vaultra/api db:migrate",
+    "db:reset": "pnpm --filter @vaultra/api db:reset",
+    "seed:demo": "pnpm --filter @vaultra/api seed:demo",
+    "test": "pnpm --filter @vaultra/shared test && pnpm --filter @vaultra/api test",
+    "test:e2e": "pnpm --filter @vaultra/api test:e2e"
+  },
+  "pnpm": {
+    "overrides": {
+      "multer": "^2.5.0"
+    }
+  }
+}
