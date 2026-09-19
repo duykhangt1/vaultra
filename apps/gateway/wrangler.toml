@@ -1,0 +1,46 @@
+name = "vaultra-gateway"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[rules]]
+type = "Data"
+globs = ["**/*.ttf"]
+fallthrough = true
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+APP_ORIGIN = "https://vaultra-844.pages.dev"
+API_ORIGIN = "https://vaultra-gateway.zerngulon.workers.dev"
+
+[alias]
+"@nestjs/common" = "./src/shims/nestjs.ts"
+"@nestjs/core" = "./src/shims/nestjs.ts"
+"reflect-metadata" = "./src/shims/nestjs.ts"
+"@node-rs/argon2" = "./src/shims/argon2.ts"
+"nodemailer" = "./src/shims/nodemailer.ts"
+"pdfkit" = "../api/node_modules/pdfkit/js/pdfkit.standalone.js"
+"./pdf-fonts" = "./src/shims/pdf-fonts.ts"
+"ws" = "./src/shims/ws.ts"
+"@prisma/adapter-mariadb" = "./src/shims/prisma-service.ts"
+"../generated/prisma/client" = "./src/shims/prisma-service.ts"
+"../common/prisma.service" = "./src/shims/prisma-service.ts"
+"./prisma.service" = "./src/shims/prisma-service.ts"
+"../common/config" = "./src/shims/config.ts"
+"./config" = "./src/shims/config.ts"
+"../media/storage.service" = "./src/shims/storage-service.ts"
+"./storage.service" = "./src/shims/storage-service.ts"
+
+[[durable_objects.bindings]]
+name = "FACILITY_HUB"
+class_name = "FacilityHub"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["FacilityHub"]
+
+[[r2_buckets]]
+binding = "VAULTRA_MEDIA"
+bucket_name = "vaultra"
