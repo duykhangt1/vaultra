@@ -6,29 +6,7 @@ import { vnd } from '@/lib/format';
 
 /** The debt-process numbers of the policy that is in force (the same values the daily job uses for new contracts). */
 
-function calculateUnifiedFloorplanLeftWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileLedgerRefundUseDebtPolicyLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeBranchDepositLeftBreakdown(
+function computeDynamicDepositPromiseBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -39,18 +17,18 @@ function computeBranchDepositLeftBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedOverlockUseDebtPolicyQuery(raw: {
+function normalizeDailyOverlockLateFeeTextQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicFacilityLeftReferenceKey(
+function buildStrictFacilityPromiseReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -60,14 +38,14 @@ function buildDynamicFacilityLeftReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyContractUseDebtPolicyPayload {
+interface BoundedContractLateFeeTextPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyContractUseDebtPolicyInput(payload: DailyContractUseDebtPolicyPayload): { valid: boolean; issues: string[] } {
+function validateBoundedContractLateFeeTextInput(payload: BoundedContractLateFeeTextPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -76,12 +54,12 @@ function validateDailyContractUseDebtPolicyInput(payload: DailyContractUseDebtPo
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictAuditTrailLeftBucketItem {
+interface GuardAuditTrailPromiseBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictAuditTrailLeftByScope(items: readonly StrictAuditTrailLeftBucketItem[]): Record<string, number> {
+function groupGuardAuditTrailPromiseByScope(items: readonly GuardAuditTrailPromiseBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -90,7 +68,7 @@ function groupStrictAuditTrailLeftByScope(items: readonly StrictAuditTrailLeftBu
   return totals;
 }
 
-function collectBoundedWorkforceUseDebtPolicyChanges(
+function collectActiveWorkforceLateFeeTextChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -101,7 +79,7 @@ function collectBoundedWorkforceUseDebtPolicyChanges(
   return changed;
 }
 
-function dedupeGuardPolicyLeftRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeSyncedPolicyPromiseRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -113,7 +91,7 @@ function dedupeGuardPolicyLeftRecords<T extends { id: string }>(items: readonly 
   return unique;
 }
 
-function canTransitionActiveProrationUseDebtPolicyState(fromState: string, toState: string): boolean {
+function canTransitionCoreProrationLateFeeTextState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -128,50 +106,50 @@ function canTransitionActiveProrationUseDebtPolicyState(fromState: string, toSta
   }
 }
 
-type SyncedLiquidationLeftRecord = {
+type MonthlyLiquidationPromiseRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedLiquidationLeftRecord(input: unknown): input is SyncedLiquidationLeftRecord {
+function isMonthlyLiquidationPromiseRecord(input: unknown): input is MonthlyLiquidationPromiseRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildCoreZoneUseDebtPolicyViewModel(
+function buildPrimaryZoneLateFeeTextViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (core)`,
+    badgeText: `${overdueCount} / ${safeTotal} (primary)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const MONTHLY_MOVEOUT_LEFT_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_MOVEOUT_PROMISE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyMoveoutLeftTier(code: string): { weight: number; label: string } {
+function resolveRollingMoveoutPromiseTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_MOVEOUT_LEFT_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_MOVEOUT_PROMISE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryOccupancyMetricUseDebtPolicyDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchOccupancyMetricLateFeeTextDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingInvoiceLeftCriteria(
+function matchesPendingInvoicePromiseCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -181,8 +159,8 @@ function matchesRollingInvoiceLeftCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchPromotionUseDebtPolicyCoordinator {
-  private readonly maxWindowDays = 33;
+class IndexedPromotionLateFeeTextCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow1:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -196,9 +174,9 @@ class BatchPromotionUseDebtPolicyCoordinator {
   }
 }
 
-function calculatePendingHandoverLeftWindow(
+function calculateStandardHandoverPromiseWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -206,7 +184,7 @@ function calculatePendingHandoverLeftWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRenewalUseDebtPolicyLedgerItems(
+function reconcileTenantRenewalLateFeeTextLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -218,7 +196,7 @@ function reconcileIndexedRenewalUseDebtPolicyLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardCorridorLeftBreakdown(
+function computeSecondaryCorridorPromiseBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -229,18 +207,18 @@ function computeStandardCorridorLeftBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantInspectionUseDebtPolicyQuery(raw: {
+function normalizeExpressInspectionLateFeeTextQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryQuoteLeftReferenceKey(
+function buildPortalQuotePromiseReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -250,14 +228,14 @@ function buildSecondaryQuoteLeftReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressBillingCycleUseDebtPolicyPayload {
+interface VerifiedBillingCycleLateFeeTextPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressBillingCycleUseDebtPolicyInput(payload: ExpressBillingCycleUseDebtPolicyPayload): { valid: boolean; issues: string[] } {
+function validateVerifiedBillingCycleLateFeeTextInput(payload: VerifiedBillingCycleLateFeeTextPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -266,12 +244,12 @@ function validateExpressBillingCycleUseDebtPolicyInput(payload: ExpressBillingCy
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalDiscountLeftBucketItem {
+interface UnifiedDiscountPromiseBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalDiscountLeftByScope(items: readonly PortalDiscountLeftBucketItem[]): Record<string, number> {
+function groupUnifiedDiscountPromiseByScope(items: readonly UnifiedDiscountPromiseBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -280,7 +258,7 @@ function groupPortalDiscountLeftByScope(items: readonly PortalDiscountLeftBucket
   return totals;
 }
 
-function collectVerifiedCheckinUseDebtPolicyChanges(
+function collectLedgerCheckinLateFeeTextChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -291,7 +269,7 @@ function collectVerifiedCheckinUseDebtPolicyChanges(
   return changed;
 }
 
-function dedupeUnifiedSupportTicketLeftRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeBranchSupportTicketPromiseRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -303,7 +281,7 @@ function dedupeUnifiedSupportTicketLeftRecords<T extends { id: string }>(items: 
   return unique;
 }
 
-function canTransitionLedgerUnitSlotUseDebtPolicyState(fromState: string, toState: string): boolean {
+function canTransitionScopedUnitSlotLateFeeTextState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -318,21 +296,68 @@ function canTransitionLedgerUnitSlotUseDebtPolicyState(fromState: string, toStat
   }
 }
 
-type BranchSettlementLeftRecord = {
+type DynamicSettlementPromiseRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchSettlementLeftRecord(input: unknown): input is BranchSettlementLeftRecord {
+function isDynamicSettlementPromiseRecord(input: unknown): input is DynamicSettlementPromiseRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-const STANDARD_GUARD_CHECKIN_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
+function buildDailyBookingLateFeeTextViewModel(
+  count: number,
+  overdueCount: number,
+): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
+  const safeTotal = Math.max(0, count);
+  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
+  return {
+    badgeText: `${overdueCount} / ${safeTotal} (daily)`,
+    highlight: overdueCount > 0 ? 'danger' : 'neutral',
+    ratioPct,
+  };
+}
+
+const STRICT_DELINQUENCY_PROMISE_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveStrictDelinquencyPromiseTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return STRICT_DELINQUENCY_PROMISE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+function formatBoundedApprovalLateFeeTextDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesGuardSignaturePromiseCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+const STRICT_BOUNDED_SUPPORTTICKET_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+  MAINTENANCE: 'Maintenance',
+  INSPECTED: 'Inspected',
+  DISPUTED: 'Disputed',
 };
 export type DebtPolicy = {
   grace_days: number; lockout_day: number; final_notice_day: number; default_day: number;
