@@ -1,0 +1,431 @@
+{
+ "User": [
+  [
+   "public_id"
+  ],
+  [
+   "email"
+  ]
+ ],
+ "Customer": [
+  [
+   "public_id"
+  ],
+  [
+   "code"
+  ],
+  [
+   "user_id"
+  ]
+ ],
+ "Role": [
+  [
+   "code"
+  ]
+ ],
+ "Permission": [
+  [
+   "code"
+  ]
+ ],
+ "UserRole": [
+  [
+   "user_id",
+   "role_id",
+   "facility_key",
+   "active_key"
+  ]
+ ],
+ "OAuthAccount": [
+  [
+   "provider",
+   "provider_subject"
+  ],
+  [
+   "user_id",
+   "provider"
+  ]
+ ],
+ "UserSession": [
+  [
+   "public_id"
+  ]
+ ],
+ "RefreshToken": [
+  [
+   "token_hash"
+  ]
+ ],
+ "AuthToken": [
+  [
+   "token_hash"
+  ]
+ ],
+ "IpBlock": [
+  [
+   "cidr"
+  ]
+ ],
+ "Facility": [
+  [
+   "public_id"
+  ],
+  [
+   "code"
+  ],
+  [
+   "slug"
+  ]
+ ],
+ "Zone": [
+  [
+   "facility_id",
+   "code"
+  ]
+ ],
+ "UnitType": [
+  [
+   "public_id"
+  ],
+  [
+   "facility_id",
+   "code"
+  ]
+ ],
+ "Unit": [
+  [
+   "public_id"
+  ],
+  [
+   "facility_id",
+   "code"
+  ]
+ ],
+ "FloorPlan": [
+  [
+   "zone_id"
+  ]
+ ],
+ "UnitShape": [
+  [
+   "unit_id"
+  ]
+ ],
+ "MediaFile": [
+  [
+   "public_id"
+  ],
+  [
+   "object_key"
+  ]
+ ],
+ "Quote": [
+  [
+   "public_id"
+  ]
+ ],
+ "Reservation": [
+  [
+   "public_id"
+  ],
+  [
+   "code"
+  ],
+  [
+   "quote_id"
+  ]
+ ],
+ "UnitAllocation": [
+  [
+   "open_unit_key"
+  ]
+ ],
+ "FacilityClosure": [
+  [
+   "facility_id",
+   "date"
+  ]
+ ],
+ "Appointment": [
+  [
+   "public_id"
+  ]
+ ],
+ "Contract": [
+  [
+   "public_id"
+  ],
+  [
+   "code"
+  ],
+  [
+   "reservation_id"
+  ]
+ ],
+ "ContractTerm": [
+  [
+   "contract_id",
+   "sequence_no"
+  ]
+ ],
+ "CheckinSession": [
+  [
+   "public_id"
+  ]
+ ],
+ "Inspection": [
+  [
+   "public_id"
+  ]
+ ],
+ "HandoverRecord": [
+  [
+   "public_id"
+  ],
+  [
+   "contract_id",
+   "type"
+  ]
+ ],
+ "AccessCredential": [
+  [
+   "public_id"
+  ],
+  [
+   "active_pin_key"
+  ]
+ ],
+ "MoveOutRequest": [
+  [
+   "public_id"
+  ]
+ ],
+ "DepositSettlement": [
+  [
+   "public_id"
+  ],
+  [
+   "contract_id"
+  ]
+ ],
+ "RenewalOffer": [
+  [
+   "public_id"
+  ]
+ ],
+ "TerminationRequest": [
+  [
+   "public_id"
+  ]
+ ],
+ "AbandonedGoodsRecord": [
+  [
+   "public_id"
+  ]
+ ],
+ "Policy": [
+  [
+   "code",
+   "scope",
+   "facility_key"
+  ]
+ ],
+ "PolicyVersion": [
+  [
+   "public_id"
+  ],
+  [
+   "policy_id",
+   "version_no"
+  ]
+ ],
+ "PriceChangeRequest": [
+  [
+   "public_id"
+  ]
+ ],
+ "FeeType": [
+  [
+   "code"
+  ]
+ ],
+ "Promotion": [
+  [
+   "public_id"
+  ],
+  [
+   "code"
+  ]
+ ],
+ "PromotionRedemption": [
+  [
+   "reservation_id"
+  ]
+ ],
+ "BillingSchedule": [
+  [
+   "contract_id"
+  ]
+ ],
+ "Invoice": [
+  [
+   "public_id"
+  ],
+  [
+   "code"
+  ]
+ ],
+ "Payment": [
+  [
+   "public_id"
+  ],
+  [
+   "code"
+  ],
+  [
+   "idempotency_key"
+  ],
+  [
+   "provider",
+   "provider_txn_id"
+  ]
+ ],
+ "PaymentAllocation": [
+  [
+   "payment_id",
+   "invoice_id"
+  ]
+ ],
+ "PaymentWebhookEvent": [
+  [
+   "provider",
+   "event_id"
+  ]
+ ],
+ "Refund": [
+  [
+   "public_id"
+  ],
+  [
+   "idempotency_key"
+  ]
+ ],
+ "Deposit": [
+  [
+   "reservation_id"
+  ]
+ ],
+ "CreditNote": [
+  [
+   "code"
+  ]
+ ],
+ "FeeWaiver": [
+  [
+   "public_id"
+  ]
+ ],
+ "CustomerLedgerEntry": [
+  [
+   "source_type",
+   "source_id",
+   "entry_type"
+  ]
+ ],
+ "ReconciliationBatch": [
+  [
+   "public_id"
+  ]
+ ],
+ "StaffShift": [
+  [
+   "public_id"
+  ]
+ ],
+ "ShiftSwapRequest": [
+  [
+   "public_id"
+  ]
+ ],
+ "WorkTask": [
+  [
+   "public_id"
+  ],
+  [
+   "dedupe_key"
+  ]
+ ],
+ "WorkOrder": [
+  [
+   "public_id"
+  ],
+  [
+   "code"
+  ]
+ ],
+ "MaintenancePlan": [
+  [
+   "public_id"
+  ]
+ ],
+ "SupportTicket": [
+  [
+   "public_id"
+  ],
+  [
+   "code"
+  ]
+ ],
+ "TicketMessage": [
+  [
+   "public_id"
+  ]
+ ],
+ "SlaPolicy": [
+  [
+   "facility_key",
+   "category",
+   "priority"
+  ]
+ ],
+ "NotificationTemplate": [
+  [
+   "event_code",
+   "channel",
+   "locale"
+  ]
+ ],
+ "Notification": [
+  [
+   "public_id"
+  ],
+  [
+   "dedupe_key"
+  ]
+ ],
+ "JobRun": [
+  [
+   "lock_key"
+  ]
+ ],
+ "ReportExport": [
+  [
+   "public_id"
+  ]
+ ],
+ "AssistantConversation": [
+  [
+   "public_id"
+  ]
+ ],
+ "AssistantMessage": [
+  [
+   "public_id"
+  ]
+ ],
+ "KbArticle": [
+  [
+   "public_id"
+  ]
+ ]
+}
