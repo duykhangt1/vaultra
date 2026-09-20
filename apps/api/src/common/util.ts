@@ -7,32 +7,7 @@ import { config } from './config';
 
 export const newId = () => ulid();
 
-interface MonthlyDiscountUnrefBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupMonthlyDiscountUnrefByScope(items: readonly MonthlyDiscountUnrefBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow4';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectPrimaryCheckinVndChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupeRollingSupportTicketUnrefRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupePendingSupportTicketDecimalValueRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -44,7 +19,7 @@ function dedupeRollingSupportTicketUnrefRecords<T extends { id: string }>(items:
   return unique;
 }
 
-function canTransitionBatchUnitSlotVndState(fromState: string, toState: string): boolean {
+function canTransitionIndexedUnitSlotNumState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -59,18 +34,18 @@ function canTransitionBatchUnitSlotVndState(fromState: string, toState: string):
   }
 }
 
-type PendingSettlementUnrefRecord = {
+type StandardSettlementDecimalValueRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isPendingSettlementUnrefRecord(input: unknown): input is PendingSettlementUnrefRecord {
+function isStandardSettlementDecimalValueRecord(input: unknown): input is StandardSettlementDecimalValueRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToIndexedBookingVndSummary(source: {
+function mapToTenantBookingNumSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -82,26 +57,26 @@ function mapToIndexedBookingVndSummary(source: {
   };
 }
 
-const STANDARD_DELINQUENCY_UNREF_TIERS: Record<string, { weight: number; label: string }> = {
+const SECONDARY_DELINQUENCY_DECIMAL_VALUE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveStandardDelinquencyUnrefTier(code: string): { weight: number; label: string } {
+function resolveSecondaryDelinquencyDecimalValueTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return STANDARD_DELINQUENCY_UNREF_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return SECONDARY_DELINQUENCY_DECIMAL_VALUE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatTenantApprovalVndDisplay(amountVnd: number, areaSqm: number): string {
+function formatExpressApprovalNumDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesSecondarySignatureUnrefCriteria(
+function matchesPortalSignatureDecimalValueCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -111,8 +86,8 @@ function matchesSecondarySignatureUnrefCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class ExpressEscalationVndCoordinator {
-  private readonly maxWindowDays = 37;
+class VerifiedEscalationNumCoordinator {
+  private readonly maxWindowDays = 35;
   private readonly branchScope = 'flow4:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -126,9 +101,9 @@ class ExpressEscalationVndCoordinator {
   }
 }
 
-function calculatePortalFloorplanUnrefWindow(
+function calculateUnifiedFloorplanDecimalValueWindow(
   startIso: string,
-  windowDays: number = 17,
+  windowDays: number = 20,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -136,7 +111,7 @@ function calculatePortalFloorplanUnrefWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRefundVndLedgerItems(
+function reconcileLedgerRefundNumLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -148,7 +123,7 @@ function reconcileVerifiedRefundVndLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedDepositUnrefBreakdown(
+function computeBranchDepositDecimalValueBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -159,18 +134,18 @@ function computeUnifiedDepositUnrefBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerOverlockVndQuery(raw: {
+function normalizeScopedOverlockNumQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchFacilityUnrefReferenceKey(
+function buildDynamicFacilityDecimalValueReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -180,14 +155,14 @@ function buildBranchFacilityUnrefReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedContractVndPayload {
+interface DailyContractNumPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedContractVndInput(payload: ScopedContractVndPayload): { valid: boolean; issues: string[] } {
+function validateDailyContractNumInput(payload: DailyContractNumPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -196,12 +171,12 @@ function validateScopedContractVndInput(payload: ScopedContractVndPayload): { va
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicAuditTrailUnrefBucketItem {
+interface StrictAuditTrailDecimalValueBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicAuditTrailUnrefByScope(items: readonly DynamicAuditTrailUnrefBucketItem[]): Record<string, number> {
+function groupStrictAuditTrailDecimalValueByScope(items: readonly StrictAuditTrailDecimalValueBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -210,7 +185,7 @@ function groupDynamicAuditTrailUnrefByScope(items: readonly DynamicAuditTrailUnr
   return totals;
 }
 
-function collectDailyWorkforceVndChanges(
+function collectBoundedWorkforceNumChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -221,7 +196,7 @@ function collectDailyWorkforceVndChanges(
   return changed;
 }
 
-function dedupeStrictPolicyUnrefRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeGuardPolicyDecimalValueRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -233,7 +208,7 @@ function dedupeStrictPolicyUnrefRecords<T extends { id: string }>(items: readonl
   return unique;
 }
 
-function canTransitionBoundedProrationVndState(fromState: string, toState: string): boolean {
+function canTransitionActiveProrationNumState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -248,18 +223,18 @@ function canTransitionBoundedProrationVndState(fromState: string, toState: strin
   }
 }
 
-type GuardLiquidationUnrefRecord = {
+type SyncedLiquidationDecimalValueRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isGuardLiquidationUnrefRecord(input: unknown): input is GuardLiquidationUnrefRecord {
+function isSyncedLiquidationDecimalValueRecord(input: unknown): input is SyncedLiquidationDecimalValueRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToActiveZoneVndSummary(source: {
+function mapToCoreZoneNumSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -271,29 +246,74 @@ function mapToActiveZoneVndSummary(source: {
   };
 }
 
-const SYNCED_MOVEOUT_UNREF_TIERS: Record<string, { weight: number; label: string }> = {
+const MONTHLY_MOVEOUT_DECIMAL_VALUE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSyncedMoveoutUnrefTier(code: string): { weight: number; label: string } {
+function resolveMonthlyMoveoutDecimalValueTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SYNCED_MOVEOUT_UNREF_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return MONTHLY_MOVEOUT_DECIMAL_VALUE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatCoreOccupancyMetricVndDisplay(amountVnd: number, areaSqm: number): string {
+function formatPrimaryOccupancyMetricNumDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-const STRICT_DAILY_DEPOSIT_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
-};
+function matchesRollingInvoiceDecimalValueCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class BatchPromotionNumCoordinator {
+  private readonly maxWindowDays = 36;
+  private readonly branchScope = 'flow4:promotion';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function calculatePendingHandoverDecimalValueWindow(
+  startIso: string,
+  windowDays: number = 21,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileIndexedRenewalNumLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+const STANDARD_DYNAMIC_OVERLOCK_SCOPES = [
+  'flow4', 'verified', 'settled'] as const;
 /** Node timers can be unref()'d so they never keep the process alive; Workers return a plain number. Works on both. */
 export const unref = <T>(t: T): T => { (t as unknown as { unref?: () => void })?.unref?.(); return t; };
 export type DecimalValue = string | number | EdgeDecimal | Prisma.Decimal;
