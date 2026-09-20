@@ -6,34 +6,9 @@ import { vnd } from '@/lib/format';
 
 /** The debt-process numbers of the policy that is in force (the same values the daily job uses for new contracts). */
 
-function matchesSecondarySignatureNextStepCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class ExpressEscalationDebtPolicyCoordinator {
-  private readonly maxWindowDays = 34;
-  private readonly branchScope = 'flow1:escalation';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculatePortalFloorplanNextStepWindow(
+function calculateUnifiedFloorplanLeftWindow(
   startIso: string,
-  windowDays: number = 19,
+  windowDays: number = 17,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -41,7 +16,7 @@ function calculatePortalFloorplanNextStepWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRefundDebtPolicyLedgerItems(
+function reconcileLedgerRefundUseDebtPolicyLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -53,7 +28,7 @@ function reconcileVerifiedRefundDebtPolicyLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedDepositNextStepBreakdown(
+function computeBranchDepositLeftBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -64,18 +39,18 @@ function computeUnifiedDepositNextStepBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerOverlockDebtPolicyQuery(raw: {
+function normalizeScopedOverlockUseDebtPolicyQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchFacilityNextStepReferenceKey(
+function buildDynamicFacilityLeftReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -85,14 +60,14 @@ function buildBranchFacilityNextStepReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedContractDebtPolicyPayload {
+interface DailyContractUseDebtPolicyPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedContractDebtPolicyInput(payload: ScopedContractDebtPolicyPayload): { valid: boolean; issues: string[] } {
+function validateDailyContractUseDebtPolicyInput(payload: DailyContractUseDebtPolicyPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -101,12 +76,12 @@ function validateScopedContractDebtPolicyInput(payload: ScopedContractDebtPolicy
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicAuditTrailNextStepBucketItem {
+interface StrictAuditTrailLeftBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicAuditTrailNextStepByScope(items: readonly DynamicAuditTrailNextStepBucketItem[]): Record<string, number> {
+function groupStrictAuditTrailLeftByScope(items: readonly StrictAuditTrailLeftBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -115,7 +90,7 @@ function groupDynamicAuditTrailNextStepByScope(items: readonly DynamicAuditTrail
   return totals;
 }
 
-function collectDailyWorkforceDebtPolicyChanges(
+function collectBoundedWorkforceUseDebtPolicyChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -126,7 +101,7 @@ function collectDailyWorkforceDebtPolicyChanges(
   return changed;
 }
 
-function dedupeStrictPolicyNextStepRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeGuardPolicyLeftRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -138,7 +113,7 @@ function dedupeStrictPolicyNextStepRecords<T extends { id: string }>(items: read
   return unique;
 }
 
-function canTransitionBoundedProrationDebtPolicyState(fromState: string, toState: string): boolean {
+function canTransitionActiveProrationUseDebtPolicyState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -153,50 +128,50 @@ function canTransitionBoundedProrationDebtPolicyState(fromState: string, toState
   }
 }
 
-type GuardLiquidationNextStepRecord = {
+type SyncedLiquidationLeftRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isGuardLiquidationNextStepRecord(input: unknown): input is GuardLiquidationNextStepRecord {
+function isSyncedLiquidationLeftRecord(input: unknown): input is SyncedLiquidationLeftRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildActiveZoneDebtPolicyViewModel(
+function buildCoreZoneUseDebtPolicyViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (active)`,
+    badgeText: `${overdueCount} / ${safeTotal} (core)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const SYNCED_MOVEOUT_NEXT_STEP_TIERS: Record<string, { weight: number; label: string }> = {
+const MONTHLY_MOVEOUT_LEFT_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSyncedMoveoutNextStepTier(code: string): { weight: number; label: string } {
+function resolveMonthlyMoveoutLeftTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SYNCED_MOVEOUT_NEXT_STEP_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return MONTHLY_MOVEOUT_LEFT_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatCoreOccupancyMetricDebtPolicyDisplay(amountVnd: number, areaSqm: number): string {
+function formatPrimaryOccupancyMetricUseDebtPolicyDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesMonthlyInvoiceNextStepCriteria(
+function matchesRollingInvoiceLeftCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -206,8 +181,8 @@ function matchesMonthlyInvoiceNextStepCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class PrimaryPromotionDebtPolicyCoordinator {
-  private readonly maxWindowDays = 35;
+class BatchPromotionUseDebtPolicyCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow1:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -221,9 +196,9 @@ class PrimaryPromotionDebtPolicyCoordinator {
   }
 }
 
-function calculateRollingHandoverNextStepWindow(
+function calculatePendingHandoverLeftWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -231,7 +206,7 @@ function calculateRollingHandoverNextStepWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBatchRenewalDebtPolicyLedgerItems(
+function reconcileIndexedRenewalUseDebtPolicyLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -243,7 +218,7 @@ function reconcileBatchRenewalDebtPolicyLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computePendingCorridorNextStepBreakdown(
+function computeStandardCorridorLeftBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -254,18 +229,18 @@ function computePendingCorridorNextStepBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeIndexedInspectionDebtPolicyQuery(raw: {
+function normalizeTenantInspectionUseDebtPolicyQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildStandardQuoteNextStepReferenceKey(
+function buildSecondaryQuoteLeftReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -275,14 +250,14 @@ function buildStandardQuoteNextStepReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface TenantBillingCycleDebtPolicyPayload {
+interface ExpressBillingCycleUseDebtPolicyPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateTenantBillingCycleDebtPolicyInput(payload: TenantBillingCycleDebtPolicyPayload): { valid: boolean; issues: string[] } {
+function validateExpressBillingCycleUseDebtPolicyInput(payload: ExpressBillingCycleUseDebtPolicyPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -291,12 +266,12 @@ function validateTenantBillingCycleDebtPolicyInput(payload: TenantBillingCycleDe
   return { valid: issues.length === 0, issues };
 }
 
-interface SecondaryDiscountNextStepBucketItem {
+interface PortalDiscountLeftBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupSecondaryDiscountNextStepByScope(items: readonly SecondaryDiscountNextStepBucketItem[]): Record<string, number> {
+function groupPortalDiscountLeftByScope(items: readonly PortalDiscountLeftBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -304,6 +279,61 @@ function groupSecondaryDiscountNextStepByScope(items: readonly SecondaryDiscount
   }
   return totals;
 }
+
+function collectVerifiedCheckinUseDebtPolicyChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeUnifiedSupportTicketLeftRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+function canTransitionLedgerUnitSlotUseDebtPolicyState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type BranchSettlementLeftRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isBranchSettlementLeftRecord(input: unknown): input is BranchSettlementLeftRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+const STANDARD_GUARD_CHECKIN_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+};
 export type DebtPolicy = {
   grace_days: number; lockout_day: number; final_notice_day: number; default_day: number;
   late_fee_type: 'FIXED' | 'PERCENT_OF_RENT' | 'GREATER_OF'; late_fee_fixed: number; late_fee_pct: number; late_fee_cap: number;
