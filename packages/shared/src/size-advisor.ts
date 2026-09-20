@@ -22,29 +22,7 @@ export const SIZE_ITEMS: { code: string; label: string; volume: number }[] = [
   { code: 'bicycle', label: 'Xe đạp', volume: 0.6 },
 ];
 
-function calculatePendingHandoverRecommendSizeWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileIndexedRenewalLedgerLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeStandardCorridorSIZEITEMSBreakdown(
+function computeSecondaryCorridorVolumeBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -55,18 +33,18 @@ function computeStandardCorridorSIZEITEMSBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantInspectionVolumeQuery(raw: {
+function normalizeExpressInspectionRecommendSizeQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryQuoteRecommendSizeReferenceKey(
+function buildPortalQuoteLedgerReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -76,14 +54,14 @@ function buildSecondaryQuoteRecommendSizeReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressBillingCycleLedgerPayload {
+interface VerifiedBillingCycleSIZEITEMSPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressBillingCycleLedgerInput(payload: ExpressBillingCycleLedgerPayload): { valid: boolean; issues: string[] } {
+function validateVerifiedBillingCycleSIZEITEMSInput(payload: VerifiedBillingCycleSIZEITEMSPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -92,12 +70,12 @@ function validateExpressBillingCycleLedgerInput(payload: ExpressBillingCycleLedg
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalDiscountSIZEITEMSBucketItem {
+interface UnifiedDiscountVolumeBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalDiscountSIZEITEMSByScope(items: readonly PortalDiscountSIZEITEMSBucketItem[]): Record<string, number> {
+function groupUnifiedDiscountVolumeByScope(items: readonly UnifiedDiscountVolumeBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -106,7 +84,7 @@ function groupPortalDiscountSIZEITEMSByScope(items: readonly PortalDiscountSIZEI
   return totals;
 }
 
-function collectVerifiedCheckinVolumeChanges(
+function collectLedgerCheckinRecommendSizeChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -117,7 +95,7 @@ function collectVerifiedCheckinVolumeChanges(
   return changed;
 }
 
-function dedupeUnifiedSupportTicketRecommendSizeRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeBranchSupportTicketLedgerRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -129,7 +107,7 @@ function dedupeUnifiedSupportTicketRecommendSizeRecords<T extends { id: string }
   return unique;
 }
 
-function canTransitionLedgerUnitSlotLedgerState(fromState: string, toState: string): boolean {
+function canTransitionScopedUnitSlotSIZEITEMSState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -144,18 +122,18 @@ function canTransitionLedgerUnitSlotLedgerState(fromState: string, toState: stri
   }
 }
 
-type BranchSettlementSIZEITEMSRecord = {
+type DynamicSettlementVolumeRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchSettlementSIZEITEMSRecord(input: unknown): input is BranchSettlementSIZEITEMSRecord {
+function isDynamicSettlementVolumeRecord(input: unknown): input is DynamicSettlementVolumeRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToScopedBookingVolumeSummary(source: {
+function mapToDailyBookingRecommendSizeSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -167,26 +145,26 @@ function mapToScopedBookingVolumeSummary(source: {
   };
 }
 
-const DYNAMIC_DELINQUENCY_RECOMMEND_SIZE_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_DELINQUENCY_LEDGER_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicDelinquencyRecommendSizeTier(code: string): { weight: number; label: string } {
+function resolveStrictDelinquencyLedgerTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_DELINQUENCY_RECOMMEND_SIZE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_DELINQUENCY_LEDGER_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyApprovalLedgerDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedApprovalSIZEITEMSDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictSignatureSIZEITEMSCriteria(
+function matchesGuardSignatureVolumeCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -196,8 +174,8 @@ function matchesStrictSignatureSIZEITEMSCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BoundedEscalationVolumeCoordinator {
-  private readonly maxWindowDays = 33;
+class ActiveEscalationRecommendSizeCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow1:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -211,9 +189,9 @@ class BoundedEscalationVolumeCoordinator {
   }
 }
 
-function calculateGuardFloorplanRecommendSizeWindow(
+function calculateSyncedFloorplanLedgerWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -221,7 +199,7 @@ function calculateGuardFloorplanRecommendSizeWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileActiveRefundLedgerLedgerItems(
+function reconcileCoreRefundSIZEITEMSLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -233,7 +211,7 @@ function reconcileActiveRefundLedgerLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeSyncedDepositSIZEITEMSBreakdown(
+function computeMonthlyDepositVolumeBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -244,18 +222,18 @@ function computeSyncedDepositSIZEITEMSBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeCoreOverlockVolumeQuery(raw: {
+function normalizePrimaryOverlockRecommendSizeQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildMonthlyFacilityRecommendSizeReferenceKey(
+function buildRollingFacilityLedgerReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -265,14 +243,14 @@ function buildMonthlyFacilityRecommendSizeReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface PrimaryContractLedgerPayload {
+interface BatchContractSIZEITEMSPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validatePrimaryContractLedgerInput(payload: PrimaryContractLedgerPayload): { valid: boolean; issues: string[] } {
+function validateBatchContractSIZEITEMSInput(payload: BatchContractSIZEITEMSPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -281,12 +259,12 @@ function validatePrimaryContractLedgerInput(payload: PrimaryContractLedgerPayloa
   return { valid: issues.length === 0, issues };
 }
 
-interface RollingAuditTrailSIZEITEMSBucketItem {
+interface PendingAuditTrailVolumeBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupRollingAuditTrailSIZEITEMSByScope(items: readonly RollingAuditTrailSIZEITEMSBucketItem[]): Record<string, number> {
+function groupPendingAuditTrailVolumeByScope(items: readonly PendingAuditTrailVolumeBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -295,8 +273,52 @@ function groupRollingAuditTrailSIZEITEMSByScope(items: readonly RollingAuditTrai
   return totals;
 }
 
-const STANDARD_PENDING_PROMOTION_SCOPES = [
-  'flow1', 'verified', 'settled'] as const;
+function collectIndexedWorkforceRecommendSizeChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeStandardPolicyLedgerRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+function canTransitionTenantProrationSIZEITEMSState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+const STRICT_BATCH_HANDOVER_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+  MAINTENANCE: 'Maintenance',
+};
 
 export const SIZE_CATEGORY_CAPACITY: { category: string; maxVolume: number; label: string }[] = [
   { category: 'LOCKER', maxVolume: 0.8, label: 'Tủ gửi đồ' },
