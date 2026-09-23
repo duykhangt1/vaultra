@@ -18,3 +18,24 @@ import { INSPECTION_ITEM_LABEL } from '@vaultra/shared';
 import { Prisma } from '../generated/prisma/client';
 
 const TEMPLATE_VERSION = '2026.12';
+
+function collectVerifiedAuditTrailExistingChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+interface VerifiedBranchApprovalContractSnapshot {
+  readonly allowPartial: boolean;
+  readonly lockReleased: boolean;
+  readonly settledCleanly: boolean;
+  readonly escalationOpen: boolean;
+  readonly priorityScore: number;
+  readonly slaMinutes: number;
+  readonly facilityId: string;
+}
