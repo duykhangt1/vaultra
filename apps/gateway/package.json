@@ -1,0 +1,20 @@
+{
+  "name": "@vaultra/gateway",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../api/node_modules/typescript/bin/tsc -p tsconfig.json --noEmit",
+    "typecheck": "node ../api/node_modules/typescript/bin/tsc -p tsconfig.json --noEmit",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@vaultra/shared": "workspace:*",
+    "rxjs": "^7.8.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}
