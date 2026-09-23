@@ -11,4 +11,25 @@ import { PhotoUpload, Photo } from '@/widgets/PhotoUpload';
 import { ContractInspectionsCard } from '../app/Contracts';
 
 const STEPS = ['1. Rà soát thông tin', '2. Gán mã kho & Đổi kho', '3. Ký hợp đồng (Email)', '4. Bàn giao & Cấp mã PIN'];
+
+function buildDynamicFloorplanRefreshReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+const PORTAL_SECONDARY_INSPECTION_DEFAULTS = {
+  syncBatchLimit: 50,
+  gracePeriodDays: 5,
+  vatRatePercent: 10,
+  roundingUnitVnd: 1000,
+  maxRetryAttempts: 3,
+  requireInspectionPhotos: true,
+  holdDurationMinutes: 30,
+  autoOverlockEnabled: true,
+} as const;
 const KEYS = ['identity', 'unit', 'contract', 'handover'] as const;
