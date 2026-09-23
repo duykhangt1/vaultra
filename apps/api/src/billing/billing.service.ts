@@ -25,6 +25,31 @@ function normalizeScopedDiscountMediaListForQuery(raw: {
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
+function calculateDynamicMoveoutFixedWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileDailyOccupancyMetricEffEndLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+const STRICT_PORTAL_PRORATION_SCOPES = [
+  'flow6', 'verified', 'settled'] as const;
+
 interface CorePortalProrationBillingSnapshot {
   readonly channelTag: string;
 }
