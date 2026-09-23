@@ -1,0 +1,44 @@
+/**
+ * Cinematic design tokens — "Một đêm đi vào két sắt" (see DESIGN_SYSTEM.md §13).
+ * Each scene of the public site belongs to one visual environment. The atmosphere layer behind
+ * the page crossfades between environments as the reader moves from scene to scene.
+ */
+export type EnvId = 'street' | 'corridor' | 'blueprint' | 'paper' | 'vault' | 'dusk' | 'receipt' | 'dawn' | 'night';
+
+export interface Env {
+  /** atmosphere colour behind the scene */
+  bg: string;
+  /** main text colour */
+  fg: string;
+  /** secondary text */
+  muted: string;
+  /** signal / accent colour of the scene */
+  accent: string;
+  /** hairlines and dividers */
+  line: string;
+  /** light scenes get a paper header, dark scenes a glass-ink header */
+  tone: 'dark' | 'light';
+  /** short label shown by the route curtain and scene index */
+  label: string;
+}
+
+export const ENV: Record<EnvId, Env> = {
+  // sodium street light on wet asphalt — the arrival
+  street: { bg: '#070f1b', fg: '#f6f3ec', muted: '#b9c2cd', accent: '#ddb065', line: 'rgb(255 255 255 / 0.12)', tone: 'dark', label: 'Phố đêm' },
+  // cool LED corridor between roller doors
+  corridor: { bg: '#0a1626', fg: '#f6f3ec', muted: '#b9c2cd', accent: '#ddb065', line: 'rgb(255 255 255 / 0.1)', tone: 'dark', label: 'Hành lang' },
+  // drafting table: warm paper, blueprint grid, ink lines
+  blueprint: { bg: '#f1ede3', fg: '#0e1b2c', muted: '#46546a', accent: '#96691f', line: 'rgb(14 27 44 / 0.12)', tone: 'light', label: 'Bản vẽ' },
+  // reading surface
+  paper: { bg: '#f6f3ec', fg: '#0e1b2c', muted: '#5b6b7d', accent: '#96691f', line: 'rgb(14 27 44 / 0.1)', tone: 'light', label: 'Giấy' },
+  // inside the vault: blue-black steel, brass when access opens
+  vault: { bg: '#070d15', fg: '#f6f3ec', muted: '#b9c2cd', accent: '#ddb065', line: 'rgb(221 176 101 / 0.16)', tone: 'dark', label: 'Két sắt' },
+  // people & their reasons — dusk blue
+  dusk: { bg: '#10172a', fg: '#f6f3ec', muted: '#b9c2cd', accent: '#ddb065', line: 'rgb(255 255 255 / 0.1)', tone: 'dark', label: 'Hoàng hôn' },
+  // the receipt: everything priced, nothing hidden
+  receipt: { bg: '#ece6d8', fg: '#0e1b2c', muted: '#46546a', accent: '#96691f', line: 'rgb(14 27 44 / 0.14)', tone: 'light', label: 'Biên nhận' },
+  // moving day at first light
+  dawn: { bg: '#140e08', fg: '#fbf3e4', muted: '#d9c9ae', accent: '#ddb065', line: 'rgb(221 176 101 / 0.2)', tone: 'dark', label: 'Bình minh' },
+  // footer / generic dark
+  night: { bg: '#08121f', fg: '#f6f3ec', muted: '#b9c2cd', accent: '#ddb065', line: 'rgb(255 255 255 / 0.1)', tone: 'dark', label: 'Đêm' },
+};
