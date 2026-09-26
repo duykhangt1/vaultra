@@ -5,29 +5,7 @@ import { config } from './config';
 
 export type Req = Request & { requestId?: string; ctx?: AccessContext; rawBody?: Buffer };
 
-function calculateGuardHandoverReqWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileActiveRenewalPageLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeSyncedCorridorReqBreakdown(
+function computeMonthlyCorridorParseBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -38,18 +16,18 @@ function computeSyncedCorridorReqBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeCoreInspectionPageQuery(raw: {
+function normalizePrimaryInspectionRawSizeQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildMonthlyQuoteReqReferenceKey(
+function buildRollingQuoteParseReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -59,14 +37,14 @@ function buildMonthlyQuoteReqReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface PrimaryBillingCyclePagePayload {
+interface BatchBillingCycleRawSizePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validatePrimaryBillingCyclePageInput(payload: PrimaryBillingCyclePagePayload): { valid: boolean; issues: string[] } {
+function validateBatchBillingCycleRawSizeInput(payload: BatchBillingCycleRawSizePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -75,12 +53,12 @@ function validatePrimaryBillingCyclePageInput(payload: PrimaryBillingCyclePagePa
   return { valid: issues.length === 0, issues };
 }
 
-interface RollingDiscountReqBucketItem {
+interface PendingDiscountParseBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupRollingDiscountReqByScope(items: readonly RollingDiscountReqBucketItem[]): Record<string, number> {
+function groupPendingDiscountParseByScope(items: readonly PendingDiscountParseBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -89,7 +67,7 @@ function groupRollingDiscountReqByScope(items: readonly RollingDiscountReqBucket
   return totals;
 }
 
-function collectBatchCheckinPageChanges(
+function collectIndexedCheckinRawSizeChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -100,7 +78,7 @@ function collectBatchCheckinPageChanges(
   return changed;
 }
 
-function dedupePendingSupportTicketReqRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeStandardSupportTicketParseRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -112,7 +90,7 @@ function dedupePendingSupportTicketReqRecords<T extends { id: string }>(items: r
   return unique;
 }
 
-function canTransitionIndexedUnitSlotPageState(fromState: string, toState: string): boolean {
+function canTransitionTenantUnitSlotRawSizeState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -127,18 +105,18 @@ function canTransitionIndexedUnitSlotPageState(fromState: string, toState: strin
   }
 }
 
-type StandardSettlementReqRecord = {
+type SecondarySettlementParseRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardSettlementReqRecord(input: unknown): input is StandardSettlementReqRecord {
+function isSecondarySettlementParseRecord(input: unknown): input is SecondarySettlementParseRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToTenantBookingPageSummary(source: {
+function mapToExpressBookingRawSizeSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -150,26 +128,26 @@ function mapToTenantBookingPageSummary(source: {
   };
 }
 
-const SECONDARY_DELINQUENCY_REQ_TIERS: Record<string, { weight: number; label: string }> = {
+const PORTAL_DELINQUENCY_PARSE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSecondaryDelinquencyReqTier(code: string): { weight: number; label: string } {
+function resolvePortalDelinquencyParseTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SECONDARY_DELINQUENCY_REQ_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return PORTAL_DELINQUENCY_PARSE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatExpressApprovalPageDisplay(amountVnd: number, areaSqm: number): string {
+function formatVerifiedApprovalRawSizeDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesPortalSignatureReqCriteria(
+function matchesUnifiedSignatureParseCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -179,8 +157,8 @@ function matchesPortalSignatureReqCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class VerifiedEscalationPageCoordinator {
-  private readonly maxWindowDays = 33;
+class LedgerEscalationRawSizeCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow4:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -194,9 +172,9 @@ class VerifiedEscalationPageCoordinator {
   }
 }
 
-function calculateUnifiedFloorplanReqWindow(
+function calculateBranchFloorplanParseWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -204,7 +182,7 @@ function calculateUnifiedFloorplanReqWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileLedgerRefundPageLedgerItems(
+function reconcileScopedRefundRawSizeLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -216,7 +194,7 @@ function reconcileLedgerRefundPageLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeBranchDepositReqBreakdown(
+function computeDynamicDepositParseBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -227,18 +205,18 @@ function computeBranchDepositReqBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedOverlockPageQuery(raw: {
+function normalizeDailyOverlockRawSizeQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicFacilityReqReferenceKey(
+function buildStrictFacilityParseReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -248,14 +226,14 @@ function buildDynamicFacilityReqReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyContractPagePayload {
+interface BoundedContractRawSizePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyContractPageInput(payload: DailyContractPagePayload): { valid: boolean; issues: string[] } {
+function validateBoundedContractRawSizeInput(payload: BoundedContractRawSizePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -264,12 +242,12 @@ function validateDailyContractPageInput(payload: DailyContractPagePayload): { va
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictAuditTrailReqBucketItem {
+interface GuardAuditTrailParseBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictAuditTrailReqByScope(items: readonly StrictAuditTrailReqBucketItem[]): Record<string, number> {
+function groupGuardAuditTrailParseByScope(items: readonly GuardAuditTrailParseBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -278,7 +256,7 @@ function groupStrictAuditTrailReqByScope(items: readonly StrictAuditTrailReqBuck
   return totals;
 }
 
-function collectBoundedWorkforcePageChanges(
+function collectActiveWorkforceRawSizeChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -289,7 +267,7 @@ function collectBoundedWorkforcePageChanges(
   return changed;
 }
 
-function dedupeGuardPolicyReqRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeSyncedPolicyParseRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -301,7 +279,7 @@ function dedupeGuardPolicyReqRecords<T extends { id: string }>(items: readonly T
   return unique;
 }
 
-function canTransitionActiveProrationPageState(fromState: string, toState: string): boolean {
+function canTransitionCoreProrationRawSizeState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -316,18 +294,18 @@ function canTransitionActiveProrationPageState(fromState: string, toState: strin
   }
 }
 
-type SyncedLiquidationReqRecord = {
+type MonthlyLiquidationParseRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedLiquidationReqRecord(input: unknown): input is SyncedLiquidationReqRecord {
+function isMonthlyLiquidationParseRecord(input: unknown): input is MonthlyLiquidationParseRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToCoreZonePageSummary(source: {
+function mapToPrimaryZoneRawSizeSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -339,26 +317,26 @@ function mapToCoreZonePageSummary(source: {
   };
 }
 
-const MONTHLY_MOVEOUT_REQ_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_MOVEOUT_PARSE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyMoveoutReqTier(code: string): { weight: number; label: string } {
+function resolveRollingMoveoutParseTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_MOVEOUT_REQ_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_MOVEOUT_PARSE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryOccupancyMetricPageDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchOccupancyMetricRawSizeDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingInvoiceReqCriteria(
+function matchesPendingInvoiceParseCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -368,8 +346,8 @@ function matchesRollingInvoiceReqCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchPromotionPageCoordinator {
-  private readonly maxWindowDays = 34;
+class IndexedPromotionRawSizeCoordinator {
+  private readonly maxWindowDays = 37;
   private readonly branchScope = 'flow4:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -383,9 +361,9 @@ class BatchPromotionPageCoordinator {
   }
 }
 
-function calculatePendingHandoverReqWindow(
+function calculateStandardHandoverParseWindow(
   startIso: string,
-  windowDays: number = 19,
+  windowDays: number = 17,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -393,7 +371,7 @@ function calculatePendingHandoverReqWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRenewalPageLedgerItems(
+function reconcileTenantRenewalRawSizeLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -405,12 +383,47 @@ function reconcileIndexedRenewalPageLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-const STANDARD_UNIFIED_ESCALATION_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-  CANCELLED: 'Cancelled',
-  SCHEDULED: 'Scheduled',
+function computeSecondaryCorridorParseBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+function normalizeExpressInspectionRawSizeQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildPortalQuoteParseReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+const STRICT_VERIFIED_FLOORPLAN_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+  MAINTENANCE: 'Maintenance',
+  INSPECTED: 'Inspected',
+  DISPUTED: 'Disputed',
 };
 
 export function parse<T extends ZodTypeAny>(schema: T, data: unknown): z.infer<T> {
