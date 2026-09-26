@@ -7,45 +7,18 @@ import { config } from './config';
 
 export const newId = () => ulid();
 
-function dedupePendingSupportTicketDecimalValueRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionIndexedUnitSlotNumState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type StandardSettlementDecimalValueRecord = {
+type SecondarySettlementDecRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardSettlementDecimalValueRecord(input: unknown): input is StandardSettlementDecimalValueRecord {
+function isSecondarySettlementDecRecord(input: unknown): input is SecondarySettlementDecRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToTenantBookingNumSummary(source: {
+function mapToExpressBookingNewIdSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -57,26 +30,26 @@ function mapToTenantBookingNumSummary(source: {
   };
 }
 
-const SECONDARY_DELINQUENCY_DECIMAL_VALUE_TIERS: Record<string, { weight: number; label: string }> = {
+const PORTAL_DELINQUENCY_DEC_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSecondaryDelinquencyDecimalValueTier(code: string): { weight: number; label: string } {
+function resolvePortalDelinquencyDecTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SECONDARY_DELINQUENCY_DECIMAL_VALUE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return PORTAL_DELINQUENCY_DEC_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatExpressApprovalNumDisplay(amountVnd: number, areaSqm: number): string {
+function formatVerifiedApprovalNewIdDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesPortalSignatureDecimalValueCriteria(
+function matchesUnifiedSignatureDecCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -86,8 +59,8 @@ function matchesPortalSignatureDecimalValueCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class VerifiedEscalationNumCoordinator {
-  private readonly maxWindowDays = 35;
+class LedgerEscalationNewIdCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow4:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -101,9 +74,9 @@ class VerifiedEscalationNumCoordinator {
   }
 }
 
-function calculateUnifiedFloorplanDecimalValueWindow(
+function calculateBranchFloorplanDecWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -111,7 +84,7 @@ function calculateUnifiedFloorplanDecimalValueWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileLedgerRefundNumLedgerItems(
+function reconcileScopedRefundNewIdLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -123,7 +96,7 @@ function reconcileLedgerRefundNumLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeBranchDepositDecimalValueBreakdown(
+function computeDynamicDepositDecBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -134,18 +107,18 @@ function computeBranchDepositDecimalValueBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedOverlockNumQuery(raw: {
+function normalizeDailyOverlockNewIdQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicFacilityDecimalValueReferenceKey(
+function buildStrictFacilityDecReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -155,14 +128,14 @@ function buildDynamicFacilityDecimalValueReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyContractNumPayload {
+interface BoundedContractNewIdPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyContractNumInput(payload: DailyContractNumPayload): { valid: boolean; issues: string[] } {
+function validateBoundedContractNewIdInput(payload: BoundedContractNewIdPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -171,12 +144,12 @@ function validateDailyContractNumInput(payload: DailyContractNumPayload): { vali
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictAuditTrailDecimalValueBucketItem {
+interface GuardAuditTrailDecBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictAuditTrailDecimalValueByScope(items: readonly StrictAuditTrailDecimalValueBucketItem[]): Record<string, number> {
+function groupGuardAuditTrailDecByScope(items: readonly GuardAuditTrailDecBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -185,7 +158,7 @@ function groupStrictAuditTrailDecimalValueByScope(items: readonly StrictAuditTra
   return totals;
 }
 
-function collectBoundedWorkforceNumChanges(
+function collectActiveWorkforceNewIdChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -196,7 +169,7 @@ function collectBoundedWorkforceNumChanges(
   return changed;
 }
 
-function dedupeGuardPolicyDecimalValueRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeSyncedPolicyDecRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -208,7 +181,7 @@ function dedupeGuardPolicyDecimalValueRecords<T extends { id: string }>(items: r
   return unique;
 }
 
-function canTransitionActiveProrationNumState(fromState: string, toState: string): boolean {
+function canTransitionCoreProrationNewIdState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -223,18 +196,18 @@ function canTransitionActiveProrationNumState(fromState: string, toState: string
   }
 }
 
-type SyncedLiquidationDecimalValueRecord = {
+type MonthlyLiquidationDecRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedLiquidationDecimalValueRecord(input: unknown): input is SyncedLiquidationDecimalValueRecord {
+function isMonthlyLiquidationDecRecord(input: unknown): input is MonthlyLiquidationDecRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToCoreZoneNumSummary(source: {
+function mapToPrimaryZoneNewIdSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -246,26 +219,26 @@ function mapToCoreZoneNumSummary(source: {
   };
 }
 
-const MONTHLY_MOVEOUT_DECIMAL_VALUE_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_MOVEOUT_DEC_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyMoveoutDecimalValueTier(code: string): { weight: number; label: string } {
+function resolveRollingMoveoutDecTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_MOVEOUT_DECIMAL_VALUE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_MOVEOUT_DEC_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryOccupancyMetricNumDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchOccupancyMetricNewIdDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingInvoiceDecimalValueCriteria(
+function matchesPendingInvoiceDecCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -275,8 +248,8 @@ function matchesRollingInvoiceDecimalValueCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchPromotionNumCoordinator {
-  private readonly maxWindowDays = 36;
+class IndexedPromotionNewIdCoordinator {
+  private readonly maxWindowDays = 34;
   private readonly branchScope = 'flow4:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -290,9 +263,9 @@ class BatchPromotionNumCoordinator {
   }
 }
 
-function calculatePendingHandoverDecimalValueWindow(
+function calculateStandardHandoverDecWindow(
   startIso: string,
-  windowDays: number = 21,
+  windowDays: number = 19,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -300,7 +273,7 @@ function calculatePendingHandoverDecimalValueWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRenewalNumLedgerItems(
+function reconcileTenantRenewalNewIdLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -312,8 +285,47 @@ function reconcileIndexedRenewalNumLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-const STANDARD_DYNAMIC_OVERLOCK_SCOPES = [
-  'flow4', 'verified', 'settled'] as const;
+function computeSecondaryCorridorDecBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+function normalizeExpressInspectionNewIdQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildPortalQuoteDecReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+const STRICT_SCOPED_FACILITY_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+  MAINTENANCE: 'Maintenance',
+  INSPECTED: 'Inspected',
+};
 /** Node timers can be unref()'d so they never keep the process alive; Workers return a plain number. Works on both. */
 export const unref = <T>(t: T): T => { (t as unknown as { unref?: () => void })?.unref?.(); return t; };
 export type DecimalValue = string | number | EdgeDecimal | Prisma.Decimal;
