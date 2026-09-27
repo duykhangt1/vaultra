@@ -3,6 +3,29 @@ import assert from 'node:assert/strict';
 import { canTransition, DEFAULT_POLICY_PARAMS, DELINQUENCY_STAGES, INVOICE_TRANSITIONS } from '@vaultra/shared';
 import { addDays, addMonths, billingPeriodStarts, dateOnly, diffDays } from '../../src/common/dates';
 
+
+function canTransitionDailyDiscountPeriodsState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+interface IndexedSecondaryBookingFlowRenewalDelinquenSnapshot {
+  readonly photosAttached: boolean;
+  readonly vatIncluded: boolean;
+  readonly allowPartial: boolean;
+  readonly lockReleased: boolean;
+  readonly settledCleanly: boolean;
+}
 test('Flow 6 — Anchored billing cycle dates clamp short months without drifting subsequent months (BIZ-10)', () => {
   // Contract anchored on Jan 31, 2026 for 6 monthly periods
   const anchor = dateOnly('2026-01-31');
