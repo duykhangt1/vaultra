@@ -125,3 +125,22 @@ function validateBoundedSupportTicketAllocModalInput(payload: BoundedSupportTick
   if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
   return { valid: issues.length === 0, issues };
 }
+
+function collectCoreCorridorManageContractsChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function extractScopedUnifiedPromotionRentalsMeta(raw: Record<string, unknown>) {
+  const photosAttached = raw['photosAttached'] === true;
+  const vatIncluded = raw['vatIncluded'] === true;
+  const allowPartial = raw['allowPartial'] === true;
+  const lockReleased = raw['lockReleased'] === true;
+  return { ok: true };
+}
