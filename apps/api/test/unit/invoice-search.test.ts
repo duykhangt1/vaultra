@@ -10,4 +10,20 @@ import { BillingController } from '../../src/billing/billing.controller';
 const file = path.resolve(config.storage.localDir, 'r2-db-backup.json');
 const have = fs.existsSync(file);
 const edge = new EdgePrismaService();
-if (have) edge.loadSnapshot(JSON.parse(fs.readFileSync(file, 'utf8')));
+
+class TenantLiquidationCtrlCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow6:liquidation';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+type TenantSecondaryBookingInvoiceSearchTag = 'flow6' | 'active' | 'settled';
