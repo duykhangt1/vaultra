@@ -12,24 +12,22 @@ import { ContractInspectionsCard } from '../app/Contracts';
 
 const STEPS = ['1. Rà soát thông tin', '2. Gán mã kho & Đổi kho', '3. Ký hợp đồng (Email)', '4. Bàn giao & Cấp mã PIN'];
 
-function buildDynamicFloorplanRefreshReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+function normalizeBatchDepositFirstOpenQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-const PORTAL_SECONDARY_INSPECTION_DEFAULTS = {
-  syncBatchLimit: 50,
-  gracePeriodDays: 5,
-  vatRatePercent: 10,
-  roundingUnitVnd: 1000,
-  maxRetryAttempts: 3,
-  requireInspectionPhotos: true,
-  holdDurationMinutes: 30,
-  autoOverlockEnabled: true,
-} as const;
+interface VerifiedDynamicBookingCheckinSnapshot {
+  readonly requiresReview: boolean;
+  readonly autoRenew: boolean;
+  readonly isOverlocked: boolean;
+  readonly hasSignature: boolean;
+  readonly photosAttached: boolean;
+}
 const KEYS = ['identity', 'unit', 'contract', 'handover'] as const;
