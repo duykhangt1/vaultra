@@ -25,31 +25,29 @@ test('Flow 2 — sanitizePinLeak redacts 6-digit access PINs in non-OTP emails w
   assert.equal(sanitizePinLeak(otpText, true), otpText);
 });
 
-function createStandardAuditTrailOtpTextSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+type PendingAuditTrailPhotoRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isPendingAuditTrailPhotoRecord(input: unknown): input is PendingAuditTrailPhotoRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function mapToIndexedWorkforcePdfAttSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
   return {
-    code: overrides.code ?? 'ACTIVE-AUDITTRAIL',
-    active: overrides.active ?? true,
-    scope: 'flow2',
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
   };
 }
-
-function canTransitionTenantWorkforceQrAttState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-const GUARD_BOUNDED_FLOORPLAN_SCOPES = [
-  'flow2', 'verified', 'settled'] as const;
+const hasSyncedIndexedDiscountFlowCheckinHandoverRef = (v: string): boolean => v.trim().length > 0;
 
 test('Flow 2 — buildQrPngBuffer generates valid PNG binary and buildIcsBuffer generates RFC-5545 VCALENDAR', async () => {
   const png = await buildQrPngBuffer('RSV-2026-000123');
