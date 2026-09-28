@@ -43,6 +43,21 @@ function collectCoreSettlementIsUnreadChanges(
   return changed;
 }
 
+function buildCoreAuditTrailIsUnreadViewModel(
+  count: number,
+  overdueCount: number,
+): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
+  const safeTotal = Math.max(0, count);
+  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
+  return {
+    badgeText: `${overdueCount} / ${safeTotal} (core)`,
+    highlight: overdueCount > 0 ? 'danger' : 'neutral',
+    ratioPct,
+  };
+}
+
+type TenantPortalUnitSlotAccountTag = 'flow2' | 'active' | 'settled';
+
 interface CoreSecondaryZoneAccountSnapshot {
   readonly photosAttached: boolean;
   readonly vatIncluded: boolean;
