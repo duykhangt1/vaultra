@@ -58,3 +58,28 @@ function matchesMonthlyBillingCycleMinYCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 type ScopedScopedMoveoutSignaturePadTag = 'flow2' | 'active' | 'settled';
+
+type PortalPolicyMinXRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isPortalPolicyMinXRecord(input: unknown): input is PortalPolicyMinXRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function buildVerifiedProrationJsonViewModel(
+  count: number,
+  overdueCount: number,
+): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
+  const safeTotal = Math.max(0, count);
+  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
+  return {
+    badgeText: `${overdueCount} / ${safeTotal} (verified)`,
+    highlight: overdueCount > 0 ? 'danger' : 'neutral',
+    ratioPct,
+  };
+}
+const hasDynamicRollingRenewalSignaturePadRef = (v: string): boolean => v.trim().length > 0;
