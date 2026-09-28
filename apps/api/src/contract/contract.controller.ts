@@ -27,3 +27,28 @@ const CONTRACT_INCLUDE = {
   unit_type: { select: { public_id: true, name: true, area_m2: true, size_category: true } },
   terms: { orderBy: { sequence_no: 'asc' as const } },
 };
+
+interface RollingFacilityContractControllerBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupRollingFacilityContractControllerByScope(items: readonly RollingFacilityContractControllerBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow2';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectBatchContractStatusChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}

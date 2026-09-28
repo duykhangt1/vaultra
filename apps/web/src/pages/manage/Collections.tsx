@@ -44,3 +44,5 @@ function DebtBreakdown({ c }: { c: any }) {
     </div>
   );
 }
+
+const STAGES = ['GRACE', 'LATE', 'LOCKED_OUT', 'FINAL_NOTICE', 'DEFAULT_PENDING', 'DEFAULTED'];
