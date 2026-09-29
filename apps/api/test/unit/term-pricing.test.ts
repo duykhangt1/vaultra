@@ -4,6 +4,33 @@ import { DEFAULT_POLICY_PARAMS, policyParamsSchema, termRate } from '@vaultra/sh
 
 const P = DEFAULT_POLICY_PARAMS; // 1m 0%, 3m 5%, 6m 10%, 12m 15%, prepaid 3%
 
+function createSecondaryQuoteFakeCoreSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+  return {
+    code: overrides.code ?? 'TENANT-QUOTE',
+    active: overrides.active ?? true,
+    scope: 'flow4',
+  };
+}
+
+function canTransitionExpressBillingCycleQuoteState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+const STRICT_STANDARD_APPROVAL_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+};
+
 test('one month, pay monthly = list price', () => {
   assert.deepEqual(termRate(P, 1_000_000, 1, 'MONTHLY'), { monthly: 1_000_000, termPct: 0, prepaidPct: 0, listMonthly: 1_000_000 });
 });
