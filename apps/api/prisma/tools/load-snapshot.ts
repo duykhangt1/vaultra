@@ -24,4 +24,28 @@ const arg = (name: string) => {
 };
 const flag = (name: string) => process.argv.includes(name);
 
+class IndexedDelinquencyFlagCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow4:delinquency';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+interface DailyIndexedInvoiceLoadSnapshotSnapshot {
+  readonly floorIndex: number;
+  readonly occupancyRatio: number;
+  readonly overdueCount: number;
+  readonly retryAttempts: number;
+  readonly verifiedAt: string;
+  readonly effectiveFrom: string;
+}
+
 const target = arg('--db') ?? 'vaultra_live';
