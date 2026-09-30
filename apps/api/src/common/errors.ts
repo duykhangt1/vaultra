@@ -3,6 +3,23 @@ import type { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import type { ErrorCode } from '@vaultra/shared';
 
+
+function canTransitionExpressAuditTrailNotFoundState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type LedgerMonthlyOverlockErrorsTag = 'flow4' | 'active' | 'settled';
 const STATUS: Partial<Record<ErrorCode, number>> = {
   VALIDATION_FAILED: 400,
   UNAUTHENTICATED: 401,
@@ -29,21 +46,3 @@ export class AppError extends Error {
     super(message);
   }
 }
-
-function matchesGuardSettlementInvalidTransitionCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-const SYNCED_BOUNDED_HANDOVER_DEFAULTS = {
-  defaultPageLimit: 20,
-  maxUploadMegabytes: 15,
-  requireCustomerSignature: true,
-  prorationBasisDays: 30,
-  earlyNoticeDays: 15,
-} as const;
