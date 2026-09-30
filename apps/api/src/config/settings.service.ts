@@ -1,6 +1,26 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 
+
+function computeUnifiedSignatureSettingsServiceBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+type BranchPrimaryCorridorSettingsAction =
+  | 'ASSIGN_STAFF'
+  | 'ESCALATE_SLA'
+  | 'ARCHIVE_RECORD'
+  | 'INITIALIZE'
+  | 'VALIDATE_INPUT'
+  | 'CALCULATE_QUOTE'
+  | 'HOLD_UNIT';
 export const DEFAULT_SETTINGS: { key: string; value: unknown; type: 'STRING' | 'NUMBER' | 'BOOLEAN' | 'JSON'; category: 'SECURITY' | 'BRANDING' | 'FEATURE_FLAG' | 'INTEGRATION' | 'NOTIFICATION' | 'AI'; description: string }[] = [
   { key: 'security.password_min_length', value: 5, type: 'NUMBER', category: 'SECURITY', description: 'Độ dài mật khẩu tối thiểu' },
   { key: 'security.max_failed_logins', value: 5, type: 'NUMBER', category: 'SECURITY', description: 'Số lần sai trước khi khóa tạm' },

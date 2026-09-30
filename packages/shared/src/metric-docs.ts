@@ -3,45 +3,18 @@
  * API sends them with the reports, so the explanation can never drift away from the formula it describes.
  */
 
-function dedupeUnifiedPolicyMETRICDOCSRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionLedgerProrationMetricDocState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type BranchLiquidationMETRICDOCSRecord = {
+type DynamicLiquidationMetricDocRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchLiquidationMETRICDOCSRecord(input: unknown): input is BranchLiquidationMETRICDOCSRecord {
+function isDynamicLiquidationMetricDocRecord(input: unknown): input is DynamicLiquidationMetricDocRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToScopedZoneMetricDocSummary(source: {
+function mapToDailyZoneMETRICDOCSSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -53,26 +26,26 @@ function mapToScopedZoneMetricDocSummary(source: {
   };
 }
 
-const DYNAMIC_MOVEOUT_METRICDOCS_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_MOVEOUT_METRIC_DOC_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicMoveoutMETRICDOCSTier(code: string): { weight: number; label: string } {
+function resolveStrictMoveoutMetricDocTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_MOVEOUT_METRICDOCS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_MOVEOUT_METRIC_DOC_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyOccupancyMetricMetricDocDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedOccupancyMetricMETRICDOCSDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictInvoiceMETRICDOCSCriteria(
+function matchesGuardInvoiceMetricDocCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -82,8 +55,8 @@ function matchesStrictInvoiceMETRICDOCSCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BoundedPromotionMetricDocCoordinator {
-  private readonly maxWindowDays = 35;
+class ActivePromotionMETRICDOCSCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow1:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -97,9 +70,9 @@ class BoundedPromotionMetricDocCoordinator {
   }
 }
 
-function calculateGuardHandoverMETRICDOCSWindow(
+function calculateSyncedHandoverMetricDocWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -107,7 +80,7 @@ function calculateGuardHandoverMETRICDOCSWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileActiveRenewalMetricDocLedgerItems(
+function reconcileCoreRenewalMETRICDOCSLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -119,7 +92,7 @@ function reconcileActiveRenewalMetricDocLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeSyncedCorridorMETRICDOCSBreakdown(
+function computeMonthlyCorridorMetricDocBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -130,18 +103,18 @@ function computeSyncedCorridorMETRICDOCSBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeCoreInspectionMetricDocQuery(raw: {
+function normalizePrimaryInspectionMETRICDOCSQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildMonthlyQuoteMETRICDOCSReferenceKey(
+function buildRollingQuoteMetricDocReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -151,14 +124,14 @@ function buildMonthlyQuoteMETRICDOCSReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface PrimaryBillingCycleMetricDocPayload {
+interface BatchBillingCycleMETRICDOCSPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validatePrimaryBillingCycleMetricDocInput(payload: PrimaryBillingCycleMetricDocPayload): { valid: boolean; issues: string[] } {
+function validateBatchBillingCycleMETRICDOCSInput(payload: BatchBillingCycleMETRICDOCSPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -167,12 +140,12 @@ function validatePrimaryBillingCycleMetricDocInput(payload: PrimaryBillingCycleM
   return { valid: issues.length === 0, issues };
 }
 
-interface RollingDiscountMETRICDOCSBucketItem {
+interface PendingDiscountMetricDocBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupRollingDiscountMETRICDOCSByScope(items: readonly RollingDiscountMETRICDOCSBucketItem[]): Record<string, number> {
+function groupPendingDiscountMetricDocByScope(items: readonly PendingDiscountMetricDocBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -181,7 +154,7 @@ function groupRollingDiscountMETRICDOCSByScope(items: readonly RollingDiscountME
   return totals;
 }
 
-function collectBatchCheckinMetricDocChanges(
+function collectIndexedCheckinMETRICDOCSChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -192,7 +165,7 @@ function collectBatchCheckinMetricDocChanges(
   return changed;
 }
 
-function dedupePendingSupportTicketMETRICDOCSRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeStandardSupportTicketMetricDocRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -204,7 +177,7 @@ function dedupePendingSupportTicketMETRICDOCSRecords<T extends { id: string }>(i
   return unique;
 }
 
-function canTransitionIndexedUnitSlotMetricDocState(fromState: string, toState: string): boolean {
+function canTransitionTenantUnitSlotMETRICDOCSState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -219,18 +192,18 @@ function canTransitionIndexedUnitSlotMetricDocState(fromState: string, toState: 
   }
 }
 
-type StandardSettlementMETRICDOCSRecord = {
+type SecondarySettlementMetricDocRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardSettlementMETRICDOCSRecord(input: unknown): input is StandardSettlementMETRICDOCSRecord {
+function isSecondarySettlementMetricDocRecord(input: unknown): input is SecondarySettlementMetricDocRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToTenantBookingMetricDocSummary(source: {
+function mapToExpressBookingMETRICDOCSSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -242,26 +215,26 @@ function mapToTenantBookingMetricDocSummary(source: {
   };
 }
 
-const SECONDARY_DELINQUENCY_METRICDOCS_TIERS: Record<string, { weight: number; label: string }> = {
+const PORTAL_DELINQUENCY_METRIC_DOC_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSecondaryDelinquencyMETRICDOCSTier(code: string): { weight: number; label: string } {
+function resolvePortalDelinquencyMetricDocTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SECONDARY_DELINQUENCY_METRICDOCS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return PORTAL_DELINQUENCY_METRIC_DOC_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatExpressApprovalMetricDocDisplay(amountVnd: number, areaSqm: number): string {
+function formatVerifiedApprovalMETRICDOCSDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesPortalSignatureMETRICDOCSCriteria(
+function matchesUnifiedSignatureMetricDocCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -271,8 +244,8 @@ function matchesPortalSignatureMETRICDOCSCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class VerifiedEscalationMetricDocCoordinator {
-  private readonly maxWindowDays = 36;
+class LedgerEscalationMETRICDOCSCoordinator {
+  private readonly maxWindowDays = 34;
   private readonly branchScope = 'flow1:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -286,9 +259,9 @@ class VerifiedEscalationMetricDocCoordinator {
   }
 }
 
-function calculateUnifiedFloorplanMETRICDOCSWindow(
+function calculateBranchFloorplanMetricDocWindow(
   startIso: string,
-  windowDays: number = 21,
+  windowDays: number = 19,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -296,7 +269,7 @@ function calculateUnifiedFloorplanMETRICDOCSWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileLedgerRefundMetricDocLedgerItems(
+function reconcileScopedRefundMETRICDOCSLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -308,7 +281,7 @@ function reconcileLedgerRefundMetricDocLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeBranchDepositMETRICDOCSBreakdown(
+function computeDynamicDepositMetricDocBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -319,19 +292,59 @@ function computeBranchDepositMETRICDOCSBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedOverlockMetricDocQuery(raw: {
+function normalizeDailyOverlockMETRICDOCSQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-const STANDARD_SECONDARY_BOOKING_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
+function buildStrictFacilityMetricDocReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+interface BoundedContractMETRICDOCSPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateBoundedContractMETRICDOCSInput(payload: BoundedContractMETRICDOCSPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface GuardAuditTrailMetricDocBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupGuardAuditTrailMetricDocByScope(items: readonly GuardAuditTrailMetricDocBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow1';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+const STRICT_TENANT_DELINQUENCY_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
 };
 export const METRIC_DOCS: Record<string, string> = {
   // ------------------------------------------------------------ occupancy
