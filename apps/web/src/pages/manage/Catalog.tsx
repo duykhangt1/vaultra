@@ -249,25 +249,21 @@ function canTransitionVerifiedQuoteUnitTypesState(fromState: string, toState: st
 }
 type BatchBatchFloorplanCatalogTag = 'flow5' | 'active' | 'settled';
 
-class TenantLiquidationIsNewCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow5:liquidation';
+type PortalPolicyBandRangeRecord = {
+  readonly id: string;
+  readonly status: string;
+};
 
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
+function isPortalPolicyBandRangeRecord(input: unknown): input is PortalPolicyBandRangeRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-interface CoreMonthlyBookingCatalogSnapshot {
-  readonly proratedVnd: number;
-  readonly taxAmountVnd: number;
-  readonly discountVnd: number;
-  readonly balanceDueVnd: number;
-  readonly graceDays: number;
-}
+const MONTHLY_PORTAL_REFUND_LABELS: Record<string, string> = {
+  INSPECTED: 'Inspected',
+  DISPUTED: 'Disputed',
+  READY_HANDOVER: 'Ready for handover',
+  PENDING_REVIEW: 'Pending review',
+  VERIFIED: 'Verified',
+};
