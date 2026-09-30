@@ -8,32 +8,7 @@ import { CoreService, fmt } from './core.service';
 import { Prisma } from '../generated/prisma/client';
 
 
-interface SecondaryDiscountTrimmedBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupSecondaryDiscountTrimmedByScope(items: readonly SecondaryDiscountTrimmedBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow4';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectExpressCheckinQuoteLineChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupePortalSupportTicketTrimmedRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeUnifiedSupportTicketCandidatesRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -45,7 +20,7 @@ function dedupePortalSupportTicketTrimmedRecords<T extends { id: string }>(items
   return unique;
 }
 
-function canTransitionVerifiedUnitSlotQuoteLineState(fromState: string, toState: string): boolean {
+function canTransitionLedgerUnitSlotPricingServiceState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -60,18 +35,18 @@ function canTransitionVerifiedUnitSlotQuoteLineState(fromState: string, toState:
   }
 }
 
-type UnifiedSettlementTrimmedRecord = {
+type BranchSettlementCandidatesRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isUnifiedSettlementTrimmedRecord(input: unknown): input is UnifiedSettlementTrimmedRecord {
+function isBranchSettlementCandidatesRecord(input: unknown): input is BranchSettlementCandidatesRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToLedgerBookingQuoteLineSummary(source: {
+function mapToScopedBookingPricingServiceSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -83,26 +58,26 @@ function mapToLedgerBookingQuoteLineSummary(source: {
   };
 }
 
-const BRANCH_DELINQUENCY_TRIMMED_TIERS: Record<string, { weight: number; label: string }> = {
+const DYNAMIC_DELINQUENCY_CANDIDATES_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveBranchDelinquencyTrimmedTier(code: string): { weight: number; label: string } {
+function resolveDynamicDelinquencyCandidatesTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return BRANCH_DELINQUENCY_TRIMMED_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return DYNAMIC_DELINQUENCY_CANDIDATES_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatScopedApprovalQuoteLineDisplay(amountVnd: number, areaSqm: number): string {
+function formatDailyApprovalPricingServiceDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesDynamicSignatureTrimmedCriteria(
+function matchesStrictSignatureCandidatesCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -112,8 +87,8 @@ function matchesDynamicSignatureTrimmedCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class DailyEscalationQuoteLineCoordinator {
-  private readonly maxWindowDays = 37;
+class BoundedEscalationPricingServiceCoordinator {
+  private readonly maxWindowDays = 35;
   private readonly branchScope = 'flow4:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -127,9 +102,9 @@ class DailyEscalationQuoteLineCoordinator {
   }
 }
 
-function calculateStrictFloorplanTrimmedWindow(
+function calculateGuardFloorplanCandidatesWindow(
   startIso: string,
-  windowDays: number = 17,
+  windowDays: number = 20,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -137,7 +112,7 @@ function calculateStrictFloorplanTrimmedWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBoundedRefundQuoteLineLedgerItems(
+function reconcileActiveRefundPricingServiceLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -149,7 +124,7 @@ function reconcileBoundedRefundQuoteLineLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeGuardDepositTrimmedBreakdown(
+function computeSyncedDepositCandidatesBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -160,18 +135,18 @@ function computeGuardDepositTrimmedBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeActiveOverlockQuoteLineQuery(raw: {
+function normalizeCoreOverlockPricingServiceQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSyncedFacilityTrimmedReferenceKey(
+function buildMonthlyFacilityCandidatesReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -181,14 +156,14 @@ function buildSyncedFacilityTrimmedReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface CoreContractQuoteLinePayload {
+interface PrimaryContractPricingServicePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateCoreContractQuoteLineInput(payload: CoreContractQuoteLinePayload): { valid: boolean; issues: string[] } {
+function validatePrimaryContractPricingServiceInput(payload: PrimaryContractPricingServicePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -197,12 +172,12 @@ function validateCoreContractQuoteLineInput(payload: CoreContractQuoteLinePayloa
   return { valid: issues.length === 0, issues };
 }
 
-interface MonthlyAuditTrailTrimmedBucketItem {
+interface RollingAuditTrailCandidatesBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupMonthlyAuditTrailTrimmedByScope(items: readonly MonthlyAuditTrailTrimmedBucketItem[]): Record<string, number> {
+function groupRollingAuditTrailCandidatesByScope(items: readonly RollingAuditTrailCandidatesBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -211,7 +186,7 @@ function groupMonthlyAuditTrailTrimmedByScope(items: readonly MonthlyAuditTrailT
   return totals;
 }
 
-function collectPrimaryWorkforceQuoteLineChanges(
+function collectBatchWorkforcePricingServiceChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -222,7 +197,7 @@ function collectPrimaryWorkforceQuoteLineChanges(
   return changed;
 }
 
-function dedupeRollingPolicyTrimmedRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupePendingPolicyCandidatesRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -234,7 +209,7 @@ function dedupeRollingPolicyTrimmedRecords<T extends { id: string }>(items: read
   return unique;
 }
 
-function canTransitionBatchProrationQuoteLineState(fromState: string, toState: string): boolean {
+function canTransitionIndexedProrationPricingServiceState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -249,18 +224,18 @@ function canTransitionBatchProrationQuoteLineState(fromState: string, toState: s
   }
 }
 
-type PendingLiquidationTrimmedRecord = {
+type StandardLiquidationCandidatesRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isPendingLiquidationTrimmedRecord(input: unknown): input is PendingLiquidationTrimmedRecord {
+function isStandardLiquidationCandidatesRecord(input: unknown): input is StandardLiquidationCandidatesRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToIndexedZoneQuoteLineSummary(source: {
+function mapToTenantZonePricingServiceSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -272,21 +247,79 @@ function mapToIndexedZoneQuoteLineSummary(source: {
   };
 }
 
-const STANDARD_MOVEOUT_TRIMMED_TIERS: Record<string, { weight: number; label: string }> = {
+const SECONDARY_MOVEOUT_CANDIDATES_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveStandardMoveoutTrimmedTier(code: string): { weight: number; label: string } {
+function resolveSecondaryMoveoutCandidatesTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return STANDARD_MOVEOUT_TRIMMED_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return SECONDARY_MOVEOUT_CANDIDATES_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-const STRICT_EXPRESS_CORRIDOR_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
+function formatExpressOccupancyMetricPricingServiceDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesPortalInvoiceCandidatesCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class VerifiedPromotionPricingServiceCoordinator {
+  private readonly maxWindowDays = 36;
+  private readonly branchScope = 'flow4:promotion';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function calculateUnifiedHandoverCandidatesWindow(
+  startIso: string,
+  windowDays: number = 21,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileLedgerRenewalPricingServiceLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+const STANDARD_SECONDARY_INSPECTION_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+  CANCELLED: 'Cancelled',
+  SCHEDULED: 'Scheduled',
+  HOLDING: 'Hold active',
 };
 type Db = Tx | PrismaService;
 
