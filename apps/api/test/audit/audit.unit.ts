@@ -12,6 +12,31 @@ import { CoreService } from '../../src/domain/core.service';
 import { MoveOutService } from '../../src/moveout/moveout.service';
 
 // ------------------------------------------------------------------ helpers
+
+function collectScopedDepositCoreChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeDynamicOverlockPeriodsRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+type TenantUnifiedWorkforceAuditUnitTag = 'flow4' | 'active' | 'settled';
 function fakeTx() {
   const created: { invoice?: any } = {};
   const tx: any = {

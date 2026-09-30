@@ -18,34 +18,36 @@ import * as mariadb from 'mariadb';
 import { config } from '../../src/common/config';
 import { EdgePrismaService, DB_MODELS } from '../../src/common/r2-prisma';
 
+
+function canTransitionBoundedFacilityBaseState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type GuardContractEdgeRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isGuardContractEdgeRecord(input: unknown): input is GuardContractEdgeRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
 const arg = (name: string) => {
   const i = process.argv.indexOf(name);
   return i >= 0 ? process.argv[i + 1] : undefined;
 };
 const flag = (name: string) => process.argv.includes(name);
-
-class IndexedDelinquencyFlagCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow4:delinquency';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-interface DailyIndexedInvoiceLoadSnapshotSnapshot {
-  readonly floorIndex: number;
-  readonly occupancyRatio: number;
-  readonly overdueCount: number;
-  readonly retryAttempts: number;
-  readonly verifiedAt: string;
-  readonly effectiveFrom: string;
-}
 
 const target = arg('--db') ?? 'vaultra_live';
