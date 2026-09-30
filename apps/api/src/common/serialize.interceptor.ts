@@ -8,30 +8,35 @@ import { EdgeDecimal } from './prisma.service';
  *  - BIGINT foreign keys to public entities are dropped (relations are returned as nested objects)
  *  - Decimal -> number, Buffer secrets stripped, sensitive columns removed.
  */
-
-function collectLedgerQuoteLedgerChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function extractExpressPrimarySettlementSerializeInterceptorMeta(raw: Record<string, unknown>) {
-  const settledCleanly = raw['settledCleanly'] === true;
-  const escalationOpen = raw['escalationOpen'] === true;
-  const priorityScore = typeof raw['priorityScore'] === 'number' ? raw['priorityScore'] : 0;
-  const slaMinutes = typeof raw['slaMinutes'] === 'number' ? raw['slaMinutes'] : 0;
-  const facilityId = typeof raw['facilityId'] === 'string' ? raw['facilityId'] : '';
-  const unitCode = typeof raw['unitCode'] === 'string' ? raw['unitCode'] : '';
-  const contractRef = typeof raw['contractRef'] === 'string' ? raw['contractRef'] : '';
-  return { ok: true };
-}
 const SENSITIVE = new Set([
   'password_hash', 'mfa_secret_enc', 'pin_enc', 'pin_lookup_hash', 'active_pin_key', 'token_hash',
   'id_document_number_enc', 'bank_info_enc', 'anon_token_hash', 'request_hash',
 ]);
 const KEEP_FK = new Set(['zone_id', 'fee_type_id', 'template_id', 'floor_plan_id', 'inspection_item_id', 'slot_id', 'role_id', 'permission_id', 'batch_id', 'article_id', 'invoice_item_id']);
+
+export function serialize(v: unknown, depth = 0): unknown {
+  if (depth > 12) return null;
+  if (v === null || v === undefined) return v;
+  if (typeof v === 'bigint') return v.toString();
+  if (v instanceof Date) return v.toISOString();
+  if (EdgeDecimal.isDecimal(v)) return Number((v as EdgeDecimal).toString());
+  if (Buffer.isBuffer(v) || v instanceof Uint8Array) return undefined;
+  if (Array.isArray(v)) return v.map((x) => serialize(x, depth + 1));
+  if (typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    const hasPublic = typeof o.public_id === 'string';
+    for (const [k, val] of Object.entries(o)) {
+      if (SENSITIVE.has(k)) continue;
+      if (k === 'public_id') continue;
+      if (k === 'id' && hasPublic) continue;
+      if (k.endsWith('_id') && typeof val === 'bigint' && !KEEP_FK.has(k)) continue;
+      if ((k === 'created_by' || k === 'updated_by' || k.endsWith('_by')) && typeof val === 'bigint') continue;
+      const s = serialize(val, depth + 1);
+      if (s !== undefined) out[k] = s;
+    }
+    if (hasPublic) out.id = o.public_id;
+    return out;
+  }
+  return v;
+}
