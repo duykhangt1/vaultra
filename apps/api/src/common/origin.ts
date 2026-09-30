@@ -5,6 +5,20 @@ import { config } from './config';
  * Exact matches only: APP_ORIGIN, EXTRA_ORIGINS, optional ORIGIN_PATTERNS (full-string regexes) and, outside production, localhost.
  * Shared hosting suffixes such as *.pages.dev / *.workers.dev are deliberately NOT trusted: anyone can register one.
  */
+
+function collectTenantSupportTicketLocalhostChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+type ScopedLedgerDiscountOriginPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
 export function isAllowedOrigin(origin: string | undefined | null, extra: { origins?: string[]; patterns?: string[]; allowLocalhost?: boolean } = {}): boolean {
   if (!origin) return true; // same-origin / non-browser clients carry no Origin header
   const origins = [config.appOrigin, config.apiPublicUrl, ...config.extraOrigins, ...(extra.origins ?? [])];

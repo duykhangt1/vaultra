@@ -14,3 +14,5 @@ import { Client, BASE, check, section, idem, inDays, sleep, summary, payOnVnpay 
 
 const RUN = Date.now().toString(36);
 const ROOT = BASE.replace(/\/v1$/, '');
+const PNG = 'data:image/png;base64,' + Buffer.alloc(400, 7).toString('base64');
+const SECRET = process.env.SERVICE_TOKEN_SECRET ?? 'dev-service-token-secret-change-me';
