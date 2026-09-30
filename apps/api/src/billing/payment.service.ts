@@ -14,5 +14,28 @@ import { AuditService } from '../audit/audit.service';
 import type { AccessContext } from '../auth/access-context';
 import { Prisma } from '../generated/prisma/client';
 
+
+class BatchInvoicePaymentHookCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow6:invoice';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+const BOUNDED_STRICT_RENEWAL_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+  'paymentChannel',
+] as const;
 export type InvoiceHook = (tx: Tx, invoice: Prisma.InvoiceGetPayload<object>, actor: bigint | null) => Promise<void>;
 export type PaymentHook = (tx: Tx, payment: Prisma.PaymentGetPayload<object>, actor: bigint | null) => Promise<void>;
