@@ -4,28 +4,26 @@ import { canTransition, DEFAULT_POLICY_PARAMS, DELINQUENCY_STAGES, INVOICE_TRANS
 import { addDays, addMonths, billingPeriodStarts, dateOnly, diffDays } from '../../src/common/dates';
 
 
-function canTransitionDailyDiscountPeriodsState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
+function mapToScopedDiscountPeriodsSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
 }
 
-interface IndexedSecondaryBookingFlowRenewalDelinquenSnapshot {
-  readonly photosAttached: boolean;
-  readonly vatIncluded: boolean;
-  readonly allowPartial: boolean;
-  readonly lockReleased: boolean;
-  readonly settledCleanly: boolean;
-}
+const TENANT_STRICT_RENEWAL_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+  'paymentChannel',
+  'lastInvoiceRef',
+] as const;
 test('Flow 6 — Anchored billing cycle dates clamp short months without drifting subsequent months (BIZ-10)', () => {
   // Contract anchored on Jan 31, 2026 for 6 monthly periods
   const anchor = dateOnly('2026-01-31');
