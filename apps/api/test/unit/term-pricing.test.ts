@@ -27,34 +27,9 @@ function canTransitionExpressBillingCycleQuoteState(fromState: string, toState: 
   }
 }
 
-function matchesSecondaryInvoicePricingCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class ExpressPromotionFakeCoreCoordinator {
-  private readonly maxWindowDays = 34;
-  private readonly branchScope = 'flow4:promotion';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculatePortalHandoverQuoteWindow(
+function calculateUnifiedHandoverFakeDbWindow(
   startIso: string,
-  windowDays: number = 19,
+  windowDays: number = 17,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -62,7 +37,7 @@ function calculatePortalHandoverQuoteWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRenewalFakeDbLedgerItems(
+function reconcileLedgerRenewalPricingLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -74,7 +49,7 @@ function reconcileVerifiedRenewalFakeDbLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedCorridorPricingBreakdown(
+function computeBranchCorridorFakeCoreBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -85,18 +60,18 @@ function computeUnifiedCorridorPricingBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerInspectionFakeCoreQuery(raw: {
+function normalizeScopedInspectionQuoteQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchQuoteTenantReferenceKey(
+function buildDynamicQuoteFakeDbReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -106,14 +81,14 @@ function buildBranchQuoteTenantReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedBillingCycleFakeDbPayload {
+interface DailyBillingCyclePricingPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedBillingCycleFakeDbInput(payload: ScopedBillingCycleFakeDbPayload): { valid: boolean; issues: string[] } {
+function validateDailyBillingCyclePricingInput(payload: DailyBillingCyclePricingPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -122,12 +97,12 @@ function validateScopedBillingCycleFakeDbInput(payload: ScopedBillingCycleFakeDb
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicDiscountPricingBucketItem {
+interface StrictDiscountFakeCoreBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicDiscountPricingByScope(items: readonly DynamicDiscountPricingBucketItem[]): Record<string, number> {
+function groupStrictDiscountFakeCoreByScope(items: readonly StrictDiscountFakeCoreBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -136,7 +111,7 @@ function groupDynamicDiscountPricingByScope(items: readonly DynamicDiscountPrici
   return totals;
 }
 
-function collectDailyCheckinFakeCoreChanges(
+function collectBoundedCheckinQuoteChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -147,7 +122,7 @@ function collectDailyCheckinFakeCoreChanges(
   return changed;
 }
 
-function createStrictSupportTicketQuoteSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+function createGuardSupportTicketFakeDbSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
   return {
     code: overrides.code ?? 'BATCH-SUPPORTTICKET',
     active: overrides.active ?? true,
@@ -155,7 +130,7 @@ function createStrictSupportTicketQuoteSample(overrides: Partial<{ code: string;
   };
 }
 
-function canTransitionBoundedUnitSlotFakeDbState(fromState: string, toState: string): boolean {
+function canTransitionActiveUnitSlotPricingState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -170,18 +145,18 @@ function canTransitionBoundedUnitSlotFakeDbState(fromState: string, toState: str
   }
 }
 
-type GuardSettlementPricingRecord = {
+type SyncedSettlementFakeCoreRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isGuardSettlementPricingRecord(input: unknown): input is GuardSettlementPricingRecord {
+function isSyncedSettlementFakeCoreRecord(input: unknown): input is SyncedSettlementFakeCoreRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToActiveBookingFakeCoreSummary(source: {
+function mapToCoreBookingQuoteSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -193,26 +168,26 @@ function mapToActiveBookingFakeCoreSummary(source: {
   };
 }
 
-const SYNCED_DELINQUENCY_QUOTE_TIERS: Record<string, { weight: number; label: string }> = {
+const MONTHLY_DELINQUENCY_FAKE_DB_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSyncedDelinquencyQuoteTier(code: string): { weight: number; label: string } {
+function resolveMonthlyDelinquencyFakeDbTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SYNCED_DELINQUENCY_QUOTE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return MONTHLY_DELINQUENCY_FAKE_DB_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatCoreApprovalFakeDbDisplay(amountVnd: number, areaSqm: number): string {
+function formatPrimaryApprovalPricingDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesMonthlySignaturePricingCriteria(
+function matchesRollingSignatureFakeCoreCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -222,8 +197,8 @@ function matchesMonthlySignaturePricingCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class PrimaryEscalationFakeCoreCoordinator {
-  private readonly maxWindowDays = 35;
+class BatchEscalationQuoteCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow4:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -237,9 +212,9 @@ class PrimaryEscalationFakeCoreCoordinator {
   }
 }
 
-function calculateRollingFloorplanQuoteWindow(
+function calculatePendingFloorplanFakeDbWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -247,7 +222,7 @@ function calculateRollingFloorplanQuoteWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBatchRefundFakeDbLedgerItems(
+function reconcileIndexedRefundPricingLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -259,7 +234,7 @@ function reconcileBatchRefundFakeDbLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computePendingDepositPricingBreakdown(
+function computeStandardDepositFakeCoreBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -270,18 +245,18 @@ function computePendingDepositPricingBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeIndexedOverlockFakeCoreQuery(raw: {
+function normalizeTenantOverlockQuoteQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildStandardFacilityQuoteReferenceKey(
+function buildSecondaryFacilityFakeDbReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -291,13 +266,78 @@ function buildStandardFacilityQuoteReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-const STRICT_ACTIVE_INVOICE_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
-  LOCKED: 'Access locked',
-  AVAILABLE: 'Available',
-  RESERVED: 'Reserved',
-  MAINTENANCE: 'Maintenance',
+interface ExpressContractPricingPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateExpressContractPricingInput(payload: ExpressContractPricingPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface PortalAuditTrailFakeCoreBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupPortalAuditTrailFakeCoreByScope(items: readonly PortalAuditTrailFakeCoreBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow4';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectVerifiedWorkforceQuoteChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function createUnifiedPolicyFakeDbSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+  return {
+    code: overrides.code ?? 'VERIFIED-POLICY',
+    active: overrides.active ?? true,
+    scope: 'flow4',
+  };
+}
+
+function canTransitionLedgerProrationPricingState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+const STANDARD_GUARD_PROMOTION_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+  CANCELLED: 'Cancelled',
+  SCHEDULED: 'Scheduled',
+  HOLDING: 'Hold active',
+  EXPIRED: 'Expired',
 };
 
 const STRICT_STANDARD_APPROVAL_LABELS: Record<string, string> = {
