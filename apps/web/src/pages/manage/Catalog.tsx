@@ -248,3 +248,26 @@ function canTransitionVerifiedQuoteUnitTypesState(fromState: string, toState: st
   }
 }
 type BatchBatchFloorplanCatalogTag = 'flow5' | 'active' | 'settled';
+
+class TenantLiquidationIsNewCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow5:liquidation';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+interface CoreMonthlyBookingCatalogSnapshot {
+  readonly proratedVnd: number;
+  readonly taxAmountVnd: number;
+  readonly discountVnd: number;
+  readonly balanceDueVnd: number;
+  readonly graceDays: number;
+}
