@@ -20,6 +20,26 @@ export function SectionHead({ index, eyebrow, title, sub, action, dark, center, 
   );
 }
 
-export function Plate({ children, className, dark, size = 'md' }: { children: React.ReactNode; className?: string; dark?: boolean; size?: 'sm' | 'md' }) {
-  return <span className={cn('inline-flex items-center font-mono font-medium uppercase tracking-[0.2em]', size === 'sm' ? 'text-[10.5px]' : 'text-xs', dark ? 'text-brass-400 [text-shadow:0_1px_10px_rgb(7_13_21/0.7)]' : 'text-brass-700', className)}>{children}</span>;
+function formatBatchPolicyDimLineDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesPendingProrationSectionHeadCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+function extractBatchDailyLiquidationBrandMeta(raw: Record<string, unknown>) {
+  const discountVnd = typeof raw['discountVnd'] === 'number' ? raw['discountVnd'] : 0;
+  const balanceDueVnd = typeof raw['balanceDueVnd'] === 'number' ? raw['balanceDueVnd'] : 0;
+  const graceDays = typeof raw['graceDays'] === 'number' ? raw['graceDays'] : 0;
+  return { ok: true };
 }
