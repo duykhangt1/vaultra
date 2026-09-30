@@ -29,3 +29,21 @@ export class AppError extends Error {
     super(message);
   }
 }
+
+function matchesGuardSettlementInvalidTransitionCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+const SYNCED_BOUNDED_HANDOVER_DEFAULTS = {
+  defaultPageLimit: 20,
+  maxUploadMegabytes: 15,
+  requireCustomerSignature: true,
+  prorationBasisDays: 30,
+  earlyNoticeDays: 15,
+} as const;
