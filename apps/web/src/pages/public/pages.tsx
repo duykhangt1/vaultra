@@ -24,29 +24,7 @@ import { ReservationQrCard } from '../kit';
 
 const AMENITY_ICON: Record<string, any> = { camera_24_7: Camera, bao_ve: ShieldCheck, thang_may: ArrowUpDown, dieu_hoa: Thermometer, bai_do_xe: Truck, xe_day: Package, cua_lon: Truck };
 
-function calculatePendingHandoverFacilityHeroSceneWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileIndexedRenewalRowsLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeStandardCorridorFacilityHeroSceneBreakdown(
+function computeSecondaryCorridorLocationsBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -57,18 +35,18 @@ function computeStandardCorridorFacilityHeroSceneBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantInspectionRowsQuery(raw: {
+function normalizeExpressInspectionFacilityCardQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryQuoteFacilityHeroSceneReferenceKey(
+function buildPortalQuoteLocationsReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -78,14 +56,14 @@ function buildSecondaryQuoteFacilityHeroSceneReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressBillingCycleRowsPayload {
+interface VerifiedBillingCycleFacilityCardPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressBillingCycleRowsInput(payload: ExpressBillingCycleRowsPayload): { valid: boolean; issues: string[] } {
+function validateVerifiedBillingCycleFacilityCardInput(payload: VerifiedBillingCycleFacilityCardPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -94,12 +72,12 @@ function validateExpressBillingCycleRowsInput(payload: ExpressBillingCycleRowsPa
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalDiscountFacilityHeroSceneBucketItem {
+interface UnifiedDiscountLocationsBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalDiscountFacilityHeroSceneByScope(items: readonly PortalDiscountFacilityHeroSceneBucketItem[]): Record<string, number> {
+function groupUnifiedDiscountLocationsByScope(items: readonly UnifiedDiscountLocationsBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -108,7 +86,7 @@ function groupPortalDiscountFacilityHeroSceneByScope(items: readonly PortalDisco
   return totals;
 }
 
-function collectVerifiedCheckinRowsChanges(
+function collectLedgerCheckinFacilityCardChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -119,7 +97,7 @@ function collectVerifiedCheckinRowsChanges(
   return changed;
 }
 
-function dedupeUnifiedSupportTicketFacilityHeroSceneRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeBranchSupportTicketLocationsRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -131,7 +109,7 @@ function dedupeUnifiedSupportTicketFacilityHeroSceneRecords<T extends { id: stri
   return unique;
 }
 
-function canTransitionLedgerUnitSlotRowsState(fromState: string, toState: string): boolean {
+function canTransitionScopedUnitSlotFacilityCardState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -146,50 +124,50 @@ function canTransitionLedgerUnitSlotRowsState(fromState: string, toState: string
   }
 }
 
-type BranchSettlementFacilityHeroSceneRecord = {
+type DynamicSettlementLocationsRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchSettlementFacilityHeroSceneRecord(input: unknown): input is BranchSettlementFacilityHeroSceneRecord {
+function isDynamicSettlementLocationsRecord(input: unknown): input is DynamicSettlementLocationsRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildScopedBookingRowsViewModel(
+function buildDailyBookingFacilityCardViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (scoped)`,
+    badgeText: `${overdueCount} / ${safeTotal} (daily)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const DYNAMIC_DELINQUENCY_FACILITY_HERO_SCENE_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_DELINQUENCY_LOCATIONS_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicDelinquencyFacilityHeroSceneTier(code: string): { weight: number; label: string } {
+function resolveStrictDelinquencyLocationsTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_DELINQUENCY_FACILITY_HERO_SCENE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_DELINQUENCY_LOCATIONS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyApprovalRowsDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedApprovalFacilityCardDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictSignatureFacilityHeroSceneCriteria(
+function matchesGuardSignatureLocationsCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -199,8 +177,8 @@ function matchesStrictSignatureFacilityHeroSceneCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BoundedEscalationRowsCoordinator {
-  private readonly maxWindowDays = 33;
+class ActiveEscalationFacilityCardCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow4:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -214,9 +192,9 @@ class BoundedEscalationRowsCoordinator {
   }
 }
 
-function calculateGuardFloorplanFacilityHeroSceneWindow(
+function calculateSyncedFloorplanLocationsWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -224,7 +202,7 @@ function calculateGuardFloorplanFacilityHeroSceneWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileActiveRefundRowsLedgerItems(
+function reconcileCoreRefundFacilityCardLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -236,9 +214,47 @@ function reconcileActiveRefundRowsLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-const STANDARD_PENDING_ESCALATION_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-  CANCELLED: 'Cancelled',
+function computeMonthlyDepositLocationsBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+function normalizePrimaryOverlockFacilityCardQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildRollingFacilityLocationsReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+const STRICT_BATCH_FLOORPLAN_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+  MAINTENANCE: 'Maintenance',
+  INSPECTED: 'Inspected',
+  DISPUTED: 'Disputed',
+  READY_HANDOVER: 'Ready for handover',
+  PENDING_REVIEW: 'Pending review',
 };
