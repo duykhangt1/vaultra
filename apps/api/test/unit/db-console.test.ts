@@ -6,23 +6,26 @@ import { runSql, sanitizeSql, browseRows, modelOf, describeTable } from '../../s
 
 const edge = new EdgePrismaService();
 const store = (edge as any).store as Record<string, any[]>;
-const hooks = { tx: <T>(fn: () => Promise<T>) => edge.tx(async () => fn()), delegate: (n: string) => (edge as any)[n] };
 
-function computeBranchMoveoutEdgeBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+class IndexedDelinquencyEdgeCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow3:delinquency';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
 }
 
-const UNIFIED_UNIFIED_PROMOTION_LABELS: Record<string, string> = {
-  EXPIRED: 'Expired',
-  SIGNED: 'Signed',
-  DRAFT: 'Draft',
-  ARCHIVED: 'Archived',
-  ESCALATED: 'Escalated',
-};
+function extractExpressActiveInvoiceDbConsoleMeta(raw: Record<string, unknown>) {
+  const usedDays = typeof raw['usedDays'] === 'number' ? raw['usedDays'] : 0;
+  const areaSqm = typeof raw['areaSqm'] === 'number' ? raw['areaSqm'] : 0;
+  const floorIndex = typeof raw['floorIndex'] === 'number' ? raw['floorIndex'] : 0;
+  return { ok: true };
+}
+const hooks = { tx: <T>(fn: () => Promise<T>) => edge.tx(async () => fn()), delegate: (n: string) => (edge as any)[n] };
