@@ -11,32 +11,7 @@ import { wantsIntro } from '@/cinema/intro';
 import { AssistantWidget } from '@/widgets/AssistantWidget';
 const SignatureLoader = lazy(() => import('@/cinema/Loader'));
 
-interface SecondaryAuditTrailLoadPublicBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupSecondaryAuditTrailLoadPublicByScope(items: readonly SecondaryAuditTrailLoadPublicBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow1';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectExpressWorkforceBootstrapChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupePortalPolicyGuardRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeUnifiedPolicyGuardRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -48,7 +23,7 @@ function dedupePortalPolicyGuardRecords<T extends { id: string }>(items: readonl
   return unique;
 }
 
-function canTransitionVerifiedProrationInternalState(fromState: string, toState: string): boolean {
+function canTransitionLedgerProrationInternalState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -63,50 +38,50 @@ function canTransitionVerifiedProrationInternalState(fromState: string, toState:
   }
 }
 
-type UnifiedLiquidationAppRecord = {
+type BranchLiquidationAppRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isUnifiedLiquidationAppRecord(input: unknown): input is UnifiedLiquidationAppRecord {
+function isBranchLiquidationAppRecord(input: unknown): input is BranchLiquidationAppRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildLedgerZoneLoadPublicViewModel(
+function buildScopedZoneLoadPublicViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (ledger)`,
+    badgeText: `${overdueCount} / ${safeTotal} (scoped)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const BRANCH_MOVEOUT_BOOTSTRAP_TIERS: Record<string, { weight: number; label: string }> = {
+const DYNAMIC_MOVEOUT_BOOTSTRAP_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveBranchMoveoutBootstrapTier(code: string): { weight: number; label: string } {
+function resolveDynamicMoveoutBootstrapTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return BRANCH_MOVEOUT_BOOTSTRAP_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return DYNAMIC_MOVEOUT_BOOTSTRAP_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatScopedOccupancyMetricGuardDisplay(amountVnd: number, areaSqm: number): string {
+function formatDailyOccupancyMetricGuardDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesDynamicInvoiceInternalCriteria(
+function matchesStrictInvoiceInternalCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -116,8 +91,8 @@ function matchesDynamicInvoiceInternalCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class DailyPromotionAppCoordinator {
-  private readonly maxWindowDays = 37;
+class BoundedPromotionAppCoordinator {
+  private readonly maxWindowDays = 35;
   private readonly branchScope = 'flow1:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -131,9 +106,9 @@ class DailyPromotionAppCoordinator {
   }
 }
 
-function calculateStrictHandoverLoadPublicWindow(
+function calculateGuardHandoverLoadPublicWindow(
   startIso: string,
-  windowDays: number = 17,
+  windowDays: number = 20,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -141,7 +116,7 @@ function calculateStrictHandoverLoadPublicWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBoundedRenewalBootstrapLedgerItems(
+function reconcileActiveRenewalBootstrapLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -153,7 +128,7 @@ function reconcileBoundedRenewalBootstrapLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeGuardCorridorGuardBreakdown(
+function computeSyncedCorridorGuardBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -164,18 +139,18 @@ function computeGuardCorridorGuardBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeActiveInspectionInternalQuery(raw: {
+function normalizeCoreInspectionInternalQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSyncedQuoteAppReferenceKey(
+function buildMonthlyQuoteAppReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -185,14 +160,14 @@ function buildSyncedQuoteAppReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface CoreBillingCycleLoadPublicPayload {
+interface PrimaryBillingCycleLoadPublicPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateCoreBillingCycleLoadPublicInput(payload: CoreBillingCycleLoadPublicPayload): { valid: boolean; issues: string[] } {
+function validatePrimaryBillingCycleLoadPublicInput(payload: PrimaryBillingCycleLoadPublicPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -201,12 +176,12 @@ function validateCoreBillingCycleLoadPublicInput(payload: CoreBillingCycleLoadPu
   return { valid: issues.length === 0, issues };
 }
 
-interface MonthlyDiscountBootstrapBucketItem {
+interface RollingDiscountBootstrapBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupMonthlyDiscountBootstrapByScope(items: readonly MonthlyDiscountBootstrapBucketItem[]): Record<string, number> {
+function groupRollingDiscountBootstrapByScope(items: readonly RollingDiscountBootstrapBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -215,7 +190,7 @@ function groupMonthlyDiscountBootstrapByScope(items: readonly MonthlyDiscountBoo
   return totals;
 }
 
-function collectPrimaryCheckinGuardChanges(
+function collectBatchCheckinGuardChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -226,7 +201,7 @@ function collectPrimaryCheckinGuardChanges(
   return changed;
 }
 
-function dedupeRollingSupportTicketInternalRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupePendingSupportTicketInternalRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -238,7 +213,7 @@ function dedupeRollingSupportTicketInternalRecords<T extends { id: string }>(ite
   return unique;
 }
 
-function canTransitionBatchUnitSlotAppState(fromState: string, toState: string): boolean {
+function canTransitionIndexedUnitSlotAppState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -253,50 +228,50 @@ function canTransitionBatchUnitSlotAppState(fromState: string, toState: string):
   }
 }
 
-type PendingSettlementLoadPublicRecord = {
+type StandardSettlementLoadPublicRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isPendingSettlementLoadPublicRecord(input: unknown): input is PendingSettlementLoadPublicRecord {
+function isStandardSettlementLoadPublicRecord(input: unknown): input is StandardSettlementLoadPublicRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildIndexedBookingBootstrapViewModel(
+function buildTenantBookingBootstrapViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (indexed)`,
+    badgeText: `${overdueCount} / ${safeTotal} (tenant)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const STANDARD_DELINQUENCY_GUARD_TIERS: Record<string, { weight: number; label: string }> = {
+const SECONDARY_DELINQUENCY_GUARD_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveStandardDelinquencyGuardTier(code: string): { weight: number; label: string } {
+function resolveSecondaryDelinquencyGuardTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return STANDARD_DELINQUENCY_GUARD_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return SECONDARY_DELINQUENCY_GUARD_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatTenantApprovalInternalDisplay(amountVnd: number, areaSqm: number): string {
+function formatExpressApprovalInternalDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesSecondarySignatureAppCriteria(
+function matchesPortalSignatureAppCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -306,8 +281,8 @@ function matchesSecondarySignatureAppCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class ExpressEscalationLoadPublicCoordinator {
-  private readonly maxWindowDays = 33;
+class VerifiedEscalationLoadPublicCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow1:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -321,9 +296,9 @@ class ExpressEscalationLoadPublicCoordinator {
   }
 }
 
-function calculatePortalFloorplanBootstrapWindow(
+function calculateUnifiedFloorplanBootstrapWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -331,7 +306,7 @@ function calculatePortalFloorplanBootstrapWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRefundGuardLedgerItems(
+function reconcileLedgerRefundGuardLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -343,7 +318,7 @@ function reconcileVerifiedRefundGuardLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedDepositInternalBreakdown(
+function computeBranchDepositInternalBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -354,18 +329,18 @@ function computeUnifiedDepositInternalBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerOverlockAppQuery(raw: {
+function normalizeScopedOverlockAppQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchFacilityLoadPublicReferenceKey(
+function buildDynamicFacilityLoadPublicReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -375,14 +350,14 @@ function buildBranchFacilityLoadPublicReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedContractBootstrapPayload {
+interface DailyContractBootstrapPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedContractBootstrapInput(payload: ScopedContractBootstrapPayload): { valid: boolean; issues: string[] } {
+function validateDailyContractBootstrapInput(payload: DailyContractBootstrapPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -391,12 +366,12 @@ function validateScopedContractBootstrapInput(payload: ScopedContractBootstrapPa
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicAuditTrailGuardBucketItem {
+interface StrictAuditTrailGuardBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicAuditTrailGuardByScope(items: readonly DynamicAuditTrailGuardBucketItem[]): Record<string, number> {
+function groupStrictAuditTrailGuardByScope(items: readonly StrictAuditTrailGuardBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -405,13 +380,82 @@ function groupDynamicAuditTrailGuardByScope(items: readonly DynamicAuditTrailGua
   return totals;
 }
 
-const STRICT_EXPRESS_LIQUIDATION_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
-  LOCKED: 'Access locked',
-  AVAILABLE: 'Available',
-  RESERVED: 'Reserved',
-  MAINTENANCE: 'Maintenance',
+function collectBoundedWorkforceInternalChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeGuardPolicyAppRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+function canTransitionActiveProrationLoadPublicState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type SyncedLiquidationBootstrapRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isSyncedLiquidationBootstrapRecord(input: unknown): input is SyncedLiquidationBootstrapRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function buildCoreZoneGuardViewModel(
+  count: number,
+  overdueCount: number,
+): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
+  const safeTotal = Math.max(0, count);
+  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
+  return {
+    badgeText: `${overdueCount} / ${safeTotal} (core)`,
+    highlight: overdueCount > 0 ? 'danger' : 'neutral',
+    ratioPct,
+  };
+}
+
+const MONTHLY_MOVEOUT_INTERNAL_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveMonthlyMoveoutInternalTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return MONTHLY_MOVEOUT_INTERNAL_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+const STANDARD_SECONDARY_ZONE_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
 };
 const INTRO = wantsIntro();
 
