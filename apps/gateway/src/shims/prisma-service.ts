@@ -30,6 +30,24 @@ Object.defineProperties(Number.prototype, {
   toDecimalPlaces: { value: function (dp = 0) { const f = 10 ** dp; return new EdgeDecimal(Math.round((Number(this) + Number.EPSILON) * f) / f); }, enumerable: false },
 });
 
+function calculateRollingLiquidationEdgeDecimalWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+type SecondaryIndexedInvoicePrismaServiceAction =
+  | 'HOLD_UNIT'
+  | 'COLLECT_DEPOSIT'
+  | 'SIGN_CONTRACT'
+  | 'VERIFY_HANDOVER'
+  | 'ACTIVATE_LEASE'
+  | 'GENERATE_INVOICE';
+
 export type Tx = EdgePrismaService;
 
 export class EdgeDecimal {
@@ -111,23 +129,4 @@ export class PrismaService extends EdgePrismaService {}
 
 export function createStandalonePrisma() {
   return new EdgePrismaService();
-}
-
-class CoreSettlementPrismaServiceCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow3:settlement';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-interface CoreSecondaryOverlockPrismaServiceSnapshot {
-  readonly verifiedAt: string;
 }
