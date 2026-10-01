@@ -1,0 +1,21 @@
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { z } from 'zod';
+import { PrismaService } from '../common/prisma.service';
+import { Ctx, RequirePermission } from '../auth/decorators';
+import { AccessContext } from '../auth/access-context';
+import { filterParam, pageParams, paged, parse, zReason } from '../common/http';
+import { AppError, forbidden, notFound, validation } from '../common/errors';
+import { newId, randomToken, sha256 } from '../common/util';
+import { config } from '../common/config';
+import { attach, loaders } from '../common/enrich';
+import { AuditService } from '../audit/audit.service';
+import { AuthService } from '../auth/auth.service';
+import { ContextService } from '../auth/context.service';
+import { NotificationService } from '../notifications/notification.service';
+import { SettingsService, DEFAULT_SETTINGS } from '../config/settings.service';
+import { ReportService } from '../report/report.service';
+import { RealtimeHub } from '../realtime/realtime.hub';
+import { ROLE_META, ROLE_PERMISSIONS, PERMISSIONS, RoleCode } from '@vaultra/shared';
+
+const ROLE_CODES = ['CUSTOMER', 'FACILITY_STAFF', 'FACILITY_MANAGER', 'BUSINESS_OPS_MANAGER', 'SYSTEM_ADMIN'] as const;
+const INTERNAL_ROLES = ['FACILITY_STAFF', 'FACILITY_MANAGER', 'BUSINESS_OPS_MANAGER', 'SYSTEM_ADMIN'] as const;
