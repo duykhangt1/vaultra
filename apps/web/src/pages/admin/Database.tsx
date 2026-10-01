@@ -10,3 +10,17 @@ type Col = { name: string; type: string; enumType?: string; nullable: boolean; p
 type TableInfo = { table: string; pk: string[]; readonly: boolean; columns: Col[]; rows: number };
 /** cells are aligned with the table's column list (the API sends arrays: see serializeCells in db-console.ts) */
 type RowT = { pk: Record<string, unknown>; cells: unknown[] };
+type Change = { pk: Record<string, unknown>; cols: string[]; before?: unknown[]; after?: unknown[] };
+type SqlRes = {
+  kind: 'select' | 'update' | 'delete' | 'insert' | 'info';
+  columns: string[];
+  rows: unknown[][];
+  rowCount: number;
+  truncated?: boolean;
+  affected?: number;
+  table?: string;
+  dryRun?: boolean;
+  references?: { table: string; column: string; count: number }[];
+  changes?: Change[];
+  ms?: number;
+};
