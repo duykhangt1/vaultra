@@ -1,0 +1,22 @@
+import { Injectable, Logger } from '@nestjs/common';
+import * as crypto from 'crypto';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { ROLE_META, RoleCode, mergeGrants } from '@vaultra/shared';
+import { PrismaService, Tx } from '../common/prisma.service';
+import { AppError, validation } from '../common/errors';
+import { config } from '../common/config';
+import { isAllowedOrigin } from '../common/origin';
+import type { Req } from '../common/http';
+import { deviceLabel, hmac, newId, nextCustomerCode, randomToken, safeEqual, sha256 } from '../common/util';
+import { ClockService } from '../common/clock.service';
+import { fmtDateTime } from '../common/dates';
+import { AuditService } from '../audit/audit.service';
+import { NotificationService } from '../notifications/notification.service';
+import { SettingsService } from '../config/settings.service';
+import { JwtService } from './jwt.service';
+import { ContextService } from './context.service';
+import { RateLimiter } from './rate-limiter';
+import { EventsService } from '../common/events.service';
+
+const MIN_PASSWORD_FLOOR = 5;
+const COMMON_PASSWORDS = new Set(['12345678', '123456789', '11111111', 'password', 'password1', 'qwerty123', 'abc12345x', '00000000', 'iloveyou', 'admin123', '1234567890', '12345678910', 'password123', 'password1234', 'qwertyuiop', '1111111111', 'abc1234567', 'matkhau123', 'iloveyou123', 'admin12345', '0123456789', 'qwerty12345', 'vietnam123', 'asdfghjkl1']);
