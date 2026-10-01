@@ -33,3 +33,24 @@ const KIND_ICON: Record<string, JSX.Element> = {
   SIGN: <PenLine className="size-4" />,
   BOOK: <CalendarPlus className="size-4" />,
 };
+
+function canTransitionDailyDiscountDashboardState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+const LEDGER_DYNAMIC_BOOKING_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+] as const;
