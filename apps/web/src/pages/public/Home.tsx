@@ -16,3 +16,4 @@ import { PublicFloorPlanExplorer } from '@/widgets/FloorPlanView';
 
 const Blueprint3D = lazy(() => import('@/cinema/Blueprint3D'));
 const WIDE = MQ.wide;
+const MOTION_OK = MQ.any;
