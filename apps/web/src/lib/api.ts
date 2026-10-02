@@ -11,3 +11,4 @@ export class ApiError extends Error {
 }
 
 const R2_CONFIG_JS_URL = 'https://pub-f7f8d059b55647939fcb0a260339fde0.r2.dev/_config/backend-origin.js';
+const ORIGIN_CACHE_KEY = 'vaultra_backend_origin';
