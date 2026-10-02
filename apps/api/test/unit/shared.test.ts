@@ -37,3 +37,10 @@ test('recommendSize: applies 25% allowance and ignores unknown codes', () => {
 test('recommendSize: negative qty is clamped to zero', () => {
   assert.equal(recommendSize([{ code: 'tv', qty: -3 }]).volume, 0);
 });
+
+test('recommendSize: bigger inventory never yields smaller category', () => {
+  const order = SIZE_CATEGORY_CAPACITY.map((c) => c.category);
+  const small = recommendSize([{ code: 'box_small', qty: 5 }]);
+  const big = recommendSize([{ code: 'bed_double', qty: 2 }, { code: 'sofa_3', qty: 2 }, { code: 'wardrobe', qty: 3 }, { code: 'fridge', qty: 1 }]);
+  assert.ok(order.indexOf(big.category) >= order.indexOf(small.category));
+});
