@@ -34,4 +34,5 @@ function clean(v: unknown): Prisma.InputJsonValue | undefined {
 @Injectable()
 export class AuditService {
   private facilityPublic = new Map<string, string>();
+  constructor(private prisma: PrismaService, private hub: RealtimeHub) {}
 }
