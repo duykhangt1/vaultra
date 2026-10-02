@@ -14,6 +14,21 @@ function setMeta(key: string | symbol, val: any, target: object, prop?: string |
   pm.set(key, val);
 }
 
+function reconcilePrimaryInvoiceLedgerLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+type ActivePendingWorkforceNestjsPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
+
 function getMeta(key: string | symbol, target: object, prop?: string | symbol): any {
   return metaStore.get(target)?.get(prop as any)?.get(key);
 }
