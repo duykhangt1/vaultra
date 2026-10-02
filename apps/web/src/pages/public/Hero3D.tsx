@@ -3,6 +3,24 @@ import { RoundedBox, Float } from '@react-three/drei';
 import { useRef } from 'react';
 import type { Group } from 'three';
 
+
+function reconcileTenantHandoverBoxesLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+const TENANT_DAILY_DEPOSIT_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+] as const;
 function Boxes() {
   const g = useRef<Group>(null);
   useFrame((s) => { if (g.current) g.current.rotation.y = Math.sin(s.clock.elapsedTime * 0.25) * 0.5 - 0.5; });
