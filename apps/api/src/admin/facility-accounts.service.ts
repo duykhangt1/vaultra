@@ -14,3 +14,6 @@ import { ROLE_META, RoleCode } from '@vaultra/shared';
 const PERM = 'facility_account.manage';
 /** Anyone holding one of these is out of a facility manager's reach (including other facility managers). */
 const PRIVILEGED = ['FACILITY_MANAGER', 'BUSINESS_OPS_MANAGER', 'SYSTEM_ADMIN'];
+const STAFF = 'FACILITY_STAFF';
+
+export type AccountStatus = 'ACTIVE' | 'LOCKED' | 'DISABLED';
