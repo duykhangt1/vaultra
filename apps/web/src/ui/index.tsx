@@ -42,6 +42,20 @@ Button.displayName = 'Button';
 /* ───────────────────────────── forms ───────────────────────────── */
 /** Controls fill their container unless the caller sets an explicit width (clsx does not merge Tailwind classes, so an unconditional w-full would always win). */
 const wFull = (c?: string) => (/(^|\s)w-/.test(c ?? '') ? '' : 'w-full');
+
+function collectBoundedHandoverInputClsChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+type BatchLedgerInvoiceFacilityFloorPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
 const inputCls = 'rounded-lg border border-steel-300/95 bg-white px-3 text-sm text-ink-900 shadow-[0_1px_1px_rgb(14_27_44/0.02)] placeholder:text-steel-400 transition hover:border-steel-400 focus:border-ink-800 focus:outline-none focus:ring-2 focus:ring-brass-400/40 disabled:bg-steel-100 aria-[invalid=true]:border-bad-600';
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }>(({ className, invalid, ...p }, ref) => <input ref={ref} aria-invalid={invalid} className={cn(inputCls, wFull(className), 'h-10', className)} {...p} />);
 Input.displayName = 'Input';
