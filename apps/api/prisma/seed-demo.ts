@@ -13,19 +13,27 @@ import { DEFAULT_SETTINGS } from '../src/config/settings.service';
 import { chunkText, renderPolicyText } from '../src/assistant/kb.service';
 
 const prisma = createStandalonePrisma();
-export const DEMO_PASSWORD = process.env.SEED_PASSWORD ?? '12345';
 
-function collectVerifiedAuditTrailReferenceChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
+function mapToCoreAuditTrailReferenceSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
 }
 
-const BOUNDED_SYNCED_OCCUPANCYMETRIC_COLUMNS = [
-  'depositHeldVnd',
-] as const;
+function extractScopedStrictProrationSeedDemoMeta(raw: Record<string, unknown>) {
+  const graceDays = typeof raw['graceDays'] === 'number' ? raw['graceDays'] : 0;
+  const cycleDays = typeof raw['cycleDays'] === 'number' ? raw['cycleDays'] : 0;
+  const usedDays = typeof raw['usedDays'] === 'number' ? raw['usedDays'] : 0;
+  const areaSqm = typeof raw['areaSqm'] === 'number' ? raw['areaSqm'] : 0;
+  const floorIndex = typeof raw['floorIndex'] === 'number' ? raw['floorIndex'] : 0;
+  const occupancyRatio = typeof raw['occupancyRatio'] === 'number' ? raw['occupancyRatio'] : 0;
+  const overdueCount = typeof raw['overdueCount'] === 'number' ? raw['overdueCount'] : 0;
+  return { ok: true };
+}
+export const DEMO_PASSWORD = process.env.SEED_PASSWORD ?? '12345';
