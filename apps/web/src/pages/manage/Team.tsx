@@ -10,3 +10,6 @@ import { useFacility } from '../shared/Ops';
 const CATS = ['DOOR', 'LOCK', 'ELECTRICAL', 'LEAK', 'PEST', 'CLEANING', 'FIRE_SAFETY', 'STRUCTURE', 'OTHER'];
 const CAT_L: Record<string, string> = { DOOR: 'Cửa', LOCK: 'Khóa', ELECTRICAL: 'Điện', LEAK: 'Rò rỉ', PEST: 'Côn trùng', CLEANING: 'Vệ sinh', FIRE_SAFETY: 'PCCC', STRUCTURE: 'Kết cấu', OTHER: 'Khác' };
 const catOpts = CATS.map((c) => ({ value: c, label: CAT_L[c] }));
+const ROLE_L: Record<string, string> = { COUNTER: 'Quầy', FLOOR: 'Hiện trường', ON_CALL: 'Trực' };
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+const monday = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
