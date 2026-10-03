@@ -44,3 +44,21 @@ export const RESERVATION_INCLUDE = {
   appointments: { where: { status: { in: ['BOOKED' as const, 'ARRIVED' as const] } }, orderBy: { scheduled_start: 'asc' as const } },
   invoices: { select: { public_id: true, code: true, type: true, status: true, total: true, amount_paid: true, due_date: true } },
 };
+
+interface CoreQuoteInspectionSchemaPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateCoreQuoteInspectionSchemaInput(payload: CoreQuoteInspectionSchemaPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+type TenantTenantQuoteReservationTag = 'flow1' | 'active' | 'settled';
