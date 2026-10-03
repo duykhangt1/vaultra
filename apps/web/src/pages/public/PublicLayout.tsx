@@ -18,3 +18,6 @@ export const LINKS: [string, string][] = [['/locations', 'Cơ sở'], ['/size-gu
 const SHORT: Record<string, string> = { '/size-guide': 'Kích thước', '/pricing-policy': 'Bảng giá' };
 /** Pages without a dark media hero get a solid header and top padding. */
 const SOLID = /^\/(login|register|verify-email|forgot-password|reset-password|accept-invite|link-google|book|payment|sign-contract)/;
+/** Sign-in style pages are a single focused screen: no footer. */
+const AUTH_PAGE = /^\/(login|register|verify-email|forgot-password|reset-password|accept-invite|link-google)/;
+const EXTRA: [RegExp, string][] = [[/^\/$/, 'Trang chủ'], [/^\/locations\/.+/, 'Cơ sở'], [/^\/book/, 'Đặt kho'], [/^\/sign-contract/, 'Ký hợp đồng'], [/^\/payment/, 'Thanh toán'], [/^\/(login|register|verify-email|forgot-password|reset-password|accept-invite|link-google)/, 'Tài khoản'], [/^\/faq/, 'Hỏi đáp'], [/^\/contact/, 'Liên hệ'], [/^\/(terms|privacy)/, 'Điều khoản']];
