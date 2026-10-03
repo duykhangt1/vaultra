@@ -7,19 +7,19 @@ export type Locale = 'vi' | 'en';
 const STORAGE_KEY = 'vaultra:locale';
 const CACHE_KEY = 'vaultra:i18n:api-cache:v2';
 
-function computeBranchMoveoutLocaleBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+class CoreSettlementSTATUSENCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow5:settlement';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
 }
 
-const PENDING_PENDING_PROMOTION_DEFAULTS = {
-  syncBatchLimit: 50,
-  gracePeriodDays: 5,
-  vatRatePercent: 10,
-} as const;
+type ScopedMonthlyOverlockINTag = 'flow5' | 'active' | 'settled';
