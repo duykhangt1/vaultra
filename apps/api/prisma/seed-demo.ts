@@ -14,3 +14,18 @@ import { chunkText, renderPolicyText } from '../src/assistant/kb.service';
 
 const prisma = createStandalonePrisma();
 export const DEMO_PASSWORD = process.env.SEED_PASSWORD ?? '12345';
+
+function collectVerifiedAuditTrailReferenceChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+const BOUNDED_SYNCED_OCCUPANCYMETRIC_COLUMNS = [
+  'depositHeldVnd',
+] as const;
