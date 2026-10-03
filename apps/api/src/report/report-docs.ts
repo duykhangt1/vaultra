@@ -83,6 +83,51 @@ export const REPORT_DOCS: Record<string, Doc> = {
     },
     sums: ['current', 'd0_30', 'd31_60', 'd61_90', 'd90_plus', 'total'],
   },
+  delinquency: {
+    description: 'Các hợp đồng đang hoặc từng ở giai đoạn quá hạn, sắp theo số tiền còn nợ giảm dần. Là ảnh chụp ngay lúc xem.',
+    notes: [
+      'Ô "Hợp đồng đang quá hạn" chỉ đếm hợp đồng còn hiệu lực đang ở các giai đoạn từ Ân hạn đến Chờ xử lý vi phạm, khớp với thẻ cùng tên trên trang Tổng quan.',
+      'Hợp đồng đã chấm dứt vẫn hiện nếu còn nợ hoặc để đối chiếu lịch sử.',
+    ],
+    columns: {
+      facility: 'Cơ sở.',
+      contract: 'Mã hợp đồng.',
+      unit: 'Mã kho.',
+      customer: 'Khách thuê.',
+      contractStatus: 'Trạng thái hợp đồng: còn hiệu lực hay đã chấm dứt.',
+      stage: 'Giai đoạn xử lý nợ hiện tại. Hover vào từng giai đoạn ở trang Tổng quan để xem mỗi giai đoạn nghĩa là gì.',
+      daysOverdue: 'Số ngày từ ngày đến hạn của hóa đơn cũ nhất còn nợ đến hôm nay.',
+      debt: 'Tổng còn nợ của các hóa đơn chưa trả hết của hợp đồng.',
+      history: 'Các lần chuyển giai đoạn gần nhất, mới nhất ở đầu.',
+    },
+    sums: ['debt'],
+  },
+  renewals: {
+    description: 'Các hợp đồng sắp hết hạn trong khoảng đã chọn cộng thêm 60 ngày, kèm tình trạng đề nghị gia hạn, và tỷ lệ gia hạn của các kỳ thuê đã kết thúc.',
+    notes: [M['renewals.rate'], 'Bảng liệt kê cả hợp đồng sẽ hết hạn trong 60 ngày sau khoảng đã chọn để bạn kịp chốt gia hạn.'],
+    columns: {
+      facility: 'Cơ sở.',
+      contract: 'Mã hợp đồng.',
+      unit: 'Mã kho.',
+      customer: 'Khách thuê.',
+      end: 'Ngày cuối cùng của kỳ thuê hiện tại.',
+      offer: 'Tình trạng đề nghị gia hạn gần nhất gửi cho khách.',
+      rent: 'Giá thuê một tháng theo đề nghị gia hạn, hoặc giá hiện tại nếu chưa có đề nghị.',
+      autoRenew: 'Hợp đồng có bật tự động gia hạn hay không.',
+    },
+    sums: ['rent'],
+  },
+  cancellations: {
+    description: 'Các đặt chỗ bị hủy, khách không đến hoặc hết hạn giữ chỗ trong khoảng đã chọn, cùng tỷ lệ hủy và tỷ lệ chốt báo giá.',
+    notes: [M['cancel.rate'], M['cancel.conversion'], 'Bảng liệt kê các đặt chỗ kết thúc theo một trong ba cách trên trong khoảng ngày, kể cả đặt chỗ được tạo trước đó.'],
+    columns: { facility: 'Cơ sở.', code: 'Mã đơn đặt.', unitType: 'Loại kho khách đã chọn.', status: 'Cách kết thúc: đã hủy, khách không đến hoặc hết hạn giữ chỗ.', reason: 'Lý do khách hoặc nhân viên ghi khi hủy.', date: 'Ngày hủy, ngày xác định không đến hoặc ngày hết hạn giữ chỗ.' },
+  },
+  'move-activity': {
+    description: 'Số hợp đồng nhận kho và trả kho của từng cơ sở theo từng kỳ.',
+    notes: [M['move.in'], M['move.out'], M['move.net']],
+    columns: { period: 'Kỳ: theo tháng, ngày hoặc năm tùy mục "Nhóm theo".', facility: 'Cơ sở.', ins: M['move.in'], outs: M['move.out'], net: M['move.net'] },
+    sums: ['ins', 'outs', 'net'],
+  },
 };
 
 /** Adds the hover explanations and the "adds up" flags to a freshly built report. */
