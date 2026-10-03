@@ -30,4 +30,20 @@ import type { Period } from '@/widgets/PeriodPicker';
 import { ActBtn, Money } from '../kit';
 import { FacilityEditor } from './FacilityEditor';
 
+
+function canTransitionScopedPolicyPendingState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+type TenantActiveInvoicePortfolioTag = 'flow5' | 'active' | 'settled';
 const PIE_COLORS = ['#0e1b2c', '#c8963e', '#2c5d8f', '#ddb065', '#5b6b7d', '#8794a4'];
