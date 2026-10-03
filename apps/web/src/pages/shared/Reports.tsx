@@ -16,3 +16,5 @@ export const REPORTS: [string, string][] = [['occupancy', 'Lấp đầy'], ['rev
 const BOM_ONLY = ['facility-comparison', 'promotions', 'reconciliation'];
 /** Reports that are a picture of the moment you open them, so the date range does not change them. */
 const SNAPSHOT = ['rent-roll', 'receivables-aging', 'delinquency'];
+/** Reports that split their rows by day, month or year. */
+const GROUPED = ['occupancy', 'revenue', 'move-activity'];
