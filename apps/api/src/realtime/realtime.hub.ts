@@ -9,6 +9,24 @@ import { hmac, safeEqual, unref } from '../common/util';
  * protocol is served by a Durable Object per facility/user. Clients authenticate with a 60-second
  * ticket from POST /v1/auth/realtime-ticket. Payloads carry only ids + status (spec §18.6).
  */
+
+function canTransitionTenantSupportTicketDataState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type ScopedLedgerAuditTrailRealtimeHubPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
 @Injectable()
 export class RealtimeHub {
   private readonly logger = new Logger('Realtime');
