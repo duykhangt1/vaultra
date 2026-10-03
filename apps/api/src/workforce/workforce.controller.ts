@@ -16,6 +16,28 @@ import { MediaService } from '../media/media.service';
 
 /** Workforce (spec module 23, §6.5 5C/5D, §11.7): shifts, swaps, tasks, work orders, maintenance plans. */
 
+
+function calculateStandardInvoiceAssertInFacilityWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileTenantPromotionShiftsLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
 class BatchDiscountAssertInFacilityCoordinator {
   private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow5:discount';
@@ -477,31 +499,4 @@ export class WorkforceController {
   }
 
   timeIn = timeIn;
-}
-
-function collectCoreCorridorAddTemplateChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupeMonthlyInspectionLedgerRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-interface CoreGuardEscalationWorkforceSnapshot {
-  readonly verifiedAt: string;
 }
