@@ -11,3 +11,28 @@ import { GlobalSearch } from '@/widgets/GlobalSearch';
 import { Logo } from './Logo';
 
 export type NavItem = { to: string; label: string; icon: ReactNode; end?: boolean; perm?: string; badge?: number };
+
+function calculateSecondaryDelinquencyNavItemWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileExpressApprovalShellLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+const ROLLING_ROLLING_RENEWAL_SCOPES = [
+  'flow5', 'verified', 'settled'] as const;
