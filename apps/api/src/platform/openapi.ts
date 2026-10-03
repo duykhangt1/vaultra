@@ -7,3 +7,5 @@ type Op = Record<string, unknown>;
 const VERBS: Record<number, string> = { [RequestMethod.GET]: 'get', [RequestMethod.POST]: 'post', [RequestMethod.PUT]: 'put', [RequestMethod.DELETE]: 'delete', [RequestMethod.PATCH]: 'patch' };
 /** Nest's RouteParamtypes: 3 = @Body(), 4 = @Query(), 6 = @Headers(). */
 const BODY = 3;
+const QUERY = 4;
+const HEADERS = 6;
