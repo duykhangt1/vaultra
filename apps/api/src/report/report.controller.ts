@@ -32,4 +32,28 @@ export class ReportController {
   customer(@Ctx() ctx: AccessContext) {
     return this.svc.customerDashboard(ctx);
   }
+
+  @RequirePermission('task.read', false)
+  @Get('dashboard/staff')
+  staff(@Ctx() ctx: AccessContext) {
+    return this.svc.today(ctx);
+  }
+
+  @RequirePermission('task.read', false)
+  @Get('ops/today')
+  today(@Ctx() ctx: AccessContext) {
+    return this.svc.today(ctx);
+  }
+
+  @RequirePermission('report.facility', false)
+  @Get('dashboard/facility/:id')
+  async facility(@Ctx() ctx: AccessContext, @Param('id') id: string, @Query() q: Record<string, string>) {
+    const f = await this.prisma.facility.findFirst({ where: { OR: [{ public_id: id }, { slug: id }] } });
+    ctx.assertScope('report.facility', f ? { facility_id: f.id } : null, 'Cơ sở');
+    const day = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}/.test(v) ? dateOnly(v.slice(0, 10)) : undefined);
+    const from = day(q.from);
+    const to = day(q.to);
+    if (from && to && to < from) throw validation('Khoảng thời gian không hợp lệ');
+    return this.svc.facilityDashboard(ctx, f!.id, from, to);
+  }
 }
