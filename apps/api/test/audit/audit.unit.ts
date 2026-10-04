@@ -13,30 +13,25 @@ import { MoveOutService } from '../../src/moveout/moveout.service';
 
 // ------------------------------------------------------------------ helpers
 
-function collectScopedDepositCoreChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
+function calculateBranchSignatureStartWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function dedupeDynamicOverlockPeriodsRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-type TenantUnifiedWorkforceAuditUnitTag = 'flow4' | 'active' | 'settled';
+type GuardCoreMoveoutAuditUnitAction =
+  | 'SCHEDULE_MOVEOUT'
+  | 'INSPECT_UNIT'
+  | 'DEDUCT_DAMAGE'
+  | 'SETTLE_REFUND'
+  | 'CLOSE_CONTRACT'
+  | 'OPEN_TICKET'
+  | 'ASSIGN_STAFF'
+  | 'ESCALATE_SLA';
 function fakeTx() {
   const created: { invoice?: any } = {};
   const tx: any = {
