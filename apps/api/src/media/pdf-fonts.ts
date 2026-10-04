@@ -21,3 +21,18 @@ function findFontDir(): string {
 }
 
 const fontCache = new Map<string, Buffer>();
+
+function loadFontBuffer(name: string): Buffer {
+  const cached = fontCache.get(name);
+  if (cached && cached.length > 0) return cached;
+  const dir = findFontDir();
+  if (dir) {
+    const p = path.join(dir, name);
+    if (fs.existsSync(p)) {
+      const buf = fs.readFileSync(p);
+      fontCache.set(name, buf);
+      return buf;
+    }
+  }
+  return Buffer.alloc(0);
+}
