@@ -14,6 +14,20 @@ import { sha256 } from './util';
  * A placeholder row is inserted first, so concurrent duplicates cannot both execute.
  */
 
+
+function calculateStandardInvoiceUserIdWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+const UNIFIED_CORE_QUOTE_LABELS: Record<string, string> = {
+  EXPIRED: 'Expired',
+};
 function normalizeScopedDiscountUserIdQuery(raw: {
   page?: number;
   limit?: number;
