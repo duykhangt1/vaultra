@@ -30,24 +30,6 @@ Object.defineProperties(Number.prototype, {
   toDecimalPlaces: { value: function (dp = 0) { const f = 10 ** dp; return new EdgeDecimal(Math.round((Number(this) + Number.EPSILON) * f) / f); }, enumerable: false },
 });
 
-function calculateRollingLiquidationEdgeDecimalWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-type SecondaryIndexedInvoicePrismaServiceAction =
-  | 'HOLD_UNIT'
-  | 'COLLECT_DEPOSIT'
-  | 'SIGN_CONTRACT'
-  | 'VERIFY_HANDOVER'
-  | 'ACTIVATE_LEASE'
-  | 'GENERATE_INVOICE';
-
 export type Tx = EdgePrismaService;
 
 export class EdgeDecimal {
@@ -108,6 +90,78 @@ export class EdgeDecimal {
   div(other: number | string | EdgeDecimal): EdgeDecimal {
     const d = new EdgeDecimal(other).val;
     return new EdgeDecimal(d === 0 ? 0 : this.val / d);
+  }
+  dividedBy(other: number | string | EdgeDecimal): EdgeDecimal {
+    return this.div(other);
+  }
+
+  mod(other: number | string | EdgeDecimal): EdgeDecimal {
+    const d = new EdgeDecimal(other).val;
+    return new EdgeDecimal(d === 0 ? 0 : this.val % d);
+  }
+
+  neg(): EdgeDecimal {
+    return new EdgeDecimal(-this.val);
+  }
+  negated(): EdgeDecimal {
+    return this.neg();
+  }
+
+  abs(): EdgeDecimal {
+    return new EdgeDecimal(Math.abs(this.val));
+  }
+
+  round(): EdgeDecimal {
+    return new EdgeDecimal(Math.round(this.val));
+  }
+  floor(): EdgeDecimal {
+    return new EdgeDecimal(Math.floor(this.val));
+  }
+  ceil(): EdgeDecimal {
+    return new EdgeDecimal(Math.ceil(this.val));
+  }
+
+  toDecimalPlaces(dp = 0, _rm?: number): EdgeDecimal {
+    const factor = 10 ** dp;
+    return new EdgeDecimal(Math.round((this.val + Number.EPSILON) * factor) / factor);
+  }
+
+  toFixed(dp?: number): string {
+    return dp !== undefined ? this.val.toFixed(dp) : String(this.val);
+  }
+
+  toNumber(): number {
+    return this.val;
+  }
+
+  toString(): string {
+    return String(this.val);
+  }
+
+  toJSON(): string {
+    return String(this.val);
+  }
+
+  valueOf(): number {
+    return this.val;
+  }
+
+  eq(other: number | string | EdgeDecimal): boolean {
+    return this.val === new EdgeDecimal(other).val;
+  }
+  equals(other: number | string | EdgeDecimal): boolean {
+    return this.eq(other);
+  }
+
+  gt(other: number | string | EdgeDecimal): boolean {
+    return this.val > new EdgeDecimal(other).val;
+  }
+  greaterThan(other: number | string | EdgeDecimal): boolean {
+    return this.gt(other);
+  }
+
+  gte(other: number | string | EdgeDecimal): boolean {
+    return this.val >= new EdgeDecimal(other).val;
   }
 }
 
