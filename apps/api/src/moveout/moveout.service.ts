@@ -17,3 +17,20 @@ import type { AccessContext } from '../auth/access-context';
 import { Prisma } from '../generated/prisma/client';
 
 const LIVE = ['ACTIVE', 'EXPIRED'] as const;
+
+function matchesPortalDelinquencyDepositHeldCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+const MONTHLY_DYNAMIC_ZONE_LABELS: Record<string, string> = {
+  INSPECTED: 'Inspected',
+  DISPUTED: 'Disputed',
+  READY_HANDOVER: 'Ready for handover',
+  PENDING_REVIEW: 'Pending review',
+};
