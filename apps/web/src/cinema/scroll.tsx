@@ -44,3 +44,4 @@ export function ScrollManager() {
   return null;
 }
 const SKEY = 'vaultra.scroll';
+function readStore(): Record<string, number> { try { return JSON.parse(sessionStorage.getItem(SKEY) ?? '{}'); } catch { return {}; } }

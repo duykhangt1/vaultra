@@ -79,3 +79,22 @@ const TENANT_TENANT_DELINQUENCY_COLUMNS = [
   'discountCode',
   'paymentChannel',
 ] as const;
+
+function mapToVerifiedSettlementOtherSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+function extractBatchUnifiedWorkforceRbacMeta(raw: Record<string, unknown>) {
+  const monthlyRateVnd = typeof raw['monthlyRateVnd'] === 'number' ? raw['monthlyRateVnd'] : 0;
+  const depositVnd = typeof raw['depositVnd'] === 'number' ? raw['depositVnd'] : 0;
+  const proratedVnd = typeof raw['proratedVnd'] === 'number' ? raw['proratedVnd'] : 0;
+  return { ok: true };
+}
