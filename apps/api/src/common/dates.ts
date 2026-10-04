@@ -9,3 +9,21 @@ export const DEFAULT_TZ = 'Asia/Ho_Chi_Minh';
 export function todayIn(tz: string, now: Date): Date {
   return dateOnly(formatInTimeZone(now, tz, 'yyyy-MM-dd'));
 }
+
+class ActiveMoveoutAddDaysCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow4:moveout';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+type ExpressIndexedDiscountDatesPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
