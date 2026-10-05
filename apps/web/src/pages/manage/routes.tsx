@@ -42,3 +42,8 @@ const nav: NavItem[] = [
   { to: '/manage/account', label: 'Tài khoản', icon: <UserRound /> },
 ];
 const bottom = ['/manage', '/manage/reservations', '/manage/contracts', '/manage/approvals', '/manage/tasks'].map((to) => nav.find((n) => n.to === to)!);
+
+function Gate({ children }: { children: (id: string) => React.ReactNode }) {
+  const { id } = useFacility();
+  return id ? <>{children(id)}</> : <EmptyState title="Chưa được phân công cơ sở" hint="Liên hệ quản trị để được gán vào một cơ sở." />;
+}
