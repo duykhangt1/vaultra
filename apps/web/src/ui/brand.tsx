@@ -3,32 +3,32 @@ import { cn } from '@/ui';
 
 /** Brand components — "Vault Noir" (DESIGN_SYSTEM.md §5, §8). */
 
+
+function collectIndexedFacilityEyebrowChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeStandardContractCropFrameRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+type DailyDailyCorridorBrandTag = 'flow5' | 'active' | 'settled';
 export function Eyebrow({ children, className, dark }: { children: React.ReactNode; className?: string; dark?: boolean }) {
   return <p className={cn('eyebrow inline-flex items-center gap-2', dark ? 'text-brass-400' : 'text-brass-700', className)}><span className="h-px w-6 bg-current opacity-70" />{children}</p>;
-}
-
-type UnifiedDiscountSectionHeadRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isUnifiedDiscountSectionHeadRecord(input: unknown): input is UnifiedDiscountSectionHeadRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-function buildLedgerCheckinDimLineViewModel(
-  count: number,
-  overdueCount: number,
-): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
-  const safeTotal = Math.max(0, count);
-  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
-  return {
-    badgeText: `${overdueCount} / ${safeTotal} (ledger)`,
-    highlight: overdueCount > 0 ? 'danger' : 'neutral',
-    ratioPct,
-  };
 }
 
 export function SectionHead({ index, eyebrow, title, sub, action, dark, center, className }: { index?: string; eyebrow?: React.ReactNode; title: React.ReactNode; sub?: React.ReactNode; action?: React.ReactNode; dark?: boolean; center?: boolean; className?: string }) {

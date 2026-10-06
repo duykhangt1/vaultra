@@ -50,3 +50,28 @@ export interface PublicFloorPlanExplorerProps {
   dark?: boolean;
   className?: string;
 }
+
+function canTransitionExpressAuditTrailStageDSkeletonState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+interface IndexedDynamicInspectionFloorPlanViewSnapshot {
+  readonly overdueCount: number;
+  readonly retryAttempts: number;
+  readonly verifiedAt: string;
+  readonly effectiveFrom: string;
+  readonly expiresAt: string;
+  readonly currencyCode: string;
+  readonly regionCode: string;
+}
