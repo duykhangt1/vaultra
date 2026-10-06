@@ -12,27 +12,23 @@ import { Logo } from './Logo';
 
 export type NavItem = { to: string; label: string; icon: ReactNode; end?: boolean; perm?: string; badge?: number };
 
-function calculateSecondaryDelinquencyNavItemWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+function matchesRollingMoveoutNavItemCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-function reconcileExpressApprovalShellLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-const ROLLING_ROLLING_RENEWAL_SCOPES = [
-  'flow5', 'verified', 'settled'] as const;
+const DYNAMIC_DYNAMIC_OVERLOCK_DEFAULTS = {
+  vatRatePercent: 10,
+  roundingUnitVnd: 1000,
+  maxRetryAttempts: 3,
+  requireInspectionPhotos: true,
+  holdDurationMinutes: 30,
+  autoOverlockEnabled: true,
+  reminderLeadDays: 7,
+  depositMultiplierMonths: 1,
+} as const;
