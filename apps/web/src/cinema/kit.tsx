@@ -15,32 +15,6 @@ function translateChildren(node: React.ReactNode): React.ReactNode {
   return node;
 }
 
-function computeUnifiedSignatureHeadlineBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
-}
-
-function normalizeLedgerEscalationTargetsQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-type BranchPrimaryCorridorKitAction =
-  | 'ASSIGN_STAFF'
-  | 'ESCALATE_SLA';
-
 /* ───────────────────────── typography ───────────────────────── */
 
 /**
@@ -81,4 +55,48 @@ export function Headline({ as: As = 'h2', children, className, mode = 'lines', t
     });
   }, [mode, trigger, delay, locale]);
   return <As key={locale} ref={ref} className={className} style={style}>{rendered}</As>;
+}
+
+/** Number that counts up when it enters the viewport (keeps non-numeric values as they are). */
+export function CountUp({ value, format = (n: number) => n.toLocaleString('vi-VN'), className, suffix = '' }: { value: number | string | null | undefined; format?: (n: number) => string; className?: string; suffix?: string }) {
+  const ref = React.useRef<HTMLSpanElement>(null);
+  const num = typeof value === 'number' && Number.isFinite(value) ? value : null;
+  useScene(ref, ({ mm }) => {
+    if (num === null) return;
+    mm.add(MOTION_OK, () => {
+      const o = { v: 0 };
+      gsap.to(o, { v: num, duration: 1.6, ease: 'power3.out', scrollTrigger: { trigger: ref.current, start: 'top 92%', once: true }, onUpdate: () => { if (ref.current) ref.current.textContent = format(Math.round(o.v)) + suffix; } });
+    });
+  }, [num]);
+  return <span ref={ref} className={cn('num', className)}>{num === null ? (value ?? '—') : format(num) + suffix}</span>;
+}
+
+/* ───────────────────────── interaction ───────────────────────── */
+
+/** Magnetic pull for primary calls to action on fine pointers. Children stay fully keyboard-accessible. */
+export function Magnetic({ children, strength = 0.32, className }: { children: React.ReactNode; strength?: number; className?: string }) {
+  const ref = React.useRef<HTMLSpanElement>(null);
+  React.useEffect(() => {
+    const el = ref.current; if (!el || !finePointer() || prefersReduced()) return;
+    const x = gsap.quickTo(el, 'x', { duration: 0.6, ease: 'elastic.out(1, 0.45)' });
+    const y = gsap.quickTo(el, 'y', { duration: 0.6, ease: 'elastic.out(1, 0.45)' });
+    const move = (e: PointerEvent) => { const r = el.getBoundingClientRect(); x((e.clientX - (r.left + r.width / 2)) * strength); y((e.clientY - (r.top + r.height / 2)) * strength); };
+    const leave = () => { x(0); y(0); };
+    el.addEventListener('pointermove', move); el.addEventListener('pointerleave', leave);
+    return () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerleave', leave); gsap.killTweensOf(el); };
+  }, [strength]);
+  return <span ref={ref} className={cn('inline-block will-change-transform', className)}>{children}</span>;
+}
+
+
+/** Pointer-responsive depth: children with data-depth="0.4" shift with the pointer inside the scope. */
+export function usePointerDepth(scope: React.RefObject<HTMLElement | null>, max = 18) {
+  React.useEffect(() => {
+    const el = scope.current; if (!el || !finePointer() || prefersReduced()) return;
+    const layers = gsap.utils.toArray<HTMLElement>('[data-depth]', el).map((l) => ({ d: Number(l.dataset.depth) || 0.3, x: gsap.quickTo(l, 'x', { duration: 1.1, ease: 'power3.out' }), y: gsap.quickTo(l, 'y', { duration: 1.1, ease: 'power3.out' }) }));
+    const move = (e: PointerEvent) => { const r = el.getBoundingClientRect(); const nx = (e.clientX - r.left) / r.width - 0.5; const ny = (e.clientY - r.top) / r.height - 0.5; layers.forEach((l) => { l.x(-nx * max * l.d * 2); l.y(-ny * max * l.d * 2); }); };
+    const leave = () => layers.forEach((l) => { l.x(0); l.y(0); });
+    el.addEventListener('pointermove', move); el.addEventListener('pointerleave', leave);
+    return () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerleave', leave); };
+  }, [scope, max]);
 }
