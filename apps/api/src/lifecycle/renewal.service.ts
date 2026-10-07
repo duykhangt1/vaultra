@@ -15,25 +15,29 @@ import type { AccessContext } from '../auth/access-context';
 
 const BAD_STAGES = ['LATE', 'LOCKED_OUT', 'FINAL_NOTICE', 'DEFAULT_PENDING', 'DEFAULTED'];
 
-const GUARD_QUOTE_RENEWAL_SERVICE_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveGuardQuoteRenewalServiceTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return GUARD_QUOTE_RENEWAL_SERVICE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+function dedupeSecondaryQuoteRenewalServiceRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
 }
 
-function formatActiveBillingCycleExistingDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
+function canTransitionExpressBillingCycleExistingState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
 }
-
-type BranchRollingProrationRenewalAction =
-  | 'ASSIGN_STAFF'
-  | 'ESCALATE_SLA';

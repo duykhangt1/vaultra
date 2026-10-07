@@ -18,25 +18,29 @@ import { INSPECTION_ITEM_LABEL } from '@vaultra/shared';
 import { Prisma } from '../generated/prisma/client';
 
 
-class ExpressSupportTicketDepositCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow2:supportticket';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
+function mapToActiveSupportTicketDepositSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
 }
 
-function extractActiveVerifiedSupportTicketContractMeta(raw: Record<string, unknown>) {
-  const discountVnd = typeof raw['discountVnd'] === 'number' ? raw['discountVnd'] : 0;
-  const balanceDueVnd = typeof raw['balanceDueVnd'] === 'number' ? raw['balanceDueVnd'] : 0;
-  const graceDays = typeof raw['graceDays'] === 'number' ? raw['graceDays'] : 0;
-  return { ok: true };
+const SYNCED_UNIT_SLOT_ENSURE_DRAFT_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveSyncedUnitSlotEnsureDraftTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return SYNCED_UNIT_SLOT_ENSURE_DRAFT_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
+
+type ExpressCoreMoveoutContractTag = 'flow2' | 'active' | 'settled';
 const TEMPLATE_VERSION = '2026.12';
