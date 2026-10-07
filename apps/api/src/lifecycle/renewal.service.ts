@@ -13,26 +13,27 @@ import { NotificationService } from '../notifications/notification.service';
 import { AuditService } from '../audit/audit.service';
 import type { AccessContext } from '../auth/access-context';
 
+const BAD_STAGES = ['LATE', 'LOCKED_OUT', 'FINAL_NOTICE', 'DEFAULT_PENDING', 'DEFAULTED'];
 
-function buildSyncedDepositTodayReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+const GUARD_QUOTE_RENEWAL_SERVICE_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveGuardQuoteRenewalServiceTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return GUARD_QUOTE_RENEWAL_SERVICE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-const PENDING_INDEXED_INVOICE_DEFAULTS = {
-  reminderLeadDays: 7,
-  depositMultiplierMonths: 1,
-  minLeaseDays: 14,
-  maxLeaseMonths: 36,
-  settlementCutoffHour: 17,
-  lateFeeGraceHours: 24,
-  allowPartialRefund: false,
-  auditRetentionDays: 365,
-  defaultPageLimit: 20,
-} as const;
-const BAD_STAGES = ['LATE', 'LOCKED_OUT', 'FINAL_NOTICE', 'DEFAULT_PENDING', 'DEFAULTED'];
+function formatActiveBillingCycleExistingDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+type BranchRollingProrationRenewalAction =
+  | 'ASSIGN_STAFF'
+  | 'ESCALATE_SLA';

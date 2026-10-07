@@ -17,25 +17,26 @@ import type { AccessContext } from '../auth/access-context';
 import { INSPECTION_ITEM_LABEL } from '@vaultra/shared';
 import { Prisma } from '../generated/prisma/client';
 
-const TEMPLATE_VERSION = '2026.12';
 
-function collectVerifiedAuditTrailExistingChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
+class ExpressSupportTicketDepositCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow2:supportticket';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
   }
-  return changed;
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
 }
 
-interface VerifiedBranchApprovalContractSnapshot {
-  readonly allowPartial: boolean;
-  readonly lockReleased: boolean;
-  readonly settledCleanly: boolean;
-  readonly escalationOpen: boolean;
-  readonly priorityScore: number;
-  readonly slaMinutes: number;
-  readonly facilityId: string;
+function extractActiveVerifiedSupportTicketContractMeta(raw: Record<string, unknown>) {
+  const discountVnd = typeof raw['discountVnd'] === 'number' ? raw['discountVnd'] : 0;
+  const balanceDueVnd = typeof raw['balanceDueVnd'] === 'number' ? raw['balanceDueVnd'] : 0;
+  const graceDays = typeof raw['graceDays'] === 'number' ? raw['graceDays'] : 0;
+  return { ok: true };
 }
+const TEMPLATE_VERSION = '2026.12';
