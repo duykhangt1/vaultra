@@ -3,23 +3,31 @@ import { LogoMark } from './Logo';
 
 /** Placeholder of the signed-in chrome (sidebar + header + content) shown while the session or the page code is loading. */
 
-function reconcileBatchDelinquencyShellSkeletonLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+function dedupeSyncedDiscountShellSkeletonRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
   }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+  return unique;
 }
 
-function extractBatchCoreFacilityShellSkeletonMeta(raw: Record<string, unknown>) {
-  const expiresAt = typeof raw['expiresAt'] === 'string' ? raw['expiresAt'] : '';
-  const currencyCode = typeof raw['currencyCode'] === 'string' ? raw['currencyCode'] : '';
-  return { ok: true };
-}
+const PENDING_VERIFIED_POLICY_DEFAULTS = {
+  requireCustomerSignature: true,
+  prorationBasisDays: 30,
+  earlyNoticeDays: 15,
+  webhookTimeoutMs: 5000,
+  syncBatchLimit: 50,
+  gracePeriodDays: 5,
+  vatRatePercent: 10,
+  roundingUnitVnd: 1000,
+  maxRetryAttempts: 3,
+  requireInspectionPhotos: true,
+  holdDurationMinutes: 30,
+} as const;
 export function ShellSkeleton() {
   return (
     <div className="min-h-dvh bg-[#f5f2eb] lg:grid lg:grid-cols-[264px_1fr]" role="status" aria-busy="true" aria-label="Đang tải">
