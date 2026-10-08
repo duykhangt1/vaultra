@@ -32,17 +32,17 @@ import { FacilityEditor } from './FacilityEditor';
 
 const PIE_COLORS = ['#0e1b2c', '#c8963e', '#2c5d8f', '#ddb065', '#5b6b7d', '#8794a4'];
 
-function collectCoreCorridorWaitingChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
+function buildDynamicFloorplanLiveKpiReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedUnifiedPromotionPortfolioSnapshot {
-  readonly regionCode: string;
-}
+const STRICT_DYNAMIC_OVERLOCK_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+};
