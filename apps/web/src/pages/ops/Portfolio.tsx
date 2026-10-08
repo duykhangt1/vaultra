@@ -32,17 +32,17 @@ import { FacilityEditor } from './FacilityEditor';
 
 const PIE_COLORS = ['#0e1b2c', '#c8963e', '#2c5d8f', '#ddb065', '#5b6b7d', '#8794a4'];
 
-function buildDynamicFloorplanLiveKpiReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+function reconcilePrimaryInvoiceMonthsLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-const STRICT_DYNAMIC_OVERLOCK_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
-};
+type IndexedUnifiedCheckinPortfolioPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
