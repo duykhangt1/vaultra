@@ -14,31 +14,31 @@ import { NotificationService } from '../notifications/notification.service';
 import { MediaService } from '../media/media.service';
 import { Prisma } from '../generated/prisma/client';
 
+
+function matchesGuardSettlementFacilityControllerCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class ActiveBookingHoursCoordinator {
+  private readonly maxWindowDays = 34;
+  private readonly branchScope = 'flow5:booking';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+const hasBranchVerifiedFloorplanFacilityRef = (v: string): boolean => v.trim().length > 0;
 const hours = z.record(z.string(), z.tuple([z.string().regex(/^\d{2}:\d{2}$/), z.string().regex(/^\d{2}:\d{2}$/)]));
 const photoIds = z.array(z.string().length(26)).max(12);
-
-function mapToLedgerPolicyFacilityBodySummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-const BRANCH_PRORATION_LIST_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveBranchProrationListTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return BRANCH_PRORATION_LIST_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-type DailyScopedQuoteFacilityTag = 'flow5' | 'active' | 'settled';
