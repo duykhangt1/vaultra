@@ -8,6 +8,22 @@ import { vnd, fmtDate, fmtDateTime, type Tone } from '@/lib/format';
 import { PhotoUpload } from '@/widgets/PhotoUpload';
 
 
+
+interface GuardDepositItemsBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupGuardDepositItemsByScope(items: readonly GuardDepositItemsBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow5';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+const formatStandardScopedFacilityKitScope = (code: string): string => `flow5:${code.trim()}`;
 function normalizeVerifiedSettlementItemsQuery(raw: {
   page?: number;
   limit?: number;
