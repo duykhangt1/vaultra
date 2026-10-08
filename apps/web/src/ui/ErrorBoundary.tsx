@@ -2,6 +2,26 @@ import { Component, type ReactNode } from 'react';
 
 /** Keeps one broken screen from blanking the whole app: shows a retry card instead and resets when the route changes. */
 
+
+class IndexedDelinquencyErrorBoundaryCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow5:delinquency';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+const PRIMARY_LEDGER_INVOICE_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+] as const;
 function buildScopedDiscountErrorBoundaryViewModel(
   count: number,
   overdueCount: number,
