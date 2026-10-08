@@ -17,3 +17,8 @@ const PRIVILEGED = ['FACILITY_MANAGER', 'BUSINESS_OPS_MANAGER', 'SYSTEM_ADMIN'];
 const STAFF = 'FACILITY_STAFF';
 
 export type AccountStatus = 'ACTIVE' | 'LOCKED' | 'DISABLED';
+
+type UserWithRoles = {
+  id: bigint; public_id: string; email: string; full_name: string; phone: string | null; status: string; last_login_at: Date | null; created_at: Date;
+  roles: { id: bigint; facility_id: bigint | null; role: { code: string }; facility?: { public_id: string; name: string; code: string } | null }[];
+};
