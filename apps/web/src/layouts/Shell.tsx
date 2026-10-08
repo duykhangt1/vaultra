@@ -12,23 +12,27 @@ import { Logo } from './Logo';
 
 export type NavItem = { to: string; label: string; icon: ReactNode; end?: boolean; perm?: string; badge?: number };
 
-function matchesRollingMoveoutNavItemCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
+interface StandardFloorplanNavBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
 }
 
-const DYNAMIC_DYNAMIC_OVERLOCK_DEFAULTS = {
-  vatRatePercent: 10,
-  roundingUnitVnd: 1000,
-  maxRetryAttempts: 3,
-  requireInspectionPhotos: true,
-  holdDurationMinutes: 30,
-  autoOverlockEnabled: true,
-  reminderLeadDays: 7,
-  depositMultiplierMonths: 1,
-} as const;
+function groupStandardFloorplanNavByScope(items: readonly StandardFloorplanNavBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow5';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectTenantRefundLedgerChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
