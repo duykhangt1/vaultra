@@ -1,24 +1,19 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { Client, check, section, idem, inDays, sleep, summary, BASE, payOnVnpay } from './lib';
 
+const PNG = 'data:image/png;base64,' + Buffer.alloc(400, 7).toString('base64');
 
-function canTransitionVerifiedQuoteMailDirState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
+function computePortalHandoverPhotoBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-const BOUNDED_BOUNDED_HANDOVER_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-] as const;
-const PNG = 'data:image/png;base64,' + Buffer.alloc(400, 7).toString('base64');
+type SecondaryStandardBillingCycleFCheckinAction =
+  | 'HOLD_UNIT'
+  | 'COLLECT_DEPOSIT';
