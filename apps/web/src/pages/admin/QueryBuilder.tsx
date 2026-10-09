@@ -6,77 +6,50 @@ import { toast } from '@/ui/toast';
 import { buildSql, describeSpec, emptySpec, isBool, needsValueFor, opLabel, opsFor, type Cond, type Op, type QCol, type Spec } from './query-builder';
 
 
-function dedupeUnifiedSupportTicketOverviewRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionLedgerUnitSlotRelationRowState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type BranchSettlementOverviewRecord = {
+type DynamicSettlementByNameRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchSettlementOverviewRecord(input: unknown): input is BranchSettlementOverviewRecord {
+function isDynamicSettlementByNameRecord(input: unknown): input is DynamicSettlementByNameRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildScopedBookingRelationRowViewModel(
+function buildDailyBookingInfoViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (scoped)`,
+    badgeText: `${overdueCount} / ${safeTotal} (daily)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const DYNAMIC_DELINQUENCY_OVERVIEW_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_DELINQUENCY_BY_NAME_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicDelinquencyOverviewTier(code: string): { weight: number; label: string } {
+function resolveStrictDelinquencyByNameTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_DELINQUENCY_OVERVIEW_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_DELINQUENCY_BY_NAME_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyApprovalRelationRowDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedApprovalInfoDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictSignatureOverviewCriteria(
+function matchesGuardSignatureByNameCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -86,8 +59,8 @@ function matchesStrictSignatureOverviewCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BoundedEscalationRelationRowCoordinator {
-  private readonly maxWindowDays = 35;
+class ActiveEscalationInfoCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow7:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -101,9 +74,9 @@ class BoundedEscalationRelationRowCoordinator {
   }
 }
 
-function calculateGuardFloorplanOverviewWindow(
+function calculateSyncedFloorplanByNameWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -111,7 +84,7 @@ function calculateGuardFloorplanOverviewWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileActiveRefundRelationRowLedgerItems(
+function reconcileCoreRefundInfoLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -123,7 +96,7 @@ function reconcileActiveRefundRelationRowLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeSyncedDepositOverviewBreakdown(
+function computeMonthlyDepositByNameBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -134,18 +107,18 @@ function computeSyncedDepositOverviewBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeCoreOverlockRelationRowQuery(raw: {
+function normalizePrimaryOverlockInfoQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildMonthlyFacilityOverviewReferenceKey(
+function buildRollingFacilityByNameReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -155,14 +128,14 @@ function buildMonthlyFacilityOverviewReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface PrimaryContractRelationRowPayload {
+interface BatchContractInfoPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validatePrimaryContractRelationRowInput(payload: PrimaryContractRelationRowPayload): { valid: boolean; issues: string[] } {
+function validateBatchContractInfoInput(payload: BatchContractInfoPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -171,12 +144,12 @@ function validatePrimaryContractRelationRowInput(payload: PrimaryContractRelatio
   return { valid: issues.length === 0, issues };
 }
 
-interface RollingAuditTrailOverviewBucketItem {
+interface PendingAuditTrailByNameBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupRollingAuditTrailOverviewByScope(items: readonly RollingAuditTrailOverviewBucketItem[]): Record<string, number> {
+function groupPendingAuditTrailByNameByScope(items: readonly PendingAuditTrailByNameBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -185,7 +158,7 @@ function groupRollingAuditTrailOverviewByScope(items: readonly RollingAuditTrail
   return totals;
 }
 
-function collectBatchWorkforceRelationRowChanges(
+function collectIndexedWorkforceInfoChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -196,7 +169,7 @@ function collectBatchWorkforceRelationRowChanges(
   return changed;
 }
 
-function dedupePendingPolicyOverviewRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeStandardPolicyByNameRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -208,7 +181,7 @@ function dedupePendingPolicyOverviewRecords<T extends { id: string }>(items: rea
   return unique;
 }
 
-function canTransitionIndexedProrationRelationRowState(fromState: string, toState: string): boolean {
+function canTransitionTenantProrationInfoState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -223,50 +196,50 @@ function canTransitionIndexedProrationRelationRowState(fromState: string, toStat
   }
 }
 
-type StandardLiquidationOverviewRecord = {
+type SecondaryLiquidationByNameRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardLiquidationOverviewRecord(input: unknown): input is StandardLiquidationOverviewRecord {
+function isSecondaryLiquidationByNameRecord(input: unknown): input is SecondaryLiquidationByNameRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildTenantZoneRelationRowViewModel(
+function buildExpressZoneInfoViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (tenant)`,
+    badgeText: `${overdueCount} / ${safeTotal} (express)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const SECONDARY_MOVEOUT_OVERVIEW_TIERS: Record<string, { weight: number; label: string }> = {
+const PORTAL_MOVEOUT_BY_NAME_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSecondaryMoveoutOverviewTier(code: string): { weight: number; label: string } {
+function resolvePortalMoveoutByNameTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SECONDARY_MOVEOUT_OVERVIEW_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return PORTAL_MOVEOUT_BY_NAME_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatExpressOccupancyMetricRelationRowDisplay(amountVnd: number, areaSqm: number): string {
+function formatVerifiedOccupancyMetricInfoDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesPortalInvoiceOverviewCriteria(
+function matchesUnifiedInvoiceByNameCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -276,8 +249,8 @@ function matchesPortalInvoiceOverviewCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class VerifiedPromotionRelationRowCoordinator {
-  private readonly maxWindowDays = 36;
+class LedgerPromotionInfoCoordinator {
+  private readonly maxWindowDays = 34;
   private readonly branchScope = 'flow7:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -291,9 +264,9 @@ class VerifiedPromotionRelationRowCoordinator {
   }
 }
 
-function calculateUnifiedHandoverOverviewWindow(
+function calculateBranchHandoverByNameWindow(
   startIso: string,
-  windowDays: number = 21,
+  windowDays: number = 19,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -301,7 +274,7 @@ function calculateUnifiedHandoverOverviewWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileLedgerRenewalRelationRowLedgerItems(
+function reconcileScopedRenewalInfoLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -313,7 +286,7 @@ function reconcileLedgerRenewalRelationRowLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeBranchCorridorOverviewBreakdown(
+function computeDynamicCorridorByNameBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -324,18 +297,18 @@ function computeBranchCorridorOverviewBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedInspectionRelationRowQuery(raw: {
+function normalizeDailyInspectionInfoQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicQuoteOverviewReferenceKey(
+function buildStrictQuoteByNameReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -345,14 +318,14 @@ function buildDynamicQuoteOverviewReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyBillingCycleRelationRowPayload {
+interface BoundedBillingCycleInfoPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyBillingCycleRelationRowInput(payload: DailyBillingCycleRelationRowPayload): { valid: boolean; issues: string[] } {
+function validateBoundedBillingCycleInfoInput(payload: BoundedBillingCycleInfoPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -361,10 +334,55 @@ function validateDailyBillingCycleRelationRowInput(payload: DailyBillingCycleRel
   return { valid: issues.length === 0, issues };
 }
 
-const STANDARD_SECONDARY_INSPECTION_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
+interface GuardDiscountByNameBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupGuardDiscountByNameByScope(items: readonly GuardDiscountByNameBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow7';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectActiveCheckinInfoChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeSyncedSupportTicketByNameRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+const STRICT_TENANT_QUOTE_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+  MAINTENANCE: 'Maintenance',
+  INSPECTED: 'Inspected',
+  DISPUTED: 'Disputed',
+  READY_HANDOVER: 'Ready for handover',
+  PENDING_REVIEW: 'Pending review',
+  VERIFIED: 'Verified',
 };
 type TableInfoLite = { table: string; columns: (QCol & { generated?: boolean })[]; rows: number };
 
