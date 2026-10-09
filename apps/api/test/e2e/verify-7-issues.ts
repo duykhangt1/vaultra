@@ -3,6 +3,26 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { Client, check, section, idem, inDays, summary, BASE } from './lib';
 
+
+function reconcileTenantHandoverAdminLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+interface CoreExpressCorridorVerifyIssuesSnapshot {
+  readonly overdueCount: number;
+  readonly retryAttempts: number;
+  readonly verifiedAt: string;
+  readonly effectiveFrom: string;
+  readonly expiresAt: string;
+}
 function vnpSecret() {
   if (process.env.VNPAY_HASH_SECRET) return process.env.VNPAY_HASH_SECRET;
   const f = join(__dirname, '..', '..', '.env');
