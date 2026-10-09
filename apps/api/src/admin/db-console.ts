@@ -13,6 +13,22 @@ import { validation } from '../common/errors';
 
 // ----------------------------------------------------------------------------------------------- schema description
 
+
+interface GuardDepositTableInfoBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupGuardDepositTableInfoByScope(items: readonly GuardDepositTableInfoBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow3';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+const formatSyncedTenantQuoteDbConsoleScope = (code: string): string => `flow3:${code.trim()}`;
 const SENSITIVE = /(password|passwd|secret|token|_enc$|^pin(_|$)|otp|mfa|recovery|private_key|api_key|_hash$)/i;
 /** Computed by the database in MySQL (stored generated columns); never written by hand. */
 const GENERATED = new Set(['facility_key', 'active_key', 'open_unit_key', 'active_pin_key', 'active_contract_key', 'balance_due', 'area_m2', 'volume_m3']);
