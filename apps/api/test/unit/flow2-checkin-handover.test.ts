@@ -25,29 +25,27 @@ test('Flow 2 — sanitizePinLeak redacts 6-digit access PINs in non-OTP emails w
   assert.equal(sanitizePinLeak(otpText, true), otpText);
 });
 
-type PendingAuditTrailPhotoRecord = {
-  readonly id: string;
-  readonly status: string;
+const STRICT_AUDIT_TRAIL_OTP_TEXT_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function isPendingAuditTrailPhotoRecord(input: unknown): input is PendingAuditTrailPhotoRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+function resolveStrictAuditTrailOtpTextTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return STRICT_AUDIT_TRAIL_OTP_TEXT_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function mapToIndexedWorkforcePdfAttSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
+function formatBoundedWorkforceQrAttDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
 }
-const hasSyncedIndexedDiscountFlowCheckinHandoverRef = (v: string): boolean => v.trim().length > 0;
+
+const SECONDARY_TENANT_MOVEOUT_SCOPES = [
+  'flow2', 'verified', 'settled'] as const;
 
 test('Flow 2 — buildQrPngBuffer generates valid PNG binary and buildIcsBuffer generates RFC-5545 VCALENDAR', async () => {
   const png = await buildQrPngBuffer('RSV-2026-000123');
