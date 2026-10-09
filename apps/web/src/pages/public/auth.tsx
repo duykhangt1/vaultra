@@ -28,3 +28,12 @@ type AuthMode = 'login' | 'register' | 'recovery';
 
 const safeReturn = (r: string | null) => (r && r.startsWith('/') && !r.startsWith('//') ? r : null);
 const pwHint = 'Tối thiểu 5 ký tự.';
+
+const OAUTH_ERR_MSG: Record<string, string> = {
+  OAUTH_STATE: 'Phiên xác thực Google đã hết hạn hoặc không hợp lệ. Vui lòng thử lại.',
+  OAUTH_ERROR: 'Không thể kết nối xác thực với Google. Vui lòng thử lại.',
+  OAUTH_CANCELLED: 'Bạn đã hủy đăng nhập bằng Google.',
+  OAUTH_EMAIL_UNVERIFIED: 'Email Google của bạn chưa được xác minh.',
+  ACCOUNT_LOCKED: 'Tài khoản này đang bị khóa hoặc vô hiệu hóa.',
+  GOOGLE_DISABLED_FOR_INTERNAL: 'Tài khoản nội bộ không được phép đăng nhập qua Google.',
+};
