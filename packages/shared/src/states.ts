@@ -44,3 +44,72 @@ export const CONTRACT_TRANSITIONS: Machine = {
 };
 
 export const DELINQUENCY_STAGES = ['CURRENT', 'GRACE', 'LATE', 'LOCKED_OUT', 'FINAL_NOTICE', 'DEFAULT_PENDING', 'DEFAULTED'] as const;
+export type DelinquencyStage = (typeof DELINQUENCY_STAGES)[number];
+
+export const INVOICE_TRANSITIONS: Machine = {
+  DRAFT: ['ISSUED'],
+  ISSUED: ['PARTIALLY_PAID', 'PAID', 'VOID', 'WRITTEN_OFF'],
+  PARTIALLY_PAID: ['PAID', 'WRITTEN_OFF'],
+  PAID: ['REFUNDED', 'PARTIALLY_REFUNDED'],
+  PARTIALLY_REFUNDED: ['REFUNDED'],
+  VOID: [],
+  WRITTEN_OFF: [],
+  REFUNDED: [],
+};
+
+export const TICKET_TRANSITIONS: Machine = {
+  NEW: ['ASSIGNED', 'IN_PROGRESS', 'CANCELLED'],
+  ASSIGNED: ['IN_PROGRESS', 'ASSIGNED', 'CANCELLED', 'NEW'],
+  IN_PROGRESS: ['WAITING_CUSTOMER', 'RESOLVED', 'CANCELLED', 'ASSIGNED'],
+  WAITING_CUSTOMER: ['IN_PROGRESS', 'RESOLVED', 'CANCELLED'],
+  RESOLVED: ['CLOSED', 'REOPENED'],
+  REOPENED: ['IN_PROGRESS', 'ASSIGNED', 'CANCELLED'],
+  CLOSED: [],
+  CANCELLED: [],
+};
+
+export const TASK_TRANSITIONS: Machine = {
+  OPEN: ['ASSIGNED', 'CANCELLED', 'IN_PROGRESS'],
+  ASSIGNED: ['IN_PROGRESS', 'ASSIGNED', 'OPEN', 'CANCELLED'],
+  IN_PROGRESS: ['DONE', 'BLOCKED', 'CANCELLED'],
+  BLOCKED: ['IN_PROGRESS', 'CANCELLED'],
+  DONE: [],
+  CANCELLED: [],
+};
+
+export const WORK_ORDER_TRANSITIONS: Machine = {
+  REPORTED: ['APPROVED', 'CANCELLED'],
+  APPROVED: ['SCHEDULED', 'IN_PROGRESS', 'CANCELLED'],
+  SCHEDULED: ['IN_PROGRESS', 'CANCELLED'],
+  IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
+  COMPLETED: ['VERIFIED', 'IN_PROGRESS'],
+  VERIFIED: [],
+  CANCELLED: [],
+};
+
+export const REFUND_TRANSITIONS: Machine = {
+  PENDING_APPROVAL: ['APPROVED', 'REJECTED'],
+  APPROVED: ['PROCESSING'],
+  PROCESSING: ['SUCCEEDED', 'FAILED'],
+  FAILED: ['PROCESSING', 'MANUAL_REQUIRED'],
+  MANUAL_REQUIRED: ['SUCCEEDED'],
+  SUCCEEDED: [],
+  REJECTED: [],
+};
+
+export function canTransition(machine: Machine, from: string, to: string): boolean {
+  return (machine[from] ?? []).includes(to);
+}
+
+export const UNIT_STATUS_LABEL: Record<string, string> = {
+  AVAILABLE: 'Trống',
+  RESERVED: 'Đã giữ',
+  OCCUPIED: 'Đang thuê',
+  OVERLOCKED: 'Khóa chặn',
+  PENDING_INSPECTION: 'Chờ kiểm tra',
+  MAINTENANCE: 'Bảo trì',
+  OUT_OF_SERVICE: 'Ngừng sử dụng',
+  RETIRED: 'Đã loại bỏ',
+};
+
+export const TICKET_CATEGORIES = ['ACCESS_CODE', 'LOCK_KEY', 'UNIT_DAMAGE', 'STORED_ITEMS', 'PAYMENT', 'CONTRACT', 'OTHER'] as const;
