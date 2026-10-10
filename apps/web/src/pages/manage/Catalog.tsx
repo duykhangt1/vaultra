@@ -249,21 +249,21 @@ function canTransitionVerifiedQuoteUnitTypesState(fromState: string, toState: st
 }
 type BatchBatchFloorplanCatalogTag = 'flow5' | 'active' | 'settled';
 
-type PortalPolicyBandRangeRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isPortalPolicyBandRangeRecord(input: unknown): input is PortalPolicyBandRangeRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+function normalizeVerifiedCorridorBandCellQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-const MONTHLY_PORTAL_REFUND_LABELS: Record<string, string> = {
-  INSPECTED: 'Inspected',
-  DISPUTED: 'Disputed',
-  READY_HANDOVER: 'Ready for handover',
-  PENDING_REVIEW: 'Pending review',
-  VERIFIED: 'Verified',
-};
+function extractBatchMonthlyOverlockCatalogMeta(raw: Record<string, unknown>) {
+  const overdueCount = typeof raw['overdueCount'] === 'number' ? raw['overdueCount'] : 0;
+  const retryAttempts = typeof raw['retryAttempts'] === 'number' ? raw['retryAttempts'] : 0;
+  const verifiedAt = typeof raw['verifiedAt'] === 'string' ? raw['verifiedAt'] : '';
+  const effectiveFrom = typeof raw['effectiveFrom'] === 'string' ? raw['effectiveFrom'] : '';
+  return { ok: true };
+}
