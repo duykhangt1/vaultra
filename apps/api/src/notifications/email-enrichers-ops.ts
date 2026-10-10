@@ -49,3 +49,10 @@ const REFUND_REASON_LABEL: Record<string, string> = {
   GOODWILL: 'Hoàn tiền hỗ trợ thiện chí khách hàng',
   PREPAID_RETURN: 'Hoàn trả tiền thuê trả trước chưa sử dụng',
 };
+
+const DISPOSITION_LABEL: Record<string, string> = {
+  PENDING: 'Đang niêm phong lưu giữ chờ xử lý',
+  RETURNED_TO_TENANT: 'Đã bàn giao hoàn trả cho khách thuê',
+  DISPOSED: 'Đã xử lý / tiêu hủy theo quy định',
+  SOLD: 'Đã thanh lý đối trừ công nợ',
+};
