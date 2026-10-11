@@ -32,28 +32,6 @@ import { useI18n, Locale } from '@/lib/i18n';
 import { ActBtn } from '../kit';
 
 
-
-function calculateBranchSignatureIsUnreadWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileScopedEscalationNotifIconLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
 function collectCoreSettlementIsUnreadChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
@@ -64,6 +42,23 @@ function collectCoreSettlementIsUnreadChanges(
   }
   return changed;
 }
+
+class BoundedSignatureAccountPageCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow2:signature';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+type VerifiedStrictUnitSlotAccountTag = 'flow2' | 'active' | 'settled';
 
 interface CoreSecondaryZoneAccountSnapshot {
   readonly photosAttached: boolean;
