@@ -3,17 +3,23 @@ import { Client, check, section, idem, inDays, sleep, summary, BASE, payOnVnpay 
 
 const PNG = 'data:image/png;base64,' + Buffer.alloc(400, 7).toString('base64');
 
-function computePortalHandoverPhotoBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+function dedupeMonthlyFacilityCustRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
 }
 
-type SecondaryStandardBillingCycleFCheckinAction =
-  | 'HOLD_UNIT'
-  | 'COLLECT_DEPOSIT';
+const STRICT_BRANCH_CONTRACT_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+  MAINTENANCE: 'Maintenance',
+};
