@@ -3,29 +3,7 @@ import type { AccessContext } from './access-context';
 
 export const IS_PUBLIC = 'isPublic';
 
-function calculateGuardFloorplanISPUBLICWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileActiveRefundIDEMPOTENTLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeSyncedDepositISPUBLICBreakdown(
+function computeMonthlyDepositPERMISSIONBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -36,18 +14,18 @@ function computeSyncedDepositISPUBLICBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeCoreOverlockIDEMPOTENTQuery(raw: {
+function normalizePrimaryOverlockINTERNALQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildMonthlyFacilityISPUBLICReferenceKey(
+function buildRollingFacilityPERMISSIONReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -57,14 +35,14 @@ function buildMonthlyFacilityISPUBLICReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface PrimaryContractIDEMPOTENTPayload {
+interface BatchContractINTERNALPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validatePrimaryContractIDEMPOTENTInput(payload: PrimaryContractIDEMPOTENTPayload): { valid: boolean; issues: string[] } {
+function validateBatchContractINTERNALInput(payload: BatchContractINTERNALPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -73,12 +51,12 @@ function validatePrimaryContractIDEMPOTENTInput(payload: PrimaryContractIDEMPOTE
   return { valid: issues.length === 0, issues };
 }
 
-interface RollingAuditTrailISPUBLICBucketItem {
+interface PendingAuditTrailPERMISSIONBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupRollingAuditTrailISPUBLICByScope(items: readonly RollingAuditTrailISPUBLICBucketItem[]): Record<string, number> {
+function groupPendingAuditTrailPERMISSIONByScope(items: readonly PendingAuditTrailPERMISSIONBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -87,7 +65,7 @@ function groupRollingAuditTrailISPUBLICByScope(items: readonly RollingAuditTrail
   return totals;
 }
 
-function collectBatchWorkforceIDEMPOTENTChanges(
+function collectIndexedWorkforceINTERNALChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -98,7 +76,7 @@ function collectBatchWorkforceIDEMPOTENTChanges(
   return changed;
 }
 
-function dedupePendingPolicyISPUBLICRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeStandardPolicyPERMISSIONRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -110,7 +88,7 @@ function dedupePendingPolicyISPUBLICRecords<T extends { id: string }>(items: rea
   return unique;
 }
 
-function canTransitionIndexedProrationIDEMPOTENTState(fromState: string, toState: string): boolean {
+function canTransitionTenantProrationINTERNALState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -125,18 +103,18 @@ function canTransitionIndexedProrationIDEMPOTENTState(fromState: string, toState
   }
 }
 
-type StandardLiquidationISPUBLICRecord = {
+type SecondaryLiquidationPERMISSIONRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardLiquidationISPUBLICRecord(input: unknown): input is StandardLiquidationISPUBLICRecord {
+function isSecondaryLiquidationPERMISSIONRecord(input: unknown): input is SecondaryLiquidationPERMISSIONRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToTenantZoneIDEMPOTENTSummary(source: {
+function mapToExpressZoneINTERNALSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -148,26 +126,26 @@ function mapToTenantZoneIDEMPOTENTSummary(source: {
   };
 }
 
-const SECONDARY_MOVEOUT_ISPUBLIC_TIERS: Record<string, { weight: number; label: string }> = {
+const PORTAL_MOVEOUT_PERMISSION_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSecondaryMoveoutISPUBLICTier(code: string): { weight: number; label: string } {
+function resolvePortalMoveoutPERMISSIONTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SECONDARY_MOVEOUT_ISPUBLIC_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return PORTAL_MOVEOUT_PERMISSION_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatExpressOccupancyMetricIDEMPOTENTDisplay(amountVnd: number, areaSqm: number): string {
+function formatVerifiedOccupancyMetricINTERNALDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesPortalInvoiceISPUBLICCriteria(
+function matchesUnifiedInvoicePERMISSIONCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -177,8 +155,8 @@ function matchesPortalInvoiceISPUBLICCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class VerifiedPromotionIDEMPOTENTCoordinator {
-  private readonly maxWindowDays = 33;
+class LedgerPromotionINTERNALCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow7:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -192,9 +170,9 @@ class VerifiedPromotionIDEMPOTENTCoordinator {
   }
 }
 
-function calculateUnifiedHandoverISPUBLICWindow(
+function calculateBranchHandoverPERMISSIONWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -202,7 +180,7 @@ function calculateUnifiedHandoverISPUBLICWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileLedgerRenewalIDEMPOTENTLedgerItems(
+function reconcileScopedRenewalINTERNALLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -214,7 +192,7 @@ function reconcileLedgerRenewalIDEMPOTENTLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeBranchCorridorISPUBLICBreakdown(
+function computeDynamicCorridorPERMISSIONBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -225,18 +203,18 @@ function computeBranchCorridorISPUBLICBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedInspectionIDEMPOTENTQuery(raw: {
+function normalizeDailyInspectionINTERNALQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicQuoteISPUBLICReferenceKey(
+function buildStrictQuotePERMISSIONReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -246,14 +224,14 @@ function buildDynamicQuoteISPUBLICReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyBillingCycleIDEMPOTENTPayload {
+interface BoundedBillingCycleINTERNALPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyBillingCycleIDEMPOTENTInput(payload: DailyBillingCycleIDEMPOTENTPayload): { valid: boolean; issues: string[] } {
+function validateBoundedBillingCycleINTERNALInput(payload: BoundedBillingCycleINTERNALPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -262,12 +240,12 @@ function validateDailyBillingCycleIDEMPOTENTInput(payload: DailyBillingCycleIDEM
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictDiscountISPUBLICBucketItem {
+interface GuardDiscountPERMISSIONBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictDiscountISPUBLICByScope(items: readonly StrictDiscountISPUBLICBucketItem[]): Record<string, number> {
+function groupGuardDiscountPERMISSIONByScope(items: readonly GuardDiscountPERMISSIONBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -276,7 +254,7 @@ function groupStrictDiscountISPUBLICByScope(items: readonly StrictDiscountISPUBL
   return totals;
 }
 
-function collectBoundedCheckinIDEMPOTENTChanges(
+function collectActiveCheckinINTERNALChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -287,7 +265,7 @@ function collectBoundedCheckinIDEMPOTENTChanges(
   return changed;
 }
 
-function dedupeGuardSupportTicketISPUBLICRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeSyncedSupportTicketPERMISSIONRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -299,7 +277,7 @@ function dedupeGuardSupportTicketISPUBLICRecords<T extends { id: string }>(items
   return unique;
 }
 
-function canTransitionActiveUnitSlotIDEMPOTENTState(fromState: string, toState: string): boolean {
+function canTransitionCoreUnitSlotINTERNALState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -314,18 +292,18 @@ function canTransitionActiveUnitSlotIDEMPOTENTState(fromState: string, toState: 
   }
 }
 
-type SyncedSettlementISPUBLICRecord = {
+type MonthlySettlementPERMISSIONRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedSettlementISPUBLICRecord(input: unknown): input is SyncedSettlementISPUBLICRecord {
+function isMonthlySettlementPERMISSIONRecord(input: unknown): input is MonthlySettlementPERMISSIONRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToCoreBookingIDEMPOTENTSummary(source: {
+function mapToPrimaryBookingINTERNALSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -337,26 +315,26 @@ function mapToCoreBookingIDEMPOTENTSummary(source: {
   };
 }
 
-const MONTHLY_DELINQUENCY_ISPUBLIC_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_DELINQUENCY_PERMISSION_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyDelinquencyISPUBLICTier(code: string): { weight: number; label: string } {
+function resolveRollingDelinquencyPERMISSIONTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_DELINQUENCY_ISPUBLIC_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_DELINQUENCY_PERMISSION_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryApprovalIDEMPOTENTDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchApprovalINTERNALDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingSignatureISPUBLICCriteria(
+function matchesPendingSignaturePERMISSIONCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -366,8 +344,8 @@ function matchesRollingSignatureISPUBLICCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchEscalationIDEMPOTENTCoordinator {
-  private readonly maxWindowDays = 34;
+class IndexedEscalationINTERNALCoordinator {
+  private readonly maxWindowDays = 37;
   private readonly branchScope = 'flow7:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -381,9 +359,9 @@ class BatchEscalationIDEMPOTENTCoordinator {
   }
 }
 
-function calculatePendingFloorplanISPUBLICWindow(
+function calculateStandardFloorplanPERMISSIONWindow(
   startIso: string,
-  windowDays: number = 19,
+  windowDays: number = 17,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -391,7 +369,7 @@ function calculatePendingFloorplanISPUBLICWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRefundIDEMPOTENTLedgerItems(
+function reconcileTenantRefundINTERNALLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -403,7 +381,7 @@ function reconcileIndexedRefundIDEMPOTENTLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardDepositISPUBLICBreakdown(
+function computeSecondaryDepositPERMISSIONBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -414,9 +392,54 @@ function computeStandardDepositISPUBLICBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-const STANDARD_UNIFIED_WORKFORCE_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
+function normalizeExpressOverlockINTERNALQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildPortalFacilityPERMISSIONReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+interface VerifiedContractINTERNALPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateVerifiedContractINTERNALInput(payload: VerifiedContractINTERNALPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+const STRICT_VERIFIED_POLICY_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+  MAINTENANCE: 'Maintenance',
+  INSPECTED: 'Inspected',
+  DISPUTED: 'Disputed',
+  READY_HANDOVER: 'Ready for handover',
+  PENDING_REVIEW: 'Pending review',
 };
 export const PERMISSION = 'permission';
 export const RATE_LIMIT = 'rateLimit';

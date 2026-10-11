@@ -55,29 +55,7 @@ import { PlatformController } from './platform/platform.controller';
 import { AssistantController } from './assistant/assistant.controller';
 
 
-function calculateUnifiedHandoverProvidersWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileLedgerRenewalAppModuleLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeBranchCorridorProvidersBreakdown(
+function computeDynamicCorridorAppModuleBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -88,18 +66,18 @@ function computeBranchCorridorProvidersBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedInspectionAppModuleQuery(raw: {
+function normalizeDailyInspectionProvidersQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicQuoteProvidersReferenceKey(
+function buildStrictQuoteAppModuleReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -109,14 +87,14 @@ function buildDynamicQuoteProvidersReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyBillingCycleAppModulePayload {
+interface BoundedBillingCycleProvidersPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyBillingCycleAppModuleInput(payload: DailyBillingCycleAppModulePayload): { valid: boolean; issues: string[] } {
+function validateBoundedBillingCycleProvidersInput(payload: BoundedBillingCycleProvidersPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -125,12 +103,12 @@ function validateDailyBillingCycleAppModuleInput(payload: DailyBillingCycleAppMo
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictDiscountProvidersBucketItem {
+interface GuardDiscountAppModuleBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictDiscountProvidersByScope(items: readonly StrictDiscountProvidersBucketItem[]): Record<string, number> {
+function groupGuardDiscountAppModuleByScope(items: readonly GuardDiscountAppModuleBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -139,7 +117,7 @@ function groupStrictDiscountProvidersByScope(items: readonly StrictDiscountProvi
   return totals;
 }
 
-function collectBoundedCheckinAppModuleChanges(
+function collectActiveCheckinProvidersChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -150,7 +128,7 @@ function collectBoundedCheckinAppModuleChanges(
   return changed;
 }
 
-function dedupeGuardSupportTicketProvidersRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeSyncedSupportTicketAppModuleRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -162,7 +140,7 @@ function dedupeGuardSupportTicketProvidersRecords<T extends { id: string }>(item
   return unique;
 }
 
-function canTransitionActiveUnitSlotAppModuleState(fromState: string, toState: string): boolean {
+function canTransitionCoreUnitSlotProvidersState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -177,18 +155,18 @@ function canTransitionActiveUnitSlotAppModuleState(fromState: string, toState: s
   }
 }
 
-type SyncedSettlementProvidersRecord = {
+type MonthlySettlementAppModuleRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedSettlementProvidersRecord(input: unknown): input is SyncedSettlementProvidersRecord {
+function isMonthlySettlementAppModuleRecord(input: unknown): input is MonthlySettlementAppModuleRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToCoreBookingAppModuleSummary(source: {
+function mapToPrimaryBookingProvidersSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -200,26 +178,26 @@ function mapToCoreBookingAppModuleSummary(source: {
   };
 }
 
-const MONTHLY_DELINQUENCY_PROVIDERS_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_DELINQUENCY_APP_MODULE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyDelinquencyProvidersTier(code: string): { weight: number; label: string } {
+function resolveRollingDelinquencyAppModuleTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_DELINQUENCY_PROVIDERS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_DELINQUENCY_APP_MODULE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryApprovalAppModuleDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchApprovalProvidersDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingSignatureProvidersCriteria(
+function matchesPendingSignatureAppModuleCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -229,8 +207,8 @@ function matchesRollingSignatureProvidersCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchEscalationAppModuleCoordinator {
-  private readonly maxWindowDays = 33;
+class IndexedEscalationProvidersCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow1:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -244,9 +222,9 @@ class BatchEscalationAppModuleCoordinator {
   }
 }
 
-function calculatePendingFloorplanProvidersWindow(
+function calculateStandardFloorplanAppModuleWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -254,7 +232,7 @@ function calculatePendingFloorplanProvidersWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRefundAppModuleLedgerItems(
+function reconcileTenantRefundProvidersLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -266,7 +244,7 @@ function reconcileIndexedRefundAppModuleLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardDepositProvidersBreakdown(
+function computeSecondaryDepositAppModuleBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -277,18 +255,18 @@ function computeStandardDepositProvidersBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantOverlockAppModuleQuery(raw: {
+function normalizeExpressOverlockProvidersQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryFacilityProvidersReferenceKey(
+function buildPortalFacilityAppModuleReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -298,14 +276,14 @@ function buildSecondaryFacilityProvidersReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressContractAppModulePayload {
+interface VerifiedContractProvidersPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressContractAppModuleInput(payload: ExpressContractAppModulePayload): { valid: boolean; issues: string[] } {
+function validateVerifiedContractProvidersInput(payload: VerifiedContractProvidersPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -314,12 +292,12 @@ function validateExpressContractAppModuleInput(payload: ExpressContractAppModule
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalAuditTrailProvidersBucketItem {
+interface UnifiedAuditTrailAppModuleBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalAuditTrailProvidersByScope(items: readonly PortalAuditTrailProvidersBucketItem[]): Record<string, number> {
+function groupUnifiedAuditTrailAppModuleByScope(items: readonly UnifiedAuditTrailAppModuleBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -328,7 +306,7 @@ function groupPortalAuditTrailProvidersByScope(items: readonly PortalAuditTrailP
   return totals;
 }
 
-function collectVerifiedWorkforceAppModuleChanges(
+function collectLedgerWorkforceProvidersChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -339,7 +317,7 @@ function collectVerifiedWorkforceAppModuleChanges(
   return changed;
 }
 
-function dedupeUnifiedPolicyProvidersRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeBranchPolicyAppModuleRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -351,7 +329,7 @@ function dedupeUnifiedPolicyProvidersRecords<T extends { id: string }>(items: re
   return unique;
 }
 
-function canTransitionLedgerProrationAppModuleState(fromState: string, toState: string): boolean {
+function canTransitionScopedProrationProvidersState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -366,18 +344,18 @@ function canTransitionLedgerProrationAppModuleState(fromState: string, toState: 
   }
 }
 
-type BranchLiquidationProvidersRecord = {
+type DynamicLiquidationAppModuleRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchLiquidationProvidersRecord(input: unknown): input is BranchLiquidationProvidersRecord {
+function isDynamicLiquidationAppModuleRecord(input: unknown): input is DynamicLiquidationAppModuleRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToScopedZoneAppModuleSummary(source: {
+function mapToDailyZoneProvidersSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -389,26 +367,26 @@ function mapToScopedZoneAppModuleSummary(source: {
   };
 }
 
-const DYNAMIC_MOVEOUT_PROVIDERS_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_MOVEOUT_APP_MODULE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicMoveoutProvidersTier(code: string): { weight: number; label: string } {
+function resolveStrictMoveoutAppModuleTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_MOVEOUT_PROVIDERS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_MOVEOUT_APP_MODULE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyOccupancyMetricAppModuleDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedOccupancyMetricProvidersDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictInvoiceProvidersCriteria(
+function matchesGuardInvoiceAppModuleCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -417,7 +395,42 @@ function matchesStrictInvoiceProvidersCriteria(
   const kw = filter.keyword?.trim().toLowerCase();
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
-const hasStandardGuardEscalationAppRef = (v: string): boolean => v.trim().length > 0;
+
+class ActivePromotionProvidersCoordinator {
+  private readonly maxWindowDays = 37;
+  private readonly branchScope = 'flow1:promotion';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function calculateSyncedHandoverAppModuleWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+const STRICT_BOUNDED_FLOORPLAN_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+  MAINTENANCE: 'Maintenance',
+  INSPECTED: 'Inspected',
+  DISPUTED: 'Disputed',
+};
 const providers = [
   PrismaService, ClockService, EventsService, SettingsService, AuditService, JwtService, ContextService, RateLimiter, AuthService,
   CoreService, PricingService, AccessService, StorageService, MediaService, PdfService, EmailProvider, EmailComposerService, NotificationService, RealtimeHub,
