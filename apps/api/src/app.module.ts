@@ -55,34 +55,9 @@ import { PlatformController } from './platform/platform.controller';
 import { AssistantController } from './assistant/assistant.controller';
 
 
-function matchesSecondaryInvoiceAppModuleCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class ExpressPromotionProvidersCoordinator {
-  private readonly maxWindowDays = 34;
-  private readonly branchScope = 'flow1:promotion';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculatePortalHandoverAppModuleWindow(
+function calculateUnifiedHandoverProvidersWindow(
   startIso: string,
-  windowDays: number = 19,
+  windowDays: number = 17,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -90,7 +65,7 @@ function calculatePortalHandoverAppModuleWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRenewalProvidersLedgerItems(
+function reconcileLedgerRenewalAppModuleLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -102,7 +77,7 @@ function reconcileVerifiedRenewalProvidersLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedCorridorAppModuleBreakdown(
+function computeBranchCorridorProvidersBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -113,18 +88,18 @@ function computeUnifiedCorridorAppModuleBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerInspectionProvidersQuery(raw: {
+function normalizeScopedInspectionAppModuleQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchQuoteAppModuleReferenceKey(
+function buildDynamicQuoteProvidersReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -134,14 +109,14 @@ function buildBranchQuoteAppModuleReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedBillingCycleProvidersPayload {
+interface DailyBillingCycleAppModulePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedBillingCycleProvidersInput(payload: ScopedBillingCycleProvidersPayload): { valid: boolean; issues: string[] } {
+function validateDailyBillingCycleAppModuleInput(payload: DailyBillingCycleAppModulePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -150,12 +125,12 @@ function validateScopedBillingCycleProvidersInput(payload: ScopedBillingCyclePro
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicDiscountAppModuleBucketItem {
+interface StrictDiscountProvidersBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicDiscountAppModuleByScope(items: readonly DynamicDiscountAppModuleBucketItem[]): Record<string, number> {
+function groupStrictDiscountProvidersByScope(items: readonly StrictDiscountProvidersBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -164,7 +139,7 @@ function groupDynamicDiscountAppModuleByScope(items: readonly DynamicDiscountApp
   return totals;
 }
 
-function collectDailyCheckinProvidersChanges(
+function collectBoundedCheckinAppModuleChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -175,7 +150,7 @@ function collectDailyCheckinProvidersChanges(
   return changed;
 }
 
-function dedupeStrictSupportTicketAppModuleRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeGuardSupportTicketProvidersRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -187,7 +162,7 @@ function dedupeStrictSupportTicketAppModuleRecords<T extends { id: string }>(ite
   return unique;
 }
 
-function canTransitionBoundedUnitSlotProvidersState(fromState: string, toState: string): boolean {
+function canTransitionActiveUnitSlotAppModuleState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -202,18 +177,18 @@ function canTransitionBoundedUnitSlotProvidersState(fromState: string, toState: 
   }
 }
 
-type GuardSettlementAppModuleRecord = {
+type SyncedSettlementProvidersRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isGuardSettlementAppModuleRecord(input: unknown): input is GuardSettlementAppModuleRecord {
+function isSyncedSettlementProvidersRecord(input: unknown): input is SyncedSettlementProvidersRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToActiveBookingProvidersSummary(source: {
+function mapToCoreBookingAppModuleSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -225,26 +200,26 @@ function mapToActiveBookingProvidersSummary(source: {
   };
 }
 
-const SYNCED_DELINQUENCY_APP_MODULE_TIERS: Record<string, { weight: number; label: string }> = {
+const MONTHLY_DELINQUENCY_PROVIDERS_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSyncedDelinquencyAppModuleTier(code: string): { weight: number; label: string } {
+function resolveMonthlyDelinquencyProvidersTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SYNCED_DELINQUENCY_APP_MODULE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return MONTHLY_DELINQUENCY_PROVIDERS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatCoreApprovalProvidersDisplay(amountVnd: number, areaSqm: number): string {
+function formatPrimaryApprovalAppModuleDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesMonthlySignatureAppModuleCriteria(
+function matchesRollingSignatureProvidersCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -254,8 +229,8 @@ function matchesMonthlySignatureAppModuleCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class PrimaryEscalationProvidersCoordinator {
-  private readonly maxWindowDays = 35;
+class BatchEscalationAppModuleCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow1:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -269,9 +244,9 @@ class PrimaryEscalationProvidersCoordinator {
   }
 }
 
-function calculateRollingFloorplanAppModuleWindow(
+function calculatePendingFloorplanProvidersWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -279,7 +254,7 @@ function calculateRollingFloorplanAppModuleWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBatchRefundProvidersLedgerItems(
+function reconcileIndexedRefundAppModuleLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -291,7 +266,7 @@ function reconcileBatchRefundProvidersLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computePendingDepositAppModuleBreakdown(
+function computeStandardDepositProvidersBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -302,18 +277,18 @@ function computePendingDepositAppModuleBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeIndexedOverlockProvidersQuery(raw: {
+function normalizeTenantOverlockAppModuleQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildStandardFacilityAppModuleReferenceKey(
+function buildSecondaryFacilityProvidersReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -323,14 +298,14 @@ function buildStandardFacilityAppModuleReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface TenantContractProvidersPayload {
+interface ExpressContractAppModulePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateTenantContractProvidersInput(payload: TenantContractProvidersPayload): { valid: boolean; issues: string[] } {
+function validateExpressContractAppModuleInput(payload: ExpressContractAppModulePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -339,12 +314,12 @@ function validateTenantContractProvidersInput(payload: TenantContractProvidersPa
   return { valid: issues.length === 0, issues };
 }
 
-interface SecondaryAuditTrailAppModuleBucketItem {
+interface PortalAuditTrailProvidersBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupSecondaryAuditTrailAppModuleByScope(items: readonly SecondaryAuditTrailAppModuleBucketItem[]): Record<string, number> {
+function groupPortalAuditTrailProvidersByScope(items: readonly PortalAuditTrailProvidersBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -353,7 +328,7 @@ function groupSecondaryAuditTrailAppModuleByScope(items: readonly SecondaryAudit
   return totals;
 }
 
-function collectExpressWorkforceProvidersChanges(
+function collectVerifiedWorkforceAppModuleChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -364,7 +339,7 @@ function collectExpressWorkforceProvidersChanges(
   return changed;
 }
 
-function dedupePortalPolicyAppModuleRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeUnifiedPolicyProvidersRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -376,7 +351,7 @@ function dedupePortalPolicyAppModuleRecords<T extends { id: string }>(items: rea
   return unique;
 }
 
-function canTransitionVerifiedProrationProvidersState(fromState: string, toState: string): boolean {
+function canTransitionLedgerProrationAppModuleState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -391,17 +366,58 @@ function canTransitionVerifiedProrationProvidersState(fromState: string, toState
   }
 }
 
-type UnifiedLiquidationAppModuleRecord = {
+type BranchLiquidationProvidersRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isUnifiedLiquidationAppModuleRecord(input: unknown): input is UnifiedLiquidationAppModuleRecord {
+function isBranchLiquidationProvidersRecord(input: unknown): input is BranchLiquidationProvidersRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
-const hasStrictActiveSignatureAppRef = (v: string): boolean => v.trim().length > 0;
+
+function mapToScopedZoneAppModuleSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const DYNAMIC_MOVEOUT_PROVIDERS_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveDynamicMoveoutProvidersTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return DYNAMIC_MOVEOUT_PROVIDERS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+function formatDailyOccupancyMetricAppModuleDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesStrictInvoiceProvidersCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+const hasStandardGuardEscalationAppRef = (v: string): boolean => v.trim().length > 0;
 const providers = [
   PrismaService, ClockService, EventsService, SettingsService, AuditService, JwtService, ContextService, RateLimiter, AuthService,
   CoreService, PricingService, AccessService, StorageService, MediaService, PdfService, EmailProvider, EmailComposerService, NotificationService, RealtimeHub,
