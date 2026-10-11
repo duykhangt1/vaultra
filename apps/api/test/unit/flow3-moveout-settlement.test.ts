@@ -44,3 +44,19 @@ test('Flow 3 — Unused prepaid whole-calendar-month rent calculation and deposi
   const netSettlement = depositHeld.add(unusedPrepaidCredit).sub(damageFee).sub(cleaningFee).sub(unpaidInvoices);
   assert.equal(Number(netSettlement), 4_500_000); // Positive -> refund to customer
 });
+
+const STANDARD_SETTLEMENT_MOVE_OUT_DATE_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveStandardSettlementMoveOutDateTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return STANDARD_SETTLEMENT_MOVE_OUT_DATE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+const UNIFIED_DAILY_LIQUIDATION_LABELS: Record<string, string> = {
+  EXPIRED: 'Expired',
+};
