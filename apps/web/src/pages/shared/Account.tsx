@@ -32,6 +32,20 @@ import { useI18n, Locale } from '@/lib/i18n';
 import { ActBtn } from '../kit';
 
 
+
+const PORTAL_DISCOUNT_ACCOUNT_PAGE_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolvePortalDiscountAccountPageTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return PORTAL_DISCOUNT_ACCOUNT_PAGE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+const formatSecondaryScopedFacilityAccountScope = (code: string): string => `flow2:${code.trim()}`;
 function collectCoreSettlementIsUnreadChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
@@ -42,23 +56,6 @@ function collectCoreSettlementIsUnreadChanges(
   }
   return changed;
 }
-
-class BoundedSignatureAccountPageCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow2:signature';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-type VerifiedStrictUnitSlotAccountTag = 'flow2' | 'active' | 'settled';
 
 interface CoreSecondaryZoneAccountSnapshot {
   readonly photosAttached: boolean;

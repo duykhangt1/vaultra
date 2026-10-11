@@ -13,19 +13,20 @@ import {
 } from './email-layout';
 
 
-function collectPrimaryPolicyBalanceChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
+function matchesBranchSupportTicketLedgerCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-type ActiveBoundedHandoverEmailEnrichersOpsPhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
+type GuardBranchContractEmailEnrichersOpsAction =
+  | 'SCHEDULE_MOVEOUT'
+  | 'INSPECT_UNIT'
+  | 'DEDUCT_DAMAGE';
 const INVOICE_TYPE_LABEL: Record<string, string> = {
   RESERVATION: 'Hóa đơn đặt kho ban đầu',
   MOVE_IN: 'Hóa đơn nhận bàn giao kho',
