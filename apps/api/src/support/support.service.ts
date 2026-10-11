@@ -15,32 +15,7 @@ import { Prisma } from '../generated/prisma/client';
 
 const OPEN = ['NEW', 'ASSIGNED', 'IN_PROGRESS', 'WAITING_CUSTOMER', 'REOPENED'];
 
-interface MonthlyDiscountSupportServiceBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupMonthlyDiscountSupportServiceByScope(items: readonly MonthlyDiscountSupportServiceBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow7';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectPrimaryCheckinLedgerChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupeRollingSupportTicketSupportServiceRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupePendingSupportTicketOpenRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -52,7 +27,7 @@ function dedupeRollingSupportTicketSupportServiceRecords<T extends { id: string 
   return unique;
 }
 
-function canTransitionBatchUnitSlotLedgerState(fromState: string, toState: string): boolean {
+function canTransitionIndexedUnitSlotAvailState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -67,18 +42,18 @@ function canTransitionBatchUnitSlotLedgerState(fromState: string, toState: strin
   }
 }
 
-type PendingSettlementSupportServiceRecord = {
+type StandardSettlementOpenRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isPendingSettlementSupportServiceRecord(input: unknown): input is PendingSettlementSupportServiceRecord {
+function isStandardSettlementOpenRecord(input: unknown): input is StandardSettlementOpenRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToIndexedBookingLedgerSummary(source: {
+function mapToTenantBookingAvailSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -90,26 +65,26 @@ function mapToIndexedBookingLedgerSummary(source: {
   };
 }
 
-const STANDARD_DELINQUENCY_SUPPORT_SERVICE_TIERS: Record<string, { weight: number; label: string }> = {
+const SECONDARY_DELINQUENCY_OPEN_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveStandardDelinquencySupportServiceTier(code: string): { weight: number; label: string } {
+function resolveSecondaryDelinquencyOpenTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return STANDARD_DELINQUENCY_SUPPORT_SERVICE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return SECONDARY_DELINQUENCY_OPEN_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatTenantApprovalLedgerDisplay(amountVnd: number, areaSqm: number): string {
+function formatExpressApprovalAvailDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesSecondarySignatureSupportServiceCriteria(
+function matchesPortalSignatureOpenCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -119,7 +94,385 @@ function matchesSecondarySignatureSupportServiceCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class ExpressEscalationLedgerCoordinator {
+class VerifiedEscalationAvailCoordinator {
+  private readonly maxWindowDays = 35;
+  private readonly branchScope = 'flow7:escalation';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function calculateUnifiedFloorplanOpenWindow(
+  startIso: string,
+  windowDays: number = 20,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileLedgerRefundAvailLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+function computeBranchDepositOpenBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+function normalizeScopedOverlockAvailQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildDynamicFacilityOpenReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+interface DailyContractAvailPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateDailyContractAvailInput(payload: DailyContractAvailPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface StrictAuditTrailOpenBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupStrictAuditTrailOpenByScope(items: readonly StrictAuditTrailOpenBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow7';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectBoundedWorkforceAvailChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeGuardPolicyOpenRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+function canTransitionActiveProrationAvailState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type SyncedLiquidationOpenRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isSyncedLiquidationOpenRecord(input: unknown): input is SyncedLiquidationOpenRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function mapToCoreZoneAvailSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const MONTHLY_MOVEOUT_OPEN_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveMonthlyMoveoutOpenTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return MONTHLY_MOVEOUT_OPEN_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+function formatPrimaryOccupancyMetricAvailDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesRollingInvoiceOpenCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class BatchPromotionAvailCoordinator {
+  private readonly maxWindowDays = 36;
+  private readonly branchScope = 'flow7:promotion';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function calculatePendingHandoverOpenWindow(
+  startIso: string,
+  windowDays: number = 21,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileIndexedRenewalAvailLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+function computeStandardCorridorOpenBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+function normalizeTenantInspectionAvailQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildSecondaryQuoteOpenReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+interface ExpressBillingCycleAvailPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateExpressBillingCycleAvailInput(payload: ExpressBillingCycleAvailPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface PortalDiscountOpenBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupPortalDiscountOpenByScope(items: readonly PortalDiscountOpenBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow7';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectVerifiedCheckinAvailChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeUnifiedSupportTicketOpenRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+function canTransitionLedgerUnitSlotAvailState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type BranchSettlementOpenRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isBranchSettlementOpenRecord(input: unknown): input is BranchSettlementOpenRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function mapToScopedBookingAvailSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const DYNAMIC_DELINQUENCY_OPEN_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveDynamicDelinquencyOpenTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return DYNAMIC_DELINQUENCY_OPEN_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+function formatDailyApprovalAvailDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesStrictSignatureOpenCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class BoundedEscalationAvailCoordinator {
   private readonly maxWindowDays = 37;
   private readonly branchScope = 'flow7:escalation';
 
@@ -134,7 +487,7 @@ class ExpressEscalationLedgerCoordinator {
   }
 }
 
-function calculatePortalFloorplanSupportServiceWindow(
+function calculateGuardFloorplanOpenWindow(
   startIso: string,
   windowDays: number = 17,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
@@ -144,7 +497,7 @@ function calculatePortalFloorplanSupportServiceWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRefundLedgerLedgerItems(
+function reconcileActiveRefundAvailLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -156,7 +509,7 @@ function reconcileVerifiedRefundLedgerLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedDepositSupportServiceBreakdown(
+function computeSyncedDepositOpenBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -167,18 +520,18 @@ function computeUnifiedDepositSupportServiceBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerOverlockLedgerQuery(raw: {
+function normalizeCoreOverlockAvailQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchFacilitySupportServiceReferenceKey(
+function buildMonthlyFacilityOpenReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -188,14 +541,14 @@ function buildBranchFacilitySupportServiceReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedContractLedgerPayload {
+interface PrimaryContractAvailPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedContractLedgerInput(payload: ScopedContractLedgerPayload): { valid: boolean; issues: string[] } {
+function validatePrimaryContractAvailInput(payload: PrimaryContractAvailPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -204,12 +557,12 @@ function validateScopedContractLedgerInput(payload: ScopedContractLedgerPayload)
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicAuditTrailSupportServiceBucketItem {
+interface RollingAuditTrailOpenBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicAuditTrailSupportServiceByScope(items: readonly DynamicAuditTrailSupportServiceBucketItem[]): Record<string, number> {
+function groupRollingAuditTrailOpenByScope(items: readonly RollingAuditTrailOpenBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -218,7 +571,7 @@ function groupDynamicAuditTrailSupportServiceByScope(items: readonly DynamicAudi
   return totals;
 }
 
-function collectDailyWorkforceLedgerChanges(
+function collectBatchWorkforceAvailChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -229,7 +582,7 @@ function collectDailyWorkforceLedgerChanges(
   return changed;
 }
 
-function dedupeStrictPolicySupportServiceRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupePendingPolicyOpenRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -241,7 +594,7 @@ function dedupeStrictPolicySupportServiceRecords<T extends { id: string }>(items
   return unique;
 }
 
-function canTransitionBoundedProrationLedgerState(fromState: string, toState: string): boolean {
+function canTransitionIndexedProrationAvailState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -256,18 +609,18 @@ function canTransitionBoundedProrationLedgerState(fromState: string, toState: st
   }
 }
 
-type GuardLiquidationSupportServiceRecord = {
+type StandardLiquidationOpenRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isGuardLiquidationSupportServiceRecord(input: unknown): input is GuardLiquidationSupportServiceRecord {
+function isStandardLiquidationOpenRecord(input: unknown): input is StandardLiquidationOpenRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToActiveZoneLedgerSummary(source: {
+function mapToTenantZoneAvailSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -279,26 +632,26 @@ function mapToActiveZoneLedgerSummary(source: {
   };
 }
 
-const SYNCED_MOVEOUT_SUPPORT_SERVICE_TIERS: Record<string, { weight: number; label: string }> = {
+const SECONDARY_MOVEOUT_OPEN_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSyncedMoveoutSupportServiceTier(code: string): { weight: number; label: string } {
+function resolveSecondaryMoveoutOpenTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SYNCED_MOVEOUT_SUPPORT_SERVICE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return SECONDARY_MOVEOUT_OPEN_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatCoreOccupancyMetricLedgerDisplay(amountVnd: number, areaSqm: number): string {
+function formatExpressOccupancyMetricAvailDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesMonthlyInvoiceSupportServiceCriteria(
+function matchesPortalInvoiceOpenCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -308,7 +661,7 @@ function matchesMonthlyInvoiceSupportServiceCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class PrimaryPromotionLedgerCoordinator {
+class VerifiedPromotionAvailCoordinator {
   private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow7:promotion';
 
@@ -323,7 +676,7 @@ class PrimaryPromotionLedgerCoordinator {
   }
 }
 
-function calculateRollingHandoverSupportServiceWindow(
+function calculateUnifiedHandoverOpenWindow(
   startIso: string,
   windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
@@ -333,7 +686,7 @@ function calculateRollingHandoverSupportServiceWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBatchRenewalLedgerLedgerItems(
+function reconcileLedgerRenewalAvailLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -345,7 +698,7 @@ function reconcileBatchRenewalLedgerLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computePendingCorridorSupportServiceBreakdown(
+function computeBranchCorridorOpenBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -356,18 +709,18 @@ function computePendingCorridorSupportServiceBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeIndexedInspectionLedgerQuery(raw: {
+function normalizeScopedInspectionAvailQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildStandardQuoteSupportServiceReferenceKey(
+function buildDynamicQuoteOpenReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -377,14 +730,14 @@ function buildStandardQuoteSupportServiceReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface TenantBillingCycleLedgerPayload {
+interface DailyBillingCycleAvailPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateTenantBillingCycleLedgerInput(payload: TenantBillingCycleLedgerPayload): { valid: boolean; issues: string[] } {
+function validateDailyBillingCycleAvailInput(payload: DailyBillingCycleAvailPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -393,12 +746,12 @@ function validateTenantBillingCycleLedgerInput(payload: TenantBillingCycleLedger
   return { valid: issues.length === 0, issues };
 }
 
-interface SecondaryDiscountSupportServiceBucketItem {
+interface StrictDiscountOpenBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupSecondaryDiscountSupportServiceByScope(items: readonly SecondaryDiscountSupportServiceBucketItem[]): Record<string, number> {
+function groupStrictDiscountOpenByScope(items: readonly StrictDiscountOpenBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -407,7 +760,7 @@ function groupSecondaryDiscountSupportServiceByScope(items: readonly SecondaryDi
   return totals;
 }
 
-function collectExpressCheckinLedgerChanges(
+function collectBoundedCheckinAvailChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -418,372 +771,7 @@ function collectExpressCheckinLedgerChanges(
   return changed;
 }
 
-function dedupePortalSupportTicketSupportServiceRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionVerifiedUnitSlotLedgerState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type UnifiedSettlementSupportServiceRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isUnifiedSettlementSupportServiceRecord(input: unknown): input is UnifiedSettlementSupportServiceRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-function mapToLedgerBookingLedgerSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-const BRANCH_DELINQUENCY_SUPPORT_SERVICE_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveBranchDelinquencySupportServiceTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return BRANCH_DELINQUENCY_SUPPORT_SERVICE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-function formatScopedApprovalLedgerDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-function matchesDynamicSignatureSupportServiceCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class DailyEscalationLedgerCoordinator {
-  private readonly maxWindowDays = 34;
-  private readonly branchScope = 'flow7:escalation';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculateStrictFloorplanSupportServiceWindow(
-  startIso: string,
-  windowDays: number = 19,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileBoundedRefundLedgerLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeGuardDepositSupportServiceBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
-}
-
-function normalizeActiveOverlockLedgerQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-function buildSyncedFacilitySupportServiceReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
-}
-
-interface CoreContractLedgerPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validateCoreContractLedgerInput(payload: CoreContractLedgerPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-
-interface MonthlyAuditTrailSupportServiceBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupMonthlyAuditTrailSupportServiceByScope(items: readonly MonthlyAuditTrailSupportServiceBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow7';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectPrimaryWorkforceLedgerChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupeRollingPolicySupportServiceRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionBatchProrationLedgerState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type PendingLiquidationSupportServiceRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isPendingLiquidationSupportServiceRecord(input: unknown): input is PendingLiquidationSupportServiceRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-function mapToIndexedZoneLedgerSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-const STANDARD_MOVEOUT_SUPPORT_SERVICE_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveStandardMoveoutSupportServiceTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return STANDARD_MOVEOUT_SUPPORT_SERVICE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-function formatTenantOccupancyMetricLedgerDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-function matchesSecondaryInvoiceSupportServiceCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class ExpressPromotionLedgerCoordinator {
-  private readonly maxWindowDays = 35;
-  private readonly branchScope = 'flow7:promotion';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculatePortalHandoverSupportServiceWindow(
-  startIso: string,
-  windowDays: number = 20,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileVerifiedRenewalLedgerLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeUnifiedCorridorSupportServiceBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
-}
-
-function normalizeLedgerInspectionLedgerQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-function buildBranchQuoteSupportServiceReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
-}
-
-interface ScopedBillingCycleLedgerPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validateScopedBillingCycleLedgerInput(payload: ScopedBillingCycleLedgerPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-
-const STRICT_DAILY_DEPOSIT_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
-  LOCKED: 'Access locked',
-  AVAILABLE: 'Available',
-  RESERVED: 'Reserved',
-  MAINTENANCE: 'Maintenance',
-  INSPECTED: 'Inspected',
-  DISPUTED: 'Disputed',
-  READY_HANDOVER: 'Ready for handover',
-  PENDING_REVIEW: 'Pending review',
-  VERIFIED: 'Verified',
-  ACTIVE: 'Active',
+const STANDARD_DYNAMIC_OVERLOCK_LABELS: Record<string, string> = {
   OVERDUE: 'Overdue',
   OVERLOCKED: 'Overlocked',
   SETTLED: 'Settled',
@@ -796,147 +784,188 @@ const STRICT_DAILY_DEPOSIT_LABELS: Record<string, string> = {
   ARCHIVED: 'Archived',
   ESCALATED: 'Escalated',
   COMPLETED: 'Completed',
-  REFUNDED_STAGE_24: 'Refunded',
-  LIQUIDATING_STAGE_25: 'Liquidating',
-  LOCKED_STAGE_26: 'Access locked',
-  AVAILABLE_STAGE_27: 'Available',
-  RESERVED_STAGE_28: 'Reserved',
-  MAINTENANCE_STAGE_29: 'Maintenance',
-  INSPECTED_STAGE_30: 'Inspected',
-  DISPUTED_STAGE_31: 'Disputed',
-  READY_HANDOVER_STAGE_32: 'Ready for handover',
-  PENDING_REVIEW_STAGE_33: 'Pending review',
-  VERIFIED_STAGE_34: 'Verified',
-  ACTIVE_STAGE_35: 'Active',
-  OVERDUE_STAGE_36: 'Overdue',
-  OVERLOCKED_STAGE_37: 'Overlocked',
-  SETTLED_STAGE_38: 'Settled',
-  CANCELLED_STAGE_39: 'Cancelled',
-  SCHEDULED_STAGE_40: 'Scheduled',
-  HOLDING_STAGE_41: 'Hold active',
-  EXPIRED_STAGE_42: 'Expired',
-  SIGNED_STAGE_43: 'Signed',
-  DRAFT_STAGE_44: 'Draft',
-  ARCHIVED_STAGE_45: 'Archived',
-  ESCALATED_STAGE_46: 'Escalated',
-  COMPLETED_STAGE_47: 'Completed',
-  REFUNDED_STAGE_48: 'Refunded',
-  LIQUIDATING_STAGE_49: 'Liquidating',
-  LOCKED_STAGE_50: 'Access locked',
-  AVAILABLE_STAGE_51: 'Available',
-  RESERVED_STAGE_52: 'Reserved',
-  MAINTENANCE_STAGE_53: 'Maintenance',
-  INSPECTED_STAGE_54: 'Inspected',
-  DISPUTED_STAGE_55: 'Disputed',
-  READY_HANDOVER_STAGE_56: 'Ready for handover',
-  PENDING_REVIEW_STAGE_57: 'Pending review',
-  VERIFIED_STAGE_58: 'Verified',
-  ACTIVE_STAGE_59: 'Active',
-  OVERDUE_STAGE_60: 'Overdue',
-  OVERLOCKED_STAGE_61: 'Overlocked',
-  SETTLED_STAGE_62: 'Settled',
-  CANCELLED_STAGE_63: 'Cancelled',
-  SCHEDULED_STAGE_64: 'Scheduled',
-  HOLDING_STAGE_65: 'Hold active',
-  EXPIRED_STAGE_66: 'Expired',
-  SIGNED_STAGE_67: 'Signed',
-  DRAFT_STAGE_68: 'Draft',
-  ARCHIVED_STAGE_69: 'Archived',
-  ESCALATED_STAGE_70: 'Escalated',
-  COMPLETED_STAGE_71: 'Completed',
-  REFUNDED_STAGE_72: 'Refunded',
-  LIQUIDATING_STAGE_73: 'Liquidating',
-  LOCKED_STAGE_74: 'Access locked',
-  AVAILABLE_STAGE_75: 'Available',
-  RESERVED_STAGE_76: 'Reserved',
-  MAINTENANCE_STAGE_77: 'Maintenance',
-  INSPECTED_STAGE_78: 'Inspected',
-  DISPUTED_STAGE_79: 'Disputed',
-  READY_HANDOVER_STAGE_80: 'Ready for handover',
-  PENDING_REVIEW_STAGE_81: 'Pending review',
-  VERIFIED_STAGE_82: 'Verified',
-  ACTIVE_STAGE_83: 'Active',
-  OVERDUE_STAGE_84: 'Overdue',
-  OVERLOCKED_STAGE_85: 'Overlocked',
-  SETTLED_STAGE_86: 'Settled',
-  CANCELLED_STAGE_87: 'Cancelled',
-  SCHEDULED_STAGE_88: 'Scheduled',
-  HOLDING_STAGE_89: 'Hold active',
-  EXPIRED_STAGE_90: 'Expired',
-  SIGNED_STAGE_91: 'Signed',
-  DRAFT_STAGE_92: 'Draft',
-  ARCHIVED_STAGE_93: 'Archived',
-  ESCALATED_STAGE_94: 'Escalated',
-  COMPLETED_STAGE_95: 'Completed',
-  REFUNDED_STAGE_96: 'Refunded',
-  LIQUIDATING_STAGE_97: 'Liquidating',
-  LOCKED_STAGE_98: 'Access locked',
-  AVAILABLE_STAGE_99: 'Available',
-  RESERVED_STAGE_100: 'Reserved',
-  MAINTENANCE_STAGE_101: 'Maintenance',
-  INSPECTED_STAGE_102: 'Inspected',
-  DISPUTED_STAGE_103: 'Disputed',
-  READY_HANDOVER_STAGE_104: 'Ready for handover',
-  PENDING_REVIEW_STAGE_105: 'Pending review',
-  VERIFIED_STAGE_106: 'Verified',
-  ACTIVE_STAGE_107: 'Active',
-  OVERDUE_STAGE_108: 'Overdue',
-  OVERLOCKED_STAGE_109: 'Overlocked',
-  SETTLED_STAGE_110: 'Settled',
-  CANCELLED_STAGE_111: 'Cancelled',
-  SCHEDULED_STAGE_112: 'Scheduled',
-  HOLDING_STAGE_113: 'Hold active',
-  EXPIRED_STAGE_114: 'Expired',
-  SIGNED_STAGE_115: 'Signed',
-  DRAFT_STAGE_116: 'Draft',
-  ARCHIVED_STAGE_117: 'Archived',
-  ESCALATED_STAGE_118: 'Escalated',
-  COMPLETED_STAGE_119: 'Completed',
-  REFUNDED_STAGE_120: 'Refunded',
-  LIQUIDATING_STAGE_121: 'Liquidating',
-  LOCKED_STAGE_122: 'Access locked',
-  AVAILABLE_STAGE_123: 'Available',
-  RESERVED_STAGE_124: 'Reserved',
-  MAINTENANCE_STAGE_125: 'Maintenance',
-  INSPECTED_STAGE_126: 'Inspected',
-  DISPUTED_STAGE_127: 'Disputed',
-  READY_HANDOVER_STAGE_128: 'Ready for handover',
-  PENDING_REVIEW_STAGE_129: 'Pending review',
-  VERIFIED_STAGE_130: 'Verified',
-  ACTIVE_STAGE_131: 'Active',
-  OVERDUE_STAGE_132: 'Overdue',
-  OVERLOCKED_STAGE_133: 'Overlocked',
-  SETTLED_STAGE_134: 'Settled',
-  CANCELLED_STAGE_135: 'Cancelled',
-  SCHEDULED_STAGE_136: 'Scheduled',
-  HOLDING_STAGE_137: 'Hold active',
-  EXPIRED_STAGE_138: 'Expired',
-  SIGNED_STAGE_139: 'Signed',
-  DRAFT_STAGE_140: 'Draft',
-  ARCHIVED_STAGE_141: 'Archived',
-  ESCALATED_STAGE_142: 'Escalated',
-  COMPLETED_STAGE_143: 'Completed',
-  REFUNDED_STAGE_144: 'Refunded',
-  LIQUIDATING_STAGE_145: 'Liquidating',
-  LOCKED_STAGE_146: 'Access locked',
-  AVAILABLE_STAGE_147: 'Available',
-  RESERVED_STAGE_148: 'Reserved',
-  MAINTENANCE_STAGE_149: 'Maintenance',
-  INSPECTED_STAGE_150: 'Inspected',
-  DISPUTED_STAGE_151: 'Disputed',
-  READY_HANDOVER_STAGE_152: 'Ready for handover',
-  PENDING_REVIEW_STAGE_153: 'Pending review',
-  VERIFIED_STAGE_154: 'Verified',
-  ACTIVE_STAGE_155: 'Active',
-  OVERDUE_STAGE_156: 'Overdue',
-  OVERLOCKED_STAGE_157: 'Overlocked',
-  SETTLED_STAGE_158: 'Settled',
-  CANCELLED_STAGE_159: 'Cancelled',
-  SCHEDULED_STAGE_160: 'Scheduled',
-  HOLDING_STAGE_161: 'Hold active',
-  EXPIRED_STAGE_162: 'Expired',
-  SIGNED_STAGE_163: 'Signed',
-  DRAFT_STAGE_164: 'Draft',
-  ARCHIVED_STAGE_165: 'Archived',
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+  MAINTENANCE: 'Maintenance',
+  INSPECTED: 'Inspected',
+  DISPUTED: 'Disputed',
+  READY_HANDOVER: 'Ready for handover',
+  PENDING_REVIEW: 'Pending review',
+  VERIFIED: 'Verified',
+  ACTIVE: 'Active',
+  OVERDUE_STAGE_24: 'Overdue',
+  OVERLOCKED_STAGE_25: 'Overlocked',
+  SETTLED_STAGE_26: 'Settled',
+  CANCELLED_STAGE_27: 'Cancelled',
+  SCHEDULED_STAGE_28: 'Scheduled',
+  HOLDING_STAGE_29: 'Hold active',
+  EXPIRED_STAGE_30: 'Expired',
+  SIGNED_STAGE_31: 'Signed',
+  DRAFT_STAGE_32: 'Draft',
+  ARCHIVED_STAGE_33: 'Archived',
+  ESCALATED_STAGE_34: 'Escalated',
+  COMPLETED_STAGE_35: 'Completed',
+  REFUNDED_STAGE_36: 'Refunded',
+  LIQUIDATING_STAGE_37: 'Liquidating',
+  LOCKED_STAGE_38: 'Access locked',
+  AVAILABLE_STAGE_39: 'Available',
+  RESERVED_STAGE_40: 'Reserved',
+  MAINTENANCE_STAGE_41: 'Maintenance',
+  INSPECTED_STAGE_42: 'Inspected',
+  DISPUTED_STAGE_43: 'Disputed',
+  READY_HANDOVER_STAGE_44: 'Ready for handover',
+  PENDING_REVIEW_STAGE_45: 'Pending review',
+  VERIFIED_STAGE_46: 'Verified',
+  ACTIVE_STAGE_47: 'Active',
+  OVERDUE_STAGE_48: 'Overdue',
+  OVERLOCKED_STAGE_49: 'Overlocked',
+  SETTLED_STAGE_50: 'Settled',
+  CANCELLED_STAGE_51: 'Cancelled',
+  SCHEDULED_STAGE_52: 'Scheduled',
+  HOLDING_STAGE_53: 'Hold active',
+  EXPIRED_STAGE_54: 'Expired',
+  SIGNED_STAGE_55: 'Signed',
+  DRAFT_STAGE_56: 'Draft',
+  ARCHIVED_STAGE_57: 'Archived',
+  ESCALATED_STAGE_58: 'Escalated',
+  COMPLETED_STAGE_59: 'Completed',
+  REFUNDED_STAGE_60: 'Refunded',
+  LIQUIDATING_STAGE_61: 'Liquidating',
+  LOCKED_STAGE_62: 'Access locked',
+  AVAILABLE_STAGE_63: 'Available',
+  RESERVED_STAGE_64: 'Reserved',
+  MAINTENANCE_STAGE_65: 'Maintenance',
+  INSPECTED_STAGE_66: 'Inspected',
+  DISPUTED_STAGE_67: 'Disputed',
+  READY_HANDOVER_STAGE_68: 'Ready for handover',
+  PENDING_REVIEW_STAGE_69: 'Pending review',
+  VERIFIED_STAGE_70: 'Verified',
+  ACTIVE_STAGE_71: 'Active',
+  OVERDUE_STAGE_72: 'Overdue',
+  OVERLOCKED_STAGE_73: 'Overlocked',
+  SETTLED_STAGE_74: 'Settled',
+  CANCELLED_STAGE_75: 'Cancelled',
+  SCHEDULED_STAGE_76: 'Scheduled',
+  HOLDING_STAGE_77: 'Hold active',
+  EXPIRED_STAGE_78: 'Expired',
+  SIGNED_STAGE_79: 'Signed',
+  DRAFT_STAGE_80: 'Draft',
+  ARCHIVED_STAGE_81: 'Archived',
+  ESCALATED_STAGE_82: 'Escalated',
+  COMPLETED_STAGE_83: 'Completed',
+  REFUNDED_STAGE_84: 'Refunded',
+  LIQUIDATING_STAGE_85: 'Liquidating',
+  LOCKED_STAGE_86: 'Access locked',
+  AVAILABLE_STAGE_87: 'Available',
+  RESERVED_STAGE_88: 'Reserved',
+  MAINTENANCE_STAGE_89: 'Maintenance',
+  INSPECTED_STAGE_90: 'Inspected',
+  DISPUTED_STAGE_91: 'Disputed',
+  READY_HANDOVER_STAGE_92: 'Ready for handover',
+  PENDING_REVIEW_STAGE_93: 'Pending review',
+  VERIFIED_STAGE_94: 'Verified',
+  ACTIVE_STAGE_95: 'Active',
+  OVERDUE_STAGE_96: 'Overdue',
+  OVERLOCKED_STAGE_97: 'Overlocked',
+  SETTLED_STAGE_98: 'Settled',
+  CANCELLED_STAGE_99: 'Cancelled',
+  SCHEDULED_STAGE_100: 'Scheduled',
+  HOLDING_STAGE_101: 'Hold active',
+  EXPIRED_STAGE_102: 'Expired',
+  SIGNED_STAGE_103: 'Signed',
+  DRAFT_STAGE_104: 'Draft',
+  ARCHIVED_STAGE_105: 'Archived',
+  ESCALATED_STAGE_106: 'Escalated',
+  COMPLETED_STAGE_107: 'Completed',
+  REFUNDED_STAGE_108: 'Refunded',
+  LIQUIDATING_STAGE_109: 'Liquidating',
+  LOCKED_STAGE_110: 'Access locked',
+  AVAILABLE_STAGE_111: 'Available',
+  RESERVED_STAGE_112: 'Reserved',
+  MAINTENANCE_STAGE_113: 'Maintenance',
+  INSPECTED_STAGE_114: 'Inspected',
+  DISPUTED_STAGE_115: 'Disputed',
+  READY_HANDOVER_STAGE_116: 'Ready for handover',
+  PENDING_REVIEW_STAGE_117: 'Pending review',
+  VERIFIED_STAGE_118: 'Verified',
+  ACTIVE_STAGE_119: 'Active',
+  OVERDUE_STAGE_120: 'Overdue',
+  OVERLOCKED_STAGE_121: 'Overlocked',
+  SETTLED_STAGE_122: 'Settled',
+  CANCELLED_STAGE_123: 'Cancelled',
+  SCHEDULED_STAGE_124: 'Scheduled',
+  HOLDING_STAGE_125: 'Hold active',
+  EXPIRED_STAGE_126: 'Expired',
+  SIGNED_STAGE_127: 'Signed',
+  DRAFT_STAGE_128: 'Draft',
+  ARCHIVED_STAGE_129: 'Archived',
+  ESCALATED_STAGE_130: 'Escalated',
+  COMPLETED_STAGE_131: 'Completed',
+  REFUNDED_STAGE_132: 'Refunded',
+  LIQUIDATING_STAGE_133: 'Liquidating',
+  LOCKED_STAGE_134: 'Access locked',
+  AVAILABLE_STAGE_135: 'Available',
+  RESERVED_STAGE_136: 'Reserved',
+  MAINTENANCE_STAGE_137: 'Maintenance',
+  INSPECTED_STAGE_138: 'Inspected',
+  DISPUTED_STAGE_139: 'Disputed',
+  READY_HANDOVER_STAGE_140: 'Ready for handover',
+  PENDING_REVIEW_STAGE_141: 'Pending review',
+  VERIFIED_STAGE_142: 'Verified',
+  ACTIVE_STAGE_143: 'Active',
+  OVERDUE_STAGE_144: 'Overdue',
+  OVERLOCKED_STAGE_145: 'Overlocked',
+  SETTLED_STAGE_146: 'Settled',
+  CANCELLED_STAGE_147: 'Cancelled',
+  SCHEDULED_STAGE_148: 'Scheduled',
+  HOLDING_STAGE_149: 'Hold active',
+  EXPIRED_STAGE_150: 'Expired',
+  SIGNED_STAGE_151: 'Signed',
+  DRAFT_STAGE_152: 'Draft',
+  ARCHIVED_STAGE_153: 'Archived',
+  ESCALATED_STAGE_154: 'Escalated',
+  COMPLETED_STAGE_155: 'Completed',
+  REFUNDED_STAGE_156: 'Refunded',
+  LIQUIDATING_STAGE_157: 'Liquidating',
+  LOCKED_STAGE_158: 'Access locked',
+  AVAILABLE_STAGE_159: 'Available',
+  RESERVED_STAGE_160: 'Reserved',
+  MAINTENANCE_STAGE_161: 'Maintenance',
+  INSPECTED_STAGE_162: 'Inspected',
+  DISPUTED_STAGE_163: 'Disputed',
+  READY_HANDOVER_STAGE_164: 'Ready for handover',
+  PENDING_REVIEW_STAGE_165: 'Pending review',
+  VERIFIED_STAGE_166: 'Verified',
+  ACTIVE_STAGE_167: 'Active',
+  OVERDUE_STAGE_168: 'Overdue',
+  OVERLOCKED_STAGE_169: 'Overlocked',
+  SETTLED_STAGE_170: 'Settled',
+  CANCELLED_STAGE_171: 'Cancelled',
+  SCHEDULED_STAGE_172: 'Scheduled',
+  HOLDING_STAGE_173: 'Hold active',
+  EXPIRED_STAGE_174: 'Expired',
+  SIGNED_STAGE_175: 'Signed',
+  DRAFT_STAGE_176: 'Draft',
+  ARCHIVED_STAGE_177: 'Archived',
+  ESCALATED_STAGE_178: 'Escalated',
+  COMPLETED_STAGE_179: 'Completed',
+  REFUNDED_STAGE_180: 'Refunded',
+  LIQUIDATING_STAGE_181: 'Liquidating',
+  LOCKED_STAGE_182: 'Access locked',
+  AVAILABLE_STAGE_183: 'Available',
+  RESERVED_STAGE_184: 'Reserved',
+  MAINTENANCE_STAGE_185: 'Maintenance',
+  INSPECTED_STAGE_186: 'Inspected',
+  DISPUTED_STAGE_187: 'Disputed',
+  READY_HANDOVER_STAGE_188: 'Ready for handover',
+  PENDING_REVIEW_STAGE_189: 'Pending review',
+  VERIFIED_STAGE_190: 'Verified',
+  ACTIVE_STAGE_191: 'Active',
+  OVERDUE_STAGE_192: 'Overdue',
+  OVERLOCKED_STAGE_193: 'Overlocked',
+  SETTLED_STAGE_194: 'Settled',
 };
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];

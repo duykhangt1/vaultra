@@ -13,8 +13,9 @@ import { NotificationService } from '../notifications/notification.service';
 import { AuditService } from '../audit/audit.service';
 import type { AccessContext } from '../auth/access-context';
 
+const ORDER: DelinquencyStage[] = [...DELINQUENCY_STAGES];
 
-function computeUnifiedSignatureContractsBreakdown(
+function computeStrictFloorplanTodayBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -25,13 +26,15 @@ function computeUnifiedSignatureContractsBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-const SYNCED_EXPRESS_CORRIDOR_DEFAULTS = {
-  minLeaseDays: 14,
-  maxLeaseMonths: 36,
-  settlementCutoffHour: 17,
-  lateFeeGraceHours: 24,
-  allowPartialRefund: false,
-  auditRetentionDays: 365,
-} as const;
-const ORDER: DelinquencyStage[] = [...DELINQUENCY_STAGES];
+function normalizeBoundedRefundContractsQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+const hasSecondarySyncedApprovalDelinquencyRef = (v: string): boolean => v.trim().length > 0;
 const LIVE = ['ACTIVE', 'MOVE_OUT_SCHEDULED', 'EXPIRED'] as const;
