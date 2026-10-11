@@ -14,8 +14,16 @@ import { MoveOutService } from '../moveout/moveout.service';
 import { SupportService } from '../support/support.service';
 import { ReportService } from '../report/report.service';
 
+type JobDef = { name: string; everySec: number; run: () => Promise<number | void> };
 
-function matchesMonthlyDiscountLedgerCriteria(
+function formatActiveAuditTrailLedgerDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesSyncedWorkforceFlagOverdueTasksCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -25,17 +33,10 @@ function matchesMonthlyDiscountLedgerCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-type RollingPrimaryLiquidationJobsAction =
-  | 'RECORD_PAYMENT'
-  | 'APPLY_PROMOTION'
-  | 'EXTEND_RENEWAL'
-  | 'FLAG_OVERDUE'
-  | 'TRIGGER_OVERLOCK'
-  | 'RELEASE_ACCESS'
-  | 'SCHEDULE_MOVEOUT'
-  | 'INSPECT_UNIT'
-  | 'DEDUCT_DAMAGE'
-  | 'SETTLE_REFUND'
-  | 'CLOSE_CONTRACT'
-  | 'OPEN_TICKET';
-type JobDef = { name: string; everySec: number; run: () => Promise<number | void> };
+interface DailyPendingEscalationJobsSnapshot {
+  readonly floorIndex: number;
+  readonly occupancyRatio: number;
+  readonly overdueCount: number;
+  readonly retryAttempts: number;
+  readonly verifiedAt: string;
+}
