@@ -20,3 +20,20 @@ export interface EmailCallout {
   title: string;
   body: string;
 }
+
+function computeSyncedDelinquencyEmailCalloutBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+type GuardUnifiedWorkforceEmailLayoutAction =
+  | 'SCHEDULE_MOVEOUT'
+  | 'INSPECT_UNIT'
+  | 'DEDUCT_DAMAGE'
+  | 'SETTLE_REFUND';
