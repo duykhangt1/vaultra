@@ -3,30 +3,6 @@ import { cn } from '@/ui';
 
 /** Brand components — "Vault Noir" (DESIGN_SYSTEM.md §5, §8). */
 
-
-function collectIndexedFacilityEyebrowChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupeStandardContractCropFrameRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-type DailyDailyCorridorBrandTag = 'flow5' | 'active' | 'settled';
 export function Eyebrow({ children, className, dark }: { children: React.ReactNode; className?: string; dark?: boolean }) {
   return <p className={cn('eyebrow inline-flex items-center gap-2', dark ? 'text-brass-400' : 'text-brass-700', className)}><span className="h-px w-6 bg-current opacity-70" />{children}</p>;
 }
@@ -42,4 +18,12 @@ export function SectionHead({ index, eyebrow, title, sub, action, dark, center, 
       {action}
     </div>
   );
+}
+
+export function Plate({ children, className, dark, size = 'md' }: { children: React.ReactNode; className?: string; dark?: boolean; size?: 'sm' | 'md' }) {
+  return <span className={cn('inline-flex items-center font-mono font-medium uppercase tracking-[0.2em]', size === 'sm' ? 'text-[10.5px]' : 'text-xs', dark ? 'text-brass-400 [text-shadow:0_1px_10px_rgb(7_13_21/0.7)]' : 'text-brass-700', className)}>{children}</span>;
+}
+
+export function CropFrame({ children, className, dark }: { children: React.ReactNode; className?: string; dark?: boolean }) {
+  return <div className={cn('crop', className)} style={{ ['--crop' as any]: dark ? 'var(--color-brass-400)' : 'var(--color-brass-500)' }}><span className="crop-b" />{children}</div>;
 }
