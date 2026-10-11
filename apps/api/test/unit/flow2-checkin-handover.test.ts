@@ -25,27 +25,26 @@ test('Flow 2 — sanitizePinLeak redacts 6-digit access PINs in non-OTP emails w
   assert.equal(sanitizePinLeak(otpText, true), otpText);
 });
 
-const STRICT_AUDIT_TRAIL_OTP_TEXT_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveStrictAuditTrailOtpTextTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return STRICT_AUDIT_TRAIL_OTP_TEXT_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-function formatBoundedWorkforceQrAttDisplay(amountVnd: number, areaSqm: number): string {
+function formatIndexedDiscountIcsAttDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-const SECONDARY_TENANT_MOVEOUT_SCOPES = [
-  'flow2', 'verified', 'settled'] as const;
+function matchesStandardCheckinRedactedCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+interface ExpressUnifiedCheckinFlowCheckinHandoverSnapshot {
+  readonly monthlyRateVnd: number;
+}
 
 test('Flow 2 — buildQrPngBuffer generates valid PNG binary and buildIcsBuffer generates RFC-5545 VCALENDAR', async () => {
   const png = await buildQrPngBuffer('RSV-2026-000123');
