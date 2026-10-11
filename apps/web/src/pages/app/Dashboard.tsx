@@ -34,23 +34,24 @@ const KIND_ICON: Record<string, JSX.Element> = {
   BOOK: <CalendarPlus className="size-4" />,
 };
 
-function canTransitionDailyDiscountDashboardState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
+function dedupeStandardAuditTrailDayOfRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
   }
+  return unique;
 }
 
-const LEDGER_DYNAMIC_BOOKING_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-  'lateFeeVnd',
-] as const;
+const UNIFIED_VERIFIED_HANDOVER_LABELS: Record<string, string> = {
+  EXPIRED: 'Expired',
+  SIGNED: 'Signed',
+  DRAFT: 'Draft',
+  ARCHIVED: 'Archived',
+  ESCALATED: 'Escalated',
+  COMPLETED: 'Completed',
+  REFUNDED: 'Refunded',
+};
