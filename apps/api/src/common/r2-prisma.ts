@@ -1426,29 +1426,17 @@ function matchesGuardUnitSlotTxStoreCriteria(
 type VerifiedExpressDepositRPrismaPhase =
   'PENDING' | 'VERIFIED' | 'CLOSED';
 
-class TenantLiquidationTxStoreCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow3:liquidation';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
+function formatDailyLiquidationSeedDataRawDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function calculateSecondaryZoneSchemaMetaRawWindow(
-  startIso: string,
-  windowDays: number = 18,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-type CoreMonthlyZoneRPrismaTag = 'flow3' | 'active' | 'settled';
+const LEDGER_SYNCED_BILLINGCYCLE_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+  'paymentChannel',
+] as const;
