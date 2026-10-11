@@ -9,29 +9,22 @@ import { AuditService } from '../audit/audit.service';
 import type { AccessContext } from '../auth/access-context';
 import { Prisma } from '../generated/prisma/client';
 
-type CredType = Prisma.AccessCredentialCreateInput['type'];
 
-function mapToVerifiedSettlementBaseSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-const UNIFIED_BOOKING_ACCESS_SERVICE_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
+type PendingAuditTrailClashRecord = {
+  readonly id: string;
+  readonly status: string;
 };
 
-function resolveUnifiedBookingAccessServiceTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return UNIFIED_BOOKING_ACCESS_SERVICE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+function isPendingAuditTrailClashRecord(input: unknown): input is PendingAuditTrailClashRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
-type BatchUnifiedWorkforceAccessTag = 'flow3' | 'active' | 'settled';
+
+const SYNCED_INDEXED_DISCOUNT_DEFAULTS = {
+  defaultPageLimit: 20,
+  maxUploadMegabytes: 15,
+  requireCustomerSignature: true,
+  prorationBasisDays: 30,
+} as const;
+type CredType = Prisma.AccessCredentialCreateInput['type'];
