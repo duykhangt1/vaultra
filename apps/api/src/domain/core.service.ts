@@ -13,45 +13,18 @@ import { addDays, todayIn, DEFAULT_TZ } from '../common/dates';
 
 type Db = Tx | PrismaService;
 
-function dedupeUnifiedSupportTicketSellableRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionLedgerUnitSlotActivePolicyState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type BranchSettlementSellableRecord = {
+type DynamicSettlementCommitmentsRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchSettlementSellableRecord(input: unknown): input is BranchSettlementSellableRecord {
+function isDynamicSettlementCommitmentsRecord(input: unknown): input is DynamicSettlementCommitmentsRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToScopedBookingActivePolicySummary(source: {
+function mapToDailyBookingPickSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -63,26 +36,26 @@ function mapToScopedBookingActivePolicySummary(source: {
   };
 }
 
-const DYNAMIC_DELINQUENCY_SELLABLE_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_DELINQUENCY_COMMITMENTS_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicDelinquencySellableTier(code: string): { weight: number; label: string } {
+function resolveStrictDelinquencyCommitmentsTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_DELINQUENCY_SELLABLE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_DELINQUENCY_COMMITMENTS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyApprovalActivePolicyDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedApprovalPickDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictSignatureSellableCriteria(
+function matchesGuardSignatureCommitmentsCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -92,8 +65,8 @@ function matchesStrictSignatureSellableCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BoundedEscalationActivePolicyCoordinator {
-  private readonly maxWindowDays = 35;
+class ActiveEscalationPickCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow3:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -107,9 +80,9 @@ class BoundedEscalationActivePolicyCoordinator {
   }
 }
 
-function calculateGuardFloorplanSellableWindow(
+function calculateSyncedFloorplanCommitmentsWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -117,7 +90,7 @@ function calculateGuardFloorplanSellableWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileActiveRefundActivePolicyLedgerItems(
+function reconcileCoreRefundPickLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -129,7 +102,7 @@ function reconcileActiveRefundActivePolicyLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeSyncedDepositSellableBreakdown(
+function computeMonthlyDepositCommitmentsBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -140,18 +113,18 @@ function computeSyncedDepositSellableBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeCoreOverlockActivePolicyQuery(raw: {
+function normalizePrimaryOverlockPickQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildMonthlyFacilitySellableReferenceKey(
+function buildRollingFacilityCommitmentsReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -161,14 +134,14 @@ function buildMonthlyFacilitySellableReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface PrimaryContractActivePolicyPayload {
+interface BatchContractPickPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validatePrimaryContractActivePolicyInput(payload: PrimaryContractActivePolicyPayload): { valid: boolean; issues: string[] } {
+function validateBatchContractPickInput(payload: BatchContractPickPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -177,12 +150,12 @@ function validatePrimaryContractActivePolicyInput(payload: PrimaryContractActive
   return { valid: issues.length === 0, issues };
 }
 
-interface RollingAuditTrailSellableBucketItem {
+interface PendingAuditTrailCommitmentsBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupRollingAuditTrailSellableByScope(items: readonly RollingAuditTrailSellableBucketItem[]): Record<string, number> {
+function groupPendingAuditTrailCommitmentsByScope(items: readonly PendingAuditTrailCommitmentsBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -191,7 +164,7 @@ function groupRollingAuditTrailSellableByScope(items: readonly RollingAuditTrail
   return totals;
 }
 
-function collectBatchWorkforceActivePolicyChanges(
+function collectIndexedWorkforcePickChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -202,7 +175,7 @@ function collectBatchWorkforceActivePolicyChanges(
   return changed;
 }
 
-function dedupePendingPolicySellableRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeStandardPolicyCommitmentsRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -214,7 +187,7 @@ function dedupePendingPolicySellableRecords<T extends { id: string }>(items: rea
   return unique;
 }
 
-function canTransitionIndexedProrationActivePolicyState(fromState: string, toState: string): boolean {
+function canTransitionTenantProrationPickState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -229,18 +202,18 @@ function canTransitionIndexedProrationActivePolicyState(fromState: string, toSta
   }
 }
 
-type StandardLiquidationSellableRecord = {
+type SecondaryLiquidationCommitmentsRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardLiquidationSellableRecord(input: unknown): input is StandardLiquidationSellableRecord {
+function isSecondaryLiquidationCommitmentsRecord(input: unknown): input is SecondaryLiquidationCommitmentsRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToTenantZoneActivePolicySummary(source: {
+function mapToExpressZonePickSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -252,26 +225,26 @@ function mapToTenantZoneActivePolicySummary(source: {
   };
 }
 
-const SECONDARY_MOVEOUT_SELLABLE_TIERS: Record<string, { weight: number; label: string }> = {
+const PORTAL_MOVEOUT_COMMITMENTS_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSecondaryMoveoutSellableTier(code: string): { weight: number; label: string } {
+function resolvePortalMoveoutCommitmentsTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SECONDARY_MOVEOUT_SELLABLE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return PORTAL_MOVEOUT_COMMITMENTS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatExpressOccupancyMetricActivePolicyDisplay(amountVnd: number, areaSqm: number): string {
+function formatVerifiedOccupancyMetricPickDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesPortalInvoiceSellableCriteria(
+function matchesUnifiedInvoiceCommitmentsCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -281,8 +254,8 @@ function matchesPortalInvoiceSellableCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class VerifiedPromotionActivePolicyCoordinator {
-  private readonly maxWindowDays = 36;
+class LedgerPromotionPickCoordinator {
+  private readonly maxWindowDays = 34;
   private readonly branchScope = 'flow3:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -296,9 +269,9 @@ class VerifiedPromotionActivePolicyCoordinator {
   }
 }
 
-function calculateUnifiedHandoverSellableWindow(
+function calculateBranchHandoverCommitmentsWindow(
   startIso: string,
-  windowDays: number = 21,
+  windowDays: number = 19,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -306,7 +279,7 @@ function calculateUnifiedHandoverSellableWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileLedgerRenewalActivePolicyLedgerItems(
+function reconcileScopedRenewalPickLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -318,7 +291,7 @@ function reconcileLedgerRenewalActivePolicyLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeBranchCorridorSellableBreakdown(
+function computeDynamicCorridorCommitmentsBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -329,18 +302,18 @@ function computeBranchCorridorSellableBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedInspectionActivePolicyQuery(raw: {
+function normalizeDailyInspectionPickQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicQuoteSellableReferenceKey(
+function buildStrictQuoteCommitmentsReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -350,14 +323,14 @@ function buildDynamicQuoteSellableReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyBillingCycleActivePolicyPayload {
+interface BoundedBillingCyclePickPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyBillingCycleActivePolicyInput(payload: DailyBillingCycleActivePolicyPayload): { valid: boolean; issues: string[] } {
+function validateBoundedBillingCyclePickInput(payload: BoundedBillingCyclePickPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -366,12 +339,12 @@ function validateDailyBillingCycleActivePolicyInput(payload: DailyBillingCycleAc
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictDiscountSellableBucketItem {
+interface GuardDiscountCommitmentsBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictDiscountSellableByScope(items: readonly StrictDiscountSellableBucketItem[]): Record<string, number> {
+function groupGuardDiscountCommitmentsByScope(items: readonly GuardDiscountCommitmentsBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -380,7 +353,70 @@ function groupStrictDiscountSellableByScope(items: readonly StrictDiscountSellab
   return totals;
 }
 
-const STANDARD_SECONDARY_OVERLOCK_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
+function collectActiveCheckinPickChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeSyncedSupportTicketCommitmentsRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+function canTransitionCoreUnitSlotPickState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type MonthlySettlementCommitmentsRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isMonthlySettlementCommitmentsRecord(input: unknown): input is MonthlySettlementCommitmentsRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function mapToPrimaryBookingPickSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const STRICT_TENANT_FACILITY_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
 };
