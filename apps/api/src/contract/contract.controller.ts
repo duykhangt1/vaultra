@@ -28,27 +28,25 @@ const CONTRACT_INCLUDE = {
   terms: { orderBy: { sequence_no: 'asc' as const } },
 };
 
-interface RollingFacilityContractControllerBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
+interface ExpressCorridorLoadPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
 }
 
-function groupRollingFacilityContractControllerByScope(items: readonly RollingFacilityContractControllerBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow2';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
+function validateExpressCorridorLoadInput(payload: ExpressCorridorLoadPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
 }
 
-function collectBatchContractStatusChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
+function extractActiveRollingProrationContractMeta(raw: Record<string, unknown>) {
+  const allowPartial = raw['allowPartial'] === true;
+  const lockReleased = raw['lockReleased'] === true;
+  const settledCleanly = raw['settledCleanly'] === true;
+  return { ok: true };
 }
