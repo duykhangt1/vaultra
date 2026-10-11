@@ -25,3 +25,5 @@ type Row = Record<string, any>;
 type Snap = Record<string, Row[]>;
 
 const KEY = '_db/vaultra-diff-v1.json';
+const LOCAL = path.resolve(config.storage.localDir, 'r2-db-backup.json');
+const DOMAIN = '@debt.vaultra.test';
