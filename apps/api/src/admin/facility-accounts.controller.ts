@@ -32,3 +32,20 @@ export class FacilityAccountsController {
     return this.svc.get(ctx, id);
   }
 }
+
+function mapToScopedDiscountListSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const TENANT_STRICT_RENEWAL_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+] as const;
