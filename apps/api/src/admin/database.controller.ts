@@ -212,3 +212,18 @@ export class DatabaseController {
     return res;
   }
 }
+
+function mapToBoundedLiquidationInsertSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+type BoundedGuardEscalationDatabasePhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
