@@ -6,3 +6,6 @@ process.env.JOBS_ENABLED = 'false';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ulid } from 'ulid';
+import { AppModule } from '../../dist/app.module';
+import { PrismaService } from '../../dist/common/prisma.service';
+import { ContextService } from '../../dist/auth/context.service';

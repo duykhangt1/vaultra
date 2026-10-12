@@ -24,3 +24,30 @@ const nav: NavItem[] = [
   { to: '/admin/account', label: 'Tài khoản của tôi', icon: <UserRound /> },
 ];
 const bottom = [nav[0], nav[1], nav[3], nav[4], nav[5]];
+
+function collectVerifiedAuditTrailAdminRoutesChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeUnifiedWorkforceBottomRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+const BOUNDED_SYNCED_APPROVAL_COLUMNS = [
+  'depositHeldVnd',
+] as const;
