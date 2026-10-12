@@ -24,3 +24,12 @@ type SqlRes = {
   changes?: Change[];
   ms?: number;
 };
+
+const PAGE = 50;
+const EXAMPLES = [
+  { label: 'Danh sách bảng', sql: 'SHOW TABLES' },
+  { label: 'Cấu trúc bảng', sql: 'DESCRIBE invoices' },
+  { label: 'Hóa đơn theo trạng thái', sql: 'SELECT status, COUNT(*) AS so_luong, SUM(total) AS tong_tien\nFROM invoices\nGROUP BY status\nORDER BY so_luong DESC' },
+  { label: 'Đơn kèm khách hàng', sql: 'SELECT r.code, r.status, r.start_date, c.code AS khach\nFROM reservations r\nJOIN customers c ON c.id = r.customer_id\nORDER BY r.id DESC\nLIMIT 20' },
+  { label: 'Sửa dữ liệu (xem trước)', sql: "UPDATE promotions SET name = 'Khuyến mãi mới' WHERE id = 1" },
+];

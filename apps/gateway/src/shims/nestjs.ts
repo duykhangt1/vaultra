@@ -42,3 +42,19 @@ export function Controller(prefix?: string | string[]): ClassDecorator {
     setMeta('path', p, target);
   };
 }
+
+function createMethodDecorator(methodNum: number) {
+  return (path: string | string[] = ''): MethodDecorator => {
+    return (_target: any, _key: string | symbol, descriptor: PropertyDescriptor) => {
+      if (descriptor?.value) {
+        setMeta('path', path, descriptor.value);
+        setMeta('method', methodNum, descriptor.value);
+      }
+      return descriptor;
+    };
+  };
+}
+
+export const Get = createMethodDecorator(0);
+export const Post = createMethodDecorator(1);
+export const Put = createMethodDecorator(2);
