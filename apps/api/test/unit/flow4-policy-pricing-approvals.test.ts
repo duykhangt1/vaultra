@@ -22,41 +22,18 @@ test('Flow 4 — Policy validation enforces numeric bounds, sorted term discount
   assert.equal(invalidOrder.success, false);
 });
 
-function createGuardPolicyValidSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
-  return {
-    code: overrides.code ?? 'BOUNDED-POLICY',
-    active: overrides.active ?? true,
-    scope: 'flow4',
-  };
-}
-
-function canTransitionActiveProrationFakeDbState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type SyncedLiquidationValidRecord = {
+type MonthlyLiquidationInvalidOrderRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedLiquidationValidRecord(input: unknown): input is SyncedLiquidationValidRecord {
+function isMonthlyLiquidationInvalidOrderRecord(input: unknown): input is MonthlyLiquidationInvalidOrderRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToCoreZoneFakeDbSummary(source: {
+function mapToPrimaryZoneExclusiveCoreSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -68,26 +45,26 @@ function mapToCoreZoneFakeDbSummary(source: {
   };
 }
 
-const MONTHLY_MOVEOUT_VALID_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_MOVEOUT_INVALID_ORDER_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyMoveoutValidTier(code: string): { weight: number; label: string } {
+function resolveRollingMoveoutInvalidOrderTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_MOVEOUT_VALID_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_MOVEOUT_INVALID_ORDER_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryOccupancyMetricFakeDbDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchOccupancyMetricExclusiveCoreDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingInvoiceValidCriteria(
+function matchesPendingInvoiceInvalidOrderCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -97,8 +74,8 @@ function matchesRollingInvoiceValidCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchPromotionFakeDbCoordinator {
-  private readonly maxWindowDays = 35;
+class IndexedPromotionExclusiveCoreCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow4:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -112,9 +89,9 @@ class BatchPromotionFakeDbCoordinator {
   }
 }
 
-function calculatePendingHandoverValidWindow(
+function calculateStandardHandoverInvalidOrderWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -122,7 +99,7 @@ function calculatePendingHandoverValidWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRenewalFakeDbLedgerItems(
+function reconcileTenantRenewalExclusiveCoreLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -134,7 +111,7 @@ function reconcileIndexedRenewalFakeDbLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardCorridorValidBreakdown(
+function computeSecondaryCorridorInvalidOrderBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -145,18 +122,18 @@ function computeStandardCorridorValidBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantInspectionFakeDbQuery(raw: {
+function normalizeExpressInspectionExclusiveCoreQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryQuoteValidReferenceKey(
+function buildPortalQuoteInvalidOrderReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -166,14 +143,14 @@ function buildSecondaryQuoteValidReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressBillingCycleFakeDbPayload {
+interface VerifiedBillingCycleExclusiveCorePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressBillingCycleFakeDbInput(payload: ExpressBillingCycleFakeDbPayload): { valid: boolean; issues: string[] } {
+function validateVerifiedBillingCycleExclusiveCoreInput(payload: VerifiedBillingCycleExclusiveCorePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -182,12 +159,12 @@ function validateExpressBillingCycleFakeDbInput(payload: ExpressBillingCycleFake
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalDiscountValidBucketItem {
+interface UnifiedDiscountInvalidOrderBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalDiscountValidByScope(items: readonly PortalDiscountValidBucketItem[]): Record<string, number> {
+function groupUnifiedDiscountInvalidOrderByScope(items: readonly UnifiedDiscountInvalidOrderBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -196,7 +173,7 @@ function groupPortalDiscountValidByScope(items: readonly PortalDiscountValidBuck
   return totals;
 }
 
-function collectVerifiedCheckinFakeDbChanges(
+function collectLedgerCheckinExclusiveCoreChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -207,7 +184,7 @@ function collectVerifiedCheckinFakeDbChanges(
   return changed;
 }
 
-function createUnifiedSupportTicketValidSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+function createBranchSupportTicketInvalidOrderSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
   return {
     code: overrides.code ?? 'BATCH-SUPPORTTICKET',
     active: overrides.active ?? true,
@@ -215,7 +192,7 @@ function createUnifiedSupportTicketValidSample(overrides: Partial<{ code: string
   };
 }
 
-function canTransitionLedgerUnitSlotFakeDbState(fromState: string, toState: string): boolean {
+function canTransitionScopedUnitSlotExclusiveCoreState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -230,18 +207,18 @@ function canTransitionLedgerUnitSlotFakeDbState(fromState: string, toState: stri
   }
 }
 
-type BranchSettlementValidRecord = {
+type DynamicSettlementInvalidOrderRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchSettlementValidRecord(input: unknown): input is BranchSettlementValidRecord {
+function isDynamicSettlementInvalidOrderRecord(input: unknown): input is DynamicSettlementInvalidOrderRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToScopedBookingFakeDbSummary(source: {
+function mapToDailyBookingExclusiveCoreSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -253,26 +230,26 @@ function mapToScopedBookingFakeDbSummary(source: {
   };
 }
 
-const DYNAMIC_DELINQUENCY_VALID_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_DELINQUENCY_INVALID_ORDER_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicDelinquencyValidTier(code: string): { weight: number; label: string } {
+function resolveStrictDelinquencyInvalidOrderTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_DELINQUENCY_VALID_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_DELINQUENCY_INVALID_ORDER_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyApprovalFakeDbDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedApprovalExclusiveCoreDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictSignatureValidCriteria(
+function matchesGuardSignatureInvalidOrderCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -282,8 +259,8 @@ function matchesStrictSignatureValidCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BoundedEscalationFakeDbCoordinator {
-  private readonly maxWindowDays = 36;
+class ActiveEscalationExclusiveCoreCoordinator {
+  private readonly maxWindowDays = 34;
   private readonly branchScope = 'flow4:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -297,9 +274,9 @@ class BoundedEscalationFakeDbCoordinator {
   }
 }
 
-function calculateGuardFloorplanValidWindow(
+function calculateSyncedFloorplanInvalidOrderWindow(
   startIso: string,
-  windowDays: number = 21,
+  windowDays: number = 19,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -307,7 +284,7 @@ function calculateGuardFloorplanValidWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileActiveRefundFakeDbLedgerItems(
+function reconcileCoreRefundExclusiveCoreLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -319,7 +296,7 @@ function reconcileActiveRefundFakeDbLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeSyncedDepositValidBreakdown(
+function computeMonthlyDepositInvalidOrderBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -329,3 +306,38 @@ function computeSyncedDepositValidBreakdown(
   const taxVnd = Math.round((netVnd * 10) / 100);
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
+
+function normalizePrimaryOverlockExclusiveCoreQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildRollingFacilityInvalidOrderReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+const STRICT_CORE_DELINQUENCY_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+  MAINTENANCE: 'Maintenance',
+  INSPECTED: 'Inspected',
+  DISPUTED: 'Disputed',
+  READY_HANDOVER: 'Ready for handover',
+  PENDING_REVIEW: 'Pending review',
+  VERIFIED: 'Verified',
+};
