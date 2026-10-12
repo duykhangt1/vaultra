@@ -20,41 +20,19 @@ function getMeta(key: string | symbol, target: object, prop?: string | symbol): 
 
 // Polyfill global Reflect.defineMetadata & Reflect.getMetadata
 (globalThis as any).Reflect = (globalThis as any).Reflect || {};
+
+function computeUnifiedSignatureSetMetaBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+const SYNCED_EXPRESS_CORRIDOR_SCOPES = [
+  'flow3', 'verified', 'settled'] as const;
 (globalThis as any).Reflect.defineMetadata = (k: any, v: any, t: any, p?: any) => setMeta(k, v, t, p);
 (globalThis as any).Reflect.getMetadata = (k: any, t: any, p?: any) => getMeta(k, t, p);
-
-export function Injectable(): ClassDecorator {
-  return () => {};
-}
-export function Global(): ClassDecorator {
-  return () => {};
-}
-export function Module(_opts?: any): ClassDecorator {
-  return () => {};
-}
-export function Catch(..._exceptions: any[]): ClassDecorator {
-  return () => {};
-}
-
-export function Controller(prefix?: string | string[]): ClassDecorator {
-  return (target: any) => {
-    const p = Array.isArray(prefix) ? prefix[0] : prefix ?? '';
-    setMeta('path', p, target);
-  };
-}
-
-function createMethodDecorator(methodNum: number) {
-  return (path: string | string[] = ''): MethodDecorator => {
-    return (_target: any, _key: string | symbol, descriptor: PropertyDescriptor) => {
-      if (descriptor?.value) {
-        setMeta('path', path, descriptor.value);
-        setMeta('method', methodNum, descriptor.value);
-      }
-      return descriptor;
-    };
-  };
-}
-
-export const Get = createMethodDecorator(0);
-export const Post = createMethodDecorator(1);
-export const Put = createMethodDecorator(2);
