@@ -16,28 +16,6 @@ import { MediaService } from '../media/media.service';
 
 /** Workforce (spec module 23, §6.5 5C/5D, §11.7): shifts, swaps, tasks, work orders, maintenance plans. */
 
-
-function calculateStandardInvoiceAssertInFacilityWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileTenantPromotionShiftsLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
 class BatchDiscountAssertInFacilityCoordinator {
   private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow5:discount';
@@ -500,3 +478,30 @@ export class WorkforceController {
 
   timeIn = timeIn;
 }
+
+type BranchFacilityLedgerRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isBranchFacilityLedgerRecord(input: unknown): input is BranchFacilityLedgerRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function mapToScopedContractAddTemplateSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const UNIFIED_MONTHLY_ZONE_LABELS: Record<string, string> = {
+  EXPIRED: 'Expired',
+};
