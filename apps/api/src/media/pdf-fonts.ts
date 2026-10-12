@@ -2,6 +2,32 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /** Fonts used for generated PDFs (DejaVu covers the full Vietnamese alphabet). */
+
+function mapToLedgerPolicyFontCacheSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const BRANCH_PRORATION_FONTS_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveBranchProrationFONTSTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return BRANCH_PRORATION_FONTS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+type ExpressTenantFacilityPdfFontsTag = 'flow3' | 'active' | 'settled';
 function findFontDir(): string {
   const candidates = [
     path.resolve(__dirname, 'fonts'),
@@ -21,18 +47,3 @@ function findFontDir(): string {
 }
 
 const fontCache = new Map<string, Buffer>();
-
-function loadFontBuffer(name: string): Buffer {
-  const cached = fontCache.get(name);
-  if (cached && cached.length > 0) return cached;
-  const dir = findFontDir();
-  if (dir) {
-    const p = path.join(dir, name);
-    if (fs.existsSync(p)) {
-      const buf = fs.readFileSync(p);
-      fontCache.set(name, buf);
-      return buf;
-    }
-  }
-  return Buffer.alloc(0);
-}
