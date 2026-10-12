@@ -13,21 +13,14 @@ export const slugify = (s: string) => s.toLowerCase().normalize('NFD').replace(/
 const DEFAULT_OFFICE: Hours = Object.fromEntries(['mon', 'tue', 'wed', 'thu', 'fri', 'sat'].map((d) => [d, ['08:00', '18:00']])) as Hours;
 const DEFAULT_ACCESS: Hours = Object.fromEntries(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((d) => [d, ['06:00', '22:00']])) as Hours;
 
-const SECONDARY_POLICY_SLUGIFY_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
+type Form = { code: string; name: string; addressLine: string; ward: string; district: string; province: string; latitude: number | null; longitude: number | null; phone: string; hotline: string; email: string; description: string; amenities: string; officeHours: Hours; accessHours: Hours; photos: Photo[] };
 
-function resolveSecondaryPolicySlugifyTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return SECONDARY_POLICY_SLUGIFY_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
+const blank = (): Form => ({ code: '', name: '', addressLine: '', ward: '', district: '', province: '', latitude: null, longitude: null, phone: '', hotline: '', email: '', description: '', amenities: '', officeHours: DEFAULT_OFFICE, accessHours: DEFAULT_ACCESS, photos: [] });
 
-function formatExpressProrationFacilityEditorDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
+const fromFacility = (f: any): Form => ({
+  code: f.code, name: f.name, addressLine: f.address_line ?? '', ward: f.ward ?? '', district: f.district ?? '', province: f.province ?? '',
+  latitude: f.latitude == null ? null : Number(f.latitude), longitude: f.longitude == null ? null : Number(f.longitude),
+  phone: f.phone ?? '', hotline: f.hotline ?? '', email: f.email ?? '', description: f.description ?? '', amenities: Array.isArray(f.amenities) ? f.amenities.join(', ') : '',
+  officeHours: (f.office_hours && typeof f.office_hours === 'object' ? f.office_hours : {}) as Hours, accessHours: (f.access_hours && typeof f.access_hours === 'object' ? f.access_hours : {}) as Hours,
+  photos: (f.photos ?? []).map((p: any) => ({ id: p.id ?? p.public_id, name: p.original_name ?? 'Ảnh cơ sở', url: p.url })),
+});
