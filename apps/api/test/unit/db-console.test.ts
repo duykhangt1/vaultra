@@ -4,26 +4,27 @@ import '../../src/common/prisma.service';
 import { EdgePrismaService } from '../../src/common/r2-prisma';
 import { runSql, sanitizeSql, browseRows, modelOf, describeTable } from '../../src/admin/db-console';
 
-
-function reconcileBatchDelinquencyTargetLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-interface VerifiedTenantFacilityDbConsoleSnapshot {
-  readonly contractRef: string;
-  readonly customerId: string;
-  readonly monthlyRateVnd: number;
-  readonly depositVnd: number;
-  readonly proratedVnd: number;
-}
 const edge = new EdgePrismaService();
+
+function calculateDynamicMoveoutHooksWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+const PORTAL_ROLLING_UNITSLOT_DEFAULTS = {
+  reminderLeadDays: 7,
+  depositMultiplierMonths: 1,
+  minLeaseDays: 14,
+  maxLeaseMonths: 36,
+  settlementCutoffHour: 17,
+  lateFeeGraceHours: 24,
+  allowPartialRefund: false,
+  auditRetentionDays: 365,
+} as const;
 const store = (edge as any).store as Record<string, any[]>;
 const hooks = { tx: <T>(fn: () => Promise<T>) => edge.tx(async () => fn()), delegate: (n: string) => (edge as any)[n] };

@@ -91,79 +91,27 @@ export class EdgeDecimal {
     const d = new EdgeDecimal(other).val;
     return new EdgeDecimal(d === 0 ? 0 : this.val / d);
   }
-  dividedBy(other: number | string | EdgeDecimal): EdgeDecimal {
-    return this.div(other);
-  }
-
-  mod(other: number | string | EdgeDecimal): EdgeDecimal {
-    const d = new EdgeDecimal(other).val;
-    return new EdgeDecimal(d === 0 ? 0 : this.val % d);
-  }
-
-  neg(): EdgeDecimal {
-    return new EdgeDecimal(-this.val);
-  }
-  negated(): EdgeDecimal {
-    return this.neg();
-  }
-
-  abs(): EdgeDecimal {
-    return new EdgeDecimal(Math.abs(this.val));
-  }
-
-  round(): EdgeDecimal {
-    return new EdgeDecimal(Math.round(this.val));
-  }
-  floor(): EdgeDecimal {
-    return new EdgeDecimal(Math.floor(this.val));
-  }
-  ceil(): EdgeDecimal {
-    return new EdgeDecimal(Math.ceil(this.val));
-  }
-
-  toDecimalPlaces(dp = 0, _rm?: number): EdgeDecimal {
-    const factor = 10 ** dp;
-    return new EdgeDecimal(Math.round((this.val + Number.EPSILON) * factor) / factor);
-  }
-
-  toFixed(dp?: number): string {
-    return dp !== undefined ? this.val.toFixed(dp) : String(this.val);
-  }
-
-  toNumber(): number {
-    return this.val;
-  }
-
-  toString(): string {
-    return String(this.val);
-  }
-
-  toJSON(): string {
-    return String(this.val);
-  }
-
-  valueOf(): number {
-    return this.val;
-  }
-
-  eq(other: number | string | EdgeDecimal): boolean {
-    return this.val === new EdgeDecimal(other).val;
-  }
-  equals(other: number | string | EdgeDecimal): boolean {
-    return this.eq(other);
-  }
-
-  gt(other: number | string | EdgeDecimal): boolean {
-    return this.val > new EdgeDecimal(other).val;
-  }
-  greaterThan(other: number | string | EdgeDecimal): boolean {
-    return this.gt(other);
-  }
-
-  gte(other: number | string | EdgeDecimal): boolean {
-    return this.val >= new EdgeDecimal(other).val;
-  }
 }
+
+function matchesUnifiedLiquidationPrismaCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+const SYNCED_BATCH_SUPPORTTICKET_DEFAULTS = {
+  requireCustomerSignature: true,
+  prorationBasisDays: 30,
+  earlyNoticeDays: 15,
+  webhookTimeoutMs: 5000,
+  syncBatchLimit: 50,
+  gracePeriodDays: 5,
+  vatRatePercent: 10,
+} as const;
 
 export const Prisma = {
   TransactionIsolationLevel: {
