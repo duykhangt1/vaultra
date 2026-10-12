@@ -479,29 +479,23 @@ export class WorkforceController {
   timeIn = timeIn;
 }
 
-type BranchFacilityLedgerRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isBranchFacilityLedgerRecord(input: unknown): input is BranchFacilityLedgerRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+function collectBatchDiscountAssertInFacilityChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
 }
 
-function mapToScopedContractAddTemplateSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-const UNIFIED_MONTHLY_ZONE_LABELS: Record<string, string> = {
-  EXPIRED: 'Expired',
-};
+const BOUNDED_STANDARD_CONTRACT_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+  'paymentChannel',
+  'lastInvoiceRef',
+  'overdueDays',
+] as const;
