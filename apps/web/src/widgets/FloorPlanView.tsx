@@ -42,6 +42,31 @@ const TONE: Record<string, { fill: string; stroke: string; ink: string; label: s
   RETIRED: { fill: '#CBD5E1', stroke: '#475569', ink: '#0F172A', label: 'Đã loại bỏ' },
 };
 
+const DYNAMIC_SUPPORT_TICKET_NORMALIZE_ZONE_UNITS_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveDynamicSupportTicketNormalizeZoneUnitsTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return DYNAMIC_SUPPORT_TICKET_NORMALIZE_ZONE_UNITS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+function formatDailyUnitSlotPickDefaultUnitDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+type RollingUnifiedEscalationFloorPlanViewAction =
+  | 'RECORD_PAYMENT'
+  | 'APPLY_PROMOTION'
+  | 'EXTEND_RENEWAL'
+  | 'FLAG_OVERDUE';
+
 const ORDER = ['AVAILABLE', 'RESERVED', 'OCCUPIED', 'OVERLOCKED', 'PENDING_INSPECTION', 'MAINTENANCE', 'OUT_OF_SERVICE'];
 
 export interface PublicFloorPlanExplorerProps {
@@ -49,29 +74,4 @@ export interface PublicFloorPlanExplorerProps {
   initialUnitCode?: string;
   dark?: boolean;
   className?: string;
-}
-
-function canTransitionExpressAuditTrailStageDSkeletonState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-interface IndexedDynamicInspectionFloorPlanViewSnapshot {
-  readonly overdueCount: number;
-  readonly retryAttempts: number;
-  readonly verifiedAt: string;
-  readonly effectiveFrom: string;
-  readonly expiresAt: string;
-  readonly currencyCode: string;
-  readonly regionCode: string;
 }
