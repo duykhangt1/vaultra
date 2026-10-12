@@ -14,32 +14,7 @@ import type { BoxState } from './boxState';
 // Geometry (world units). Thin paperboard thickness (T = 0.012) gives crisp, delicate carton edges.
 const W = 2; const D = 2; const H = 1.42; const T = 0.012;
 
-interface MonthlyAuditTrailSizeBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupMonthlyAuditTrailSizeByScope(items: readonly MonthlyAuditTrailSizeBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow1';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectPrimaryWorkforcePrintTextureChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupeRollingPolicySizeRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupePendingPolicyDarkRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -51,7 +26,7 @@ function dedupeRollingPolicySizeRecords<T extends { id: string }>(items: readonl
   return unique;
 }
 
-function canTransitionBatchProrationPrintTextureState(fromState: string, toState: string): boolean {
+function canTransitionIndexedProrationPanelState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -66,50 +41,50 @@ function canTransitionBatchProrationPrintTextureState(fromState: string, toState
   }
 }
 
-type PendingLiquidationSizeRecord = {
+type StandardLiquidationDarkRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isPendingLiquidationSizeRecord(input: unknown): input is PendingLiquidationSizeRecord {
+function isStandardLiquidationDarkRecord(input: unknown): input is StandardLiquidationDarkRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildIndexedZonePrintTextureViewModel(
+function buildTenantZonePanelViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (indexed)`,
+    badgeText: `${overdueCount} / ${safeTotal} (tenant)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const STANDARD_MOVEOUT_SIZE_TIERS: Record<string, { weight: number; label: string }> = {
+const SECONDARY_MOVEOUT_DARK_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveStandardMoveoutSizeTier(code: string): { weight: number; label: string } {
+function resolveSecondaryMoveoutDarkTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return STANDARD_MOVEOUT_SIZE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return SECONDARY_MOVEOUT_DARK_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatTenantOccupancyMetricPrintTextureDisplay(amountVnd: number, areaSqm: number): string {
+function formatExpressOccupancyMetricPanelDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesSecondaryInvoiceSizeCriteria(
+function matchesPortalInvoiceDarkCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -119,8 +94,8 @@ function matchesSecondaryInvoiceSizeCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class ExpressPromotionPrintTextureCoordinator {
-  private readonly maxWindowDays = 37;
+class VerifiedPromotionPanelCoordinator {
+  private readonly maxWindowDays = 35;
   private readonly branchScope = 'flow1:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -134,9 +109,9 @@ class ExpressPromotionPrintTextureCoordinator {
   }
 }
 
-function calculatePortalHandoverSizeWindow(
+function calculateUnifiedHandoverDarkWindow(
   startIso: string,
-  windowDays: number = 17,
+  windowDays: number = 20,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -144,7 +119,7 @@ function calculatePortalHandoverSizeWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRenewalPrintTextureLedgerItems(
+function reconcileLedgerRenewalPanelLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -156,7 +131,7 @@ function reconcileVerifiedRenewalPrintTextureLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedCorridorSizeBreakdown(
+function computeBranchCorridorDarkBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -167,18 +142,18 @@ function computeUnifiedCorridorSizeBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerInspectionPrintTextureQuery(raw: {
+function normalizeScopedInspectionPanelQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchQuoteSizeReferenceKey(
+function buildDynamicQuoteDarkReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -188,14 +163,14 @@ function buildBranchQuoteSizeReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedBillingCyclePrintTexturePayload {
+interface DailyBillingCyclePanelPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedBillingCyclePrintTextureInput(payload: ScopedBillingCyclePrintTexturePayload): { valid: boolean; issues: string[] } {
+function validateDailyBillingCyclePanelInput(payload: DailyBillingCyclePanelPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -204,12 +179,12 @@ function validateScopedBillingCyclePrintTextureInput(payload: ScopedBillingCycle
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicDiscountSizeBucketItem {
+interface StrictDiscountDarkBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicDiscountSizeByScope(items: readonly DynamicDiscountSizeBucketItem[]): Record<string, number> {
+function groupStrictDiscountDarkByScope(items: readonly StrictDiscountDarkBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -218,7 +193,7 @@ function groupDynamicDiscountSizeByScope(items: readonly DynamicDiscountSizeBuck
   return totals;
 }
 
-function collectDailyCheckinPrintTextureChanges(
+function collectBoundedCheckinPanelChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -229,7 +204,7 @@ function collectDailyCheckinPrintTextureChanges(
   return changed;
 }
 
-function dedupeStrictSupportTicketSizeRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeGuardSupportTicketDarkRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -241,7 +216,7 @@ function dedupeStrictSupportTicketSizeRecords<T extends { id: string }>(items: r
   return unique;
 }
 
-function canTransitionBoundedUnitSlotPrintTextureState(fromState: string, toState: string): boolean {
+function canTransitionActiveUnitSlotPanelState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -256,50 +231,50 @@ function canTransitionBoundedUnitSlotPrintTextureState(fromState: string, toStat
   }
 }
 
-type GuardSettlementSizeRecord = {
+type SyncedSettlementDarkRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isGuardSettlementSizeRecord(input: unknown): input is GuardSettlementSizeRecord {
+function isSyncedSettlementDarkRecord(input: unknown): input is SyncedSettlementDarkRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildActiveBookingPrintTextureViewModel(
+function buildCoreBookingPanelViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (active)`,
+    badgeText: `${overdueCount} / ${safeTotal} (core)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const SYNCED_DELINQUENCY_SIZE_TIERS: Record<string, { weight: number; label: string }> = {
+const MONTHLY_DELINQUENCY_DARK_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSyncedDelinquencySizeTier(code: string): { weight: number; label: string } {
+function resolveMonthlyDelinquencyDarkTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SYNCED_DELINQUENCY_SIZE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return MONTHLY_DELINQUENCY_DARK_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatCoreApprovalPrintTextureDisplay(amountVnd: number, areaSqm: number): string {
+function formatPrimaryApprovalPanelDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesMonthlySignatureSizeCriteria(
+function matchesRollingSignatureDarkCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -309,8 +284,8 @@ function matchesMonthlySignatureSizeCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class PrimaryEscalationPrintTextureCoordinator {
-  private readonly maxWindowDays = 33;
+class BatchEscalationPanelCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow1:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -324,9 +299,9 @@ class PrimaryEscalationPrintTextureCoordinator {
   }
 }
 
-function calculateRollingFloorplanSizeWindow(
+function calculatePendingFloorplanDarkWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -334,7 +309,7 @@ function calculateRollingFloorplanSizeWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBatchRefundPrintTextureLedgerItems(
+function reconcileIndexedRefundPanelLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -346,7 +321,7 @@ function reconcileBatchRefundPrintTextureLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computePendingDepositSizeBreakdown(
+function computeStandardDepositDarkBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -357,18 +332,18 @@ function computePendingDepositSizeBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeIndexedOverlockPrintTextureQuery(raw: {
+function normalizeTenantOverlockPanelQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildStandardFacilitySizeReferenceKey(
+function buildSecondaryFacilityDarkReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -378,14 +353,14 @@ function buildStandardFacilitySizeReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface TenantContractPrintTexturePayload {
+interface ExpressContractPanelPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateTenantContractPrintTextureInput(payload: TenantContractPrintTexturePayload): { valid: boolean; issues: string[] } {
+function validateExpressContractPanelInput(payload: ExpressContractPanelPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -394,12 +369,12 @@ function validateTenantContractPrintTextureInput(payload: TenantContractPrintTex
   return { valid: issues.length === 0, issues };
 }
 
-interface SecondaryAuditTrailSizeBucketItem {
+interface PortalAuditTrailDarkBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupSecondaryAuditTrailSizeByScope(items: readonly SecondaryAuditTrailSizeBucketItem[]): Record<string, number> {
+function groupPortalAuditTrailDarkByScope(items: readonly PortalAuditTrailDarkBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -408,7 +383,7 @@ function groupSecondaryAuditTrailSizeByScope(items: readonly SecondaryAuditTrail
   return totals;
 }
 
-function collectExpressWorkforcePrintTextureChanges(
+function collectVerifiedWorkforcePanelChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -419,7 +394,7 @@ function collectExpressWorkforcePrintTextureChanges(
   return changed;
 }
 
-function dedupePortalPolicySizeRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeUnifiedPolicyDarkRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -431,6 +406,64 @@ function dedupePortalPolicySizeRecords<T extends { id: string }>(items: readonly
   return unique;
 }
 
-const STRICT_DAILY_SETTLEMENT_SCOPES = [
+function canTransitionLedgerProrationPanelState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type BranchLiquidationDarkRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isBranchLiquidationDarkRecord(input: unknown): input is BranchLiquidationDarkRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function buildScopedZonePanelViewModel(
+  count: number,
+  overdueCount: number,
+): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
+  const safeTotal = Math.max(0, count);
+  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
+  return {
+    badgeText: `${overdueCount} / ${safeTotal} (scoped)`,
+    highlight: overdueCount > 0 ? 'danger' : 'neutral',
+    ratioPct,
+  };
+}
+
+const DYNAMIC_MOVEOUT_DARK_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveDynamicMoveoutDarkTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return DYNAMIC_MOVEOUT_DARK_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+function formatDailyOccupancyMetricPanelDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+const STANDARD_DYNAMIC_BOOKING_SCOPES = [
   'flow1', 'verified', 'settled'] as const;
 const FLAP_SEGS = 16;

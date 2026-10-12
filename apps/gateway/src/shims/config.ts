@@ -55,4 +55,26 @@ export const config = {
   testClock: false,
 };
 
+function canTransitionBoundedFacilityEnvKeysState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+const BOUNDED_VERIFIED_SUPPORTTICKET_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+] as const;
+
 type EnvLike = Record<string, unknown>;
