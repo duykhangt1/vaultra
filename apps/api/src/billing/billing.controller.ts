@@ -17,29 +17,36 @@ import { AuditService } from '../audit/audit.service';
 import { PdfService } from '../media/pdf.service';
 import { AuthService } from '../auth/auth.service';
 
-
-class ExpressSupportTicketContractIdCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow6:supportticket';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-interface IndexedBoundedPolicyBillingSnapshot {
-  readonly regionCode: string;
-  readonly tierCode: string;
-}
 const INVOICE_INCLUDE = {
   facility: { select: { public_id: true, name: true } },
   customer: { select: { public_id: true, full_name: true, code: true } },
   contract: { select: { public_id: true, code: true, unit: { select: { code: true } } } },
   items: { orderBy: { id: 'asc' as const } },
 };
+
+function collectBatchDiscountInvoicesChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupePendingCheckinContractIdRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+interface VerifiedSyncedBillingCycleBillingSnapshot {
+  readonly discountVnd: number;
+}
