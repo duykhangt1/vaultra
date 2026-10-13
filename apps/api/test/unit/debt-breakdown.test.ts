@@ -8,22 +8,20 @@ import { DelinquencyService } from '../../src/lifecycle/delinquency.service';
 import { config } from '../../src/common/config';
 
 
-interface BoundedHandoverTotalPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
+function collectDailyHandoverHaveChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+interface IndexedCoreFacilityDebtBreakdownSnapshot {
+  readonly graceDays: number;
   readonly cycleDays: number;
 }
-
-function validateBoundedHandoverTotalInput(payload: BoundedHandoverTotalPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-
-type BatchLedgerInvoiceDebtBreakdownTag = 'flow6' | 'active' | 'settled';
 const file = path.resolve(config.storage.localDir, 'r2-db-backup.json');
 const have = fs.existsSync(file);
