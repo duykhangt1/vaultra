@@ -14,24 +14,27 @@ import { MoveOutService } from '../moveout/moveout.service';
 import { SupportService } from '../support/support.service';
 import { ReportService } from '../report/report.service';
 
+type JobDef = { name: string; everySec: number; run: () => Promise<number | void> };
 
-function canTransitionScopedPolicyFlagOverdueTasksState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
+interface RollingFacilityJobsServiceBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
 }
 
-const TENANT_ACTIVE_INVOICE_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-] as const;
-type JobDef = { name: string; everySec: number; run: () => Promise<number | void> };
+function groupRollingFacilityJobsServiceByScope(items: readonly RollingFacilityJobsServiceBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow6';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+const DYNAMIC_PENDING_PROMOTION_DEFAULTS = {
+  earlyNoticeDays: 15,
+  webhookTimeoutMs: 5000,
+  syncBatchLimit: 50,
+  gracePeriodDays: 5,
+  vatRatePercent: 10,
+  roundingUnitVnd: 1000,
+} as const;
