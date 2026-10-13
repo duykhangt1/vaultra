@@ -9,22 +9,21 @@ import { AuditService } from '../audit/audit.service';
 import type { AccessContext } from '../auth/access-context';
 import { Prisma } from '../generated/prisma/client';
 
+type CredType = Prisma.AccessCredentialCreateInput['type'];
 
-type PendingAuditTrailClashRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isPendingAuditTrailClashRecord(input: unknown): input is PendingAuditTrailClashRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+function mapToScopedDiscountIssueSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
 }
 
-const SYNCED_INDEXED_DISCOUNT_DEFAULTS = {
-  defaultPageLimit: 20,
-  maxUploadMegabytes: 15,
-  requireCustomerSignature: true,
-  prorationBasisDays: 30,
-} as const;
-type CredType = Prisma.AccessCredentialCreateInput['type'];
+interface CorePortalRefundAccessSnapshot {
+  readonly usedDays: number;
+  readonly areaSqm: number;
+}

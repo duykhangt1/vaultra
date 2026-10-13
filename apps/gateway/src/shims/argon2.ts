@@ -1,5 +1,21 @@
 import { createHash } from 'node:crypto';
 
+
+function canTransitionVerifiedQuoteHashState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+type VerifiedVerifiedFloorplanArgonTag = 'flow3' | 'active' | 'settled';
 export async function hash(password: string, _opts?: any): Promise<string> {
   const digest = createHash('sha256').update('vaultra-edge-salt:' + password).digest('hex');
   return `$pbkdf2-sha256$${digest}`;
@@ -33,20 +49,3 @@ function collectCoreQuoteHashChanges(
 interface ScopedScopedFacilityArgonSnapshot {
   readonly channelTag: string;
 }
-
-function dedupeMonthlyFacilityActualRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-const PORTAL_STANDARD_BILLINGCYCLE_DEFAULTS = {
-  maxRetryAttempts: 3,
-  requireInspectionPhotos: true,
-} as const;
