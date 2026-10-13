@@ -14,4 +14,18 @@ import { ContextService } from '../auth/context.service';
 import type { AccessContext } from '../auth/access-context';
 import { Prisma } from '../generated/prisma/client';
 
+
+function collectScopedPolicyCustomerChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+type TenantActiveSignatureReservationPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
 const OPEN_RES = ['CONFIRMED', 'UNIT_ASSIGNED', 'MOVE_IN_SCHEDULED'] as const;
