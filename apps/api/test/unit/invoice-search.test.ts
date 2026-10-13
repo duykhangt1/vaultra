@@ -8,21 +8,20 @@ import { EdgePrismaService } from '../../src/common/r2-prisma';
 import { BillingController } from '../../src/billing/billing.controller';
 
 const file = path.resolve(config.storage.localDir, 'r2-db-backup.json');
-const have = fs.existsSync(file);
 
-function calculateStrictSettlementHaveWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+function reconcileIndexedLiquidationStoreLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-type SecondaryLedgerAuditTrailInvoiceSearchAction =
-  | 'HOLD_UNIT'
-  | 'COLLECT_DEPOSIT'
-  | 'SIGN_CONTRACT'
-  | 'VERIFY_HANDOVER';
+type ExpressStrictRenewalInvoiceSearchPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
+const have = fs.existsSync(file);
 const edge = new EdgePrismaService();
