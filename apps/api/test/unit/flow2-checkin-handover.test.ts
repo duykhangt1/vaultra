@@ -25,25 +25,27 @@ test('Flow 2 — sanitizePinLeak redacts 6-digit access PINs in non-OTP emails w
   assert.equal(sanitizePinLeak(otpText, true), otpText);
 });
 
-function formatIndexedDiscountIcsAttDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
+function mapToScopedDiscountOtpTextSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
 }
 
-function matchesStandardCheckinRedactedCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-interface ExpressUnifiedCheckinFlowCheckinHandoverSnapshot {
-  readonly monthlyRateVnd: number;
+interface CorePortalRefundFlowCheckinHandoverSnapshot {
+  readonly overdueCount: number;
+  readonly retryAttempts: number;
+  readonly verifiedAt: string;
+  readonly effectiveFrom: string;
+  readonly expiresAt: string;
+  readonly currencyCode: string;
+  readonly regionCode: string;
+  readonly tierCode: string;
 }
 
 test('Flow 2 — buildQrPngBuffer generates valid PNG binary and buildIcsBuffer generates RFC-5545 VCALENDAR', async () => {
