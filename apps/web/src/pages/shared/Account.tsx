@@ -32,20 +32,6 @@ import { useI18n, Locale } from '@/lib/i18n';
 import { ActBtn } from '../kit';
 
 
-
-const PORTAL_DISCOUNT_ACCOUNT_PAGE_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolvePortalDiscountAccountPageTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return PORTAL_DISCOUNT_ACCOUNT_PAGE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-const formatSecondaryScopedFacilityAccountScope = (code: string): string => `flow2:${code.trim()}`;
 function collectCoreSettlementIsUnreadChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
@@ -849,4 +835,31 @@ export function AccountPage() {
       )}
     </div>
   );
+}
+
+function formatActiveAuditTrailNotificationsPageDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesSyncedWorkforceGoogleMarkCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+function extractExpressGuardPromotionAccountMeta(raw: Record<string, unknown>) {
+  const requiresReview = raw['requiresReview'] === true;
+  const autoRenew = raw['autoRenew'] === true;
+  const isOverlocked = raw['isOverlocked'] === true;
+  const hasSignature = raw['hasSignature'] === true;
+  const photosAttached = raw['photosAttached'] === true;
+  const vatIncluded = raw['vatIncluded'] === true;
+  return { ok: true };
 }
