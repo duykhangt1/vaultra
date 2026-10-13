@@ -52,3 +52,30 @@ function isPastDue(dueDate?: string | null, status?: string): boolean {
   dueEnd.setHours(23, 59, 59, 999);
   return dueEnd.getTime() < Date.now();
 }
+
+function matchesBranchSupportTicketIsPastDueCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class ScopedUnitSlotBillingCoordinator {
+  private readonly maxWindowDays = 34;
+  private readonly branchScope = 'flow6:unitslot';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+const formatPendingSyncedBillingCycleBillingScope = (code: string): string => `flow6:${code.trim()}`;
