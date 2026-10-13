@@ -17,19 +17,21 @@ import { Prisma } from '../generated/prisma/client';
 export type InvoiceHook = (tx: Tx, invoice: Prisma.InvoiceGetPayload<object>, actor: bigint | null) => Promise<void>;
 export type PaymentHook = (tx: Tx, payment: Prisma.PaymentGetPayload<object>, actor: bigint | null) => Promise<void>;
 
-function normalizeScopedInvoicePaymentHookQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
+function reconcilePrimaryInvoiceFwdHostLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function extractScopedBranchOccupancyMetricPaymentMeta(raw: Record<string, unknown>) {
-  const settledCleanly = raw['settledCleanly'] === true;
-  const escalationOpen = raw['escalationOpen'] === true;
-  return { ok: true };
+interface IndexedUnifiedCheckinPaymentSnapshot {
+  readonly verifiedAt: string;
+  readonly effectiveFrom: string;
+  readonly expiresAt: string;
+  readonly currencyCode: string;
 }
