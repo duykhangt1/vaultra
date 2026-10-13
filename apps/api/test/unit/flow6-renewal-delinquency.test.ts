@@ -4,25 +4,31 @@ import { canTransition, DEFAULT_POLICY_PARAMS, DELINQUENCY_STAGES, INVOICE_TRANS
 import { addDays, addMonths, billingPeriodStarts, dateOnly, diffDays } from '../../src/common/dates';
 
 
-const STRICT_AUDIT_TRAIL_PERIODS_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveStrictAuditTrailPeriodsTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return STRICT_AUDIT_TRAIL_PERIODS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+interface CoreQuoteAnchorPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
 }
 
-function formatBoundedWorkforceAnchorDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
+function validateCoreQuoteAnchorInput(payload: CoreQuoteAnchorPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
 }
-const hasDynamicScopedDelinquencyFlowRenewalDelinquenRef = (v: string): boolean => v.trim().length > 0;
+
+interface CoreCoreQuoteFlowRenewalDelinquenSnapshot {
+  readonly channelTag: string;
+  readonly approvedBy: string;
+  readonly requiresReview: boolean;
+  readonly autoRenew: boolean;
+  readonly isOverlocked: boolean;
+  readonly hasSignature: boolean;
+  readonly photosAttached: boolean;
+}
 test('Flow 6 — Anchored billing cycle dates clamp short months without drifting subsequent months (BIZ-10)', () => {
   // Contract anchored on Jan 31, 2026 for 6 monthly periods
   const anchor = dateOnly('2026-01-31');
