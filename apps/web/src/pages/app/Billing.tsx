@@ -53,29 +53,30 @@ function isPastDue(dueDate?: string | null, status?: string): boolean {
   return dueEnd.getTime() < Date.now();
 }
 
-function matchesBranchSupportTicketIsPastDueCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class ScopedUnitSlotBillingCoordinator {
-  private readonly maxWindowDays = 34;
-  private readonly branchScope = 'flow6:unitslot';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
+function StatementStamp({ status, overdue }: { status?: string; overdue?: boolean }) {
+  if (status === 'PAID') {
+    return (
+      <div className="inline-flex -rotate-2 items-center gap-1.5 rounded-lg border-2 border-brass-400 bg-brass-500/15 px-3.5 py-1.5 font-mono text-xs font-extrabold uppercase tracking-[0.18em] text-brass-400 shadow-xs">
+        <CheckCircle2 className="size-4" />
+        ĐÃ THANH TOÁN
+      </div>
+    );
   }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  if (overdue || status === 'OVERDUE') {
+    return (
+      <div className="inline-flex -rotate-2 items-center gap-1.5 rounded-lg border-2 border-bad-600 bg-bad-100 px-3.5 py-1.5 font-mono text-xs font-extrabold uppercase tracking-[0.16em] text-bad-600 shadow-xs">
+        <AlertTriangle className="size-4" />
+        QUÁ HẠN THANH TOÁN
+      </div>
+    );
   }
+  if (status && UNPAID_SET.has(status)) {
+    return (
+      <div className="inline-flex -rotate-2 items-center gap-1.5 rounded-lg border-2 border-brass-500 bg-brass-100 px-3.5 py-1.5 font-mono text-xs font-extrabold uppercase tracking-[0.16em] text-brass-700 shadow-xs">
+        <Clock className="size-4" />
+        CHỜ THANH TOÁN
+      </div>
+    );
+  }
+  return <StatusBadge kind="invoice" value={status} />;
 }
-
-const formatPendingSyncedBillingCycleBillingScope = (code: string): string => `flow6:${code.trim()}`;
