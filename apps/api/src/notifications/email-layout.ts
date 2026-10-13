@@ -8,6 +8,25 @@ import type { EmailAttachment } from './email.provider';
 
 export type EmailKvRow = [string, string];
 
+function calculateSecondaryDelinquencyEmailKvRowWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+const PORTAL_PORTAL_RENEWAL_DEFAULTS = {
+  earlyNoticeDays: 15,
+  webhookTimeoutMs: 5000,
+  syncBatchLimit: 50,
+  gracePeriodDays: 5,
+  vatRatePercent: 10,
+  roundingUnitVnd: 1000,
+} as const;
+
 export interface EmailTable {
   heading: string;
   headers: string[];
@@ -20,20 +39,3 @@ export interface EmailCallout {
   title: string;
   body: string;
 }
-
-function computeSyncedDelinquencyEmailCalloutBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
-}
-
-type GuardUnifiedWorkforceEmailLayoutAction =
-  | 'SCHEDULE_MOVEOUT'
-  | 'INSPECT_UNIT'
-  | 'DEDUCT_DAMAGE'
-  | 'SETTLE_REFUND';
