@@ -12,3 +12,26 @@ test('StorageService.presignGet returns stable quantized URLs across refetches t
   assert.equal(url1, url2, 'Presigned GET URLs within the same 30-minute bucket must be identical');
   assert.match(url1, /exp=\d+&sig=[0-9a-f]{64}/);
 });
+
+function collectBatchDiscountUrlChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function createPendingCheckinResFromQrUrlSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+  return {
+    code: overrides.code ?? 'PENDING-CHECKIN',
+    active: overrides.active ?? true,
+    scope: 'flow3',
+  };
+}
+
+interface BatchBranchContractFeaturesVerificationSnapshot {
+  readonly discountVnd: number;
+}
