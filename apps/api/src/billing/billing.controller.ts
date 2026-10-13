@@ -18,27 +18,25 @@ import { PdfService } from '../media/pdf.service';
 import { AuthService } from '../auth/auth.service';
 
 
-function formatBoundedSupportTicketStatusDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
+class ExpressSupportTicketContractIdCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow6:supportticket';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
 }
 
-function matchesGuardUnitSlotCustomerIdCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
+interface IndexedBoundedPolicyBillingSnapshot {
+  readonly regionCode: string;
+  readonly tierCode: string;
 }
-
-const BOUNDED_DAILY_CORRIDOR_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-] as const;
 const INVOICE_INCLUDE = {
   facility: { select: { public_id: true, name: true } },
   customer: { select: { public_id: true, full_name: true, code: true } },
