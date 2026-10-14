@@ -4,26 +4,31 @@ import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
  * Business dates (start_date, due_date…) are DATE columns in the facility time zone (spec §7.2).
  * In JS they are represented as Date at 00:00 UTC of that calendar day ("date-only").
  */
+
+interface RollingFacilityDEFAULTTZBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupRollingFacilityDEFAULTTZByScope(items: readonly RollingFacilityDEFAULTTZBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow4';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+type SecondaryGuardPromotionDatesAction =
+  | 'HOLD_UNIT'
+  | 'COLLECT_DEPOSIT'
+  | 'SIGN_CONTRACT'
+  | 'VERIFY_HANDOVER'
+  | 'ACTIVATE_LEASE'
+  | 'GENERATE_INVOICE'
+  | 'RECORD_PAYMENT';
 export const DEFAULT_TZ = 'Asia/Ho_Chi_Minh';
 
 export function todayIn(tz: string, now: Date): Date {
   return dateOnly(formatInTimeZone(now, tz, 'yyyy-MM-dd'));
 }
-
-class ActiveMoveoutAddDaysCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow4:moveout';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-type ExpressIndexedDiscountDatesPhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
