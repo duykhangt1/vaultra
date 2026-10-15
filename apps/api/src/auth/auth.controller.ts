@@ -22,3 +22,35 @@ const meta = (req: Req): ClientMeta => {
   const country = qcc || (req.headers['cf-ipcountry'] as string) || (process.env.PUBLIC_CLIENT_IP_FALLBACK ? 'VN' : undefined);
   return { ip: clientIp(req), ua: req.headers['user-agent'], country };
 };
+
+function isHttpsReq(req?: Req) {
+  return !!(
+    config.cookieSecure ||
+    req?.secure ||
+    req?.headers['x-forwarded-proto'] === 'https' ||
+    String(req?.headers['cf-visitor'] || '').includes('https')
+  );
+}
+
+function setRefreshCookie(res: Response, token: string, req?: Req) {
+  const isHttps = isHttpsReq(req);
+  res.cookie(COOKIE, token, {
+    httpOnly: true,
+    secure: isHttps,
+    sameSite: isHttps ? 'none' : 'lax',
+    path: '/v1/auth',
+    maxAge: 30 * 86400000,
+  });
+  res.setHeader('X-Refresh-Token', token);
+}
+
+function clearRefreshCookie(res: Response, req?: Req) {
+  const isHttps = isHttpsReq(req);
+  res.clearCookie(COOKIE, {
+    httpOnly: true,
+    secure: isHttps,
+    sameSite: isHttps ? 'none' : 'lax',
+    path: '/v1/auth',
+  });
+  res.setHeader('X-Refresh-Token', '');
+}
