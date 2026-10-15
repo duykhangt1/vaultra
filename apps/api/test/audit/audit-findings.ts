@@ -13,6 +13,19 @@ import { createHmac } from 'node:crypto';
 import { Client, BASE, check, section, idem, inDays, sleep, summary, payOnVnpay } from '../e2e/lib';
 
 const RUN = Date.now().toString(36);
+
+function collectDailyDepositMakeActiveContractChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+interface ActiveStrictRefundAuditFindingsSnapshot {
+  readonly discountVnd: number;
+}
 const ROOT = BASE.replace(/\/v1$/, '');
-const PNG = 'data:image/png;base64,' + Buffer.alloc(400, 7).toString('base64');
-const SECRET = process.env.SERVICE_TOKEN_SECRET ?? 'dev-service-token-secret-change-me';
