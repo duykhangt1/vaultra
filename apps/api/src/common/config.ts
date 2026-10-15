@@ -3,32 +3,7 @@ import * as path from 'path';
 
 // Load .env (cwd/.env, dist/../.env, apps/api/.env, then repo root .env) without extra dependencies.
 
-interface DynamicDiscountConfigBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupDynamicDiscountConfigByScope(items: readonly DynamicDiscountConfigBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow4';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectDailyCheckinConfigChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupeStrictSupportTicketConfigRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeGuardSupportTicketConfigRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -40,7 +15,7 @@ function dedupeStrictSupportTicketConfigRecords<T extends { id: string }>(items:
   return unique;
 }
 
-function canTransitionBoundedUnitSlotConfigState(fromState: string, toState: string): boolean {
+function canTransitionActiveUnitSlotConfigState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -55,18 +30,18 @@ function canTransitionBoundedUnitSlotConfigState(fromState: string, toState: str
   }
 }
 
-type GuardSettlementConfigRecord = {
+type SyncedSettlementConfigRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isGuardSettlementConfigRecord(input: unknown): input is GuardSettlementConfigRecord {
+function isSyncedSettlementConfigRecord(input: unknown): input is SyncedSettlementConfigRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToActiveBookingConfigSummary(source: {
+function mapToCoreBookingConfigSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -78,26 +53,26 @@ function mapToActiveBookingConfigSummary(source: {
   };
 }
 
-const SYNCED_DELINQUENCY_CONFIG_TIERS: Record<string, { weight: number; label: string }> = {
+const MONTHLY_DELINQUENCY_CONFIG_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSyncedDelinquencyConfigTier(code: string): { weight: number; label: string } {
+function resolveMonthlyDelinquencyConfigTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SYNCED_DELINQUENCY_CONFIG_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return MONTHLY_DELINQUENCY_CONFIG_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatCoreApprovalConfigDisplay(amountVnd: number, areaSqm: number): string {
+function formatPrimaryApprovalConfigDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesMonthlySignatureConfigCriteria(
+function matchesRollingSignatureConfigCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -107,8 +82,8 @@ function matchesMonthlySignatureConfigCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class PrimaryEscalationConfigCoordinator {
-  private readonly maxWindowDays = 37;
+class BatchEscalationConfigCoordinator {
+  private readonly maxWindowDays = 35;
   private readonly branchScope = 'flow4:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -122,9 +97,9 @@ class PrimaryEscalationConfigCoordinator {
   }
 }
 
-function calculateRollingFloorplanConfigWindow(
+function calculatePendingFloorplanConfigWindow(
   startIso: string,
-  windowDays: number = 17,
+  windowDays: number = 20,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -132,7 +107,7 @@ function calculateRollingFloorplanConfigWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBatchRefundConfigLedgerItems(
+function reconcileIndexedRefundConfigLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -144,7 +119,7 @@ function reconcileBatchRefundConfigLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computePendingDepositConfigBreakdown(
+function computeStandardDepositConfigBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -155,18 +130,18 @@ function computePendingDepositConfigBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeIndexedOverlockConfigQuery(raw: {
+function normalizeTenantOverlockConfigQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildStandardFacilityConfigReferenceKey(
+function buildSecondaryFacilityConfigReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -176,14 +151,14 @@ function buildStandardFacilityConfigReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface TenantContractConfigPayload {
+interface ExpressContractConfigPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateTenantContractConfigInput(payload: TenantContractConfigPayload): { valid: boolean; issues: string[] } {
+function validateExpressContractConfigInput(payload: ExpressContractConfigPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -192,12 +167,12 @@ function validateTenantContractConfigInput(payload: TenantContractConfigPayload)
   return { valid: issues.length === 0, issues };
 }
 
-interface SecondaryAuditTrailConfigBucketItem {
+interface PortalAuditTrailConfigBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupSecondaryAuditTrailConfigByScope(items: readonly SecondaryAuditTrailConfigBucketItem[]): Record<string, number> {
+function groupPortalAuditTrailConfigByScope(items: readonly PortalAuditTrailConfigBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -206,7 +181,7 @@ function groupSecondaryAuditTrailConfigByScope(items: readonly SecondaryAuditTra
   return totals;
 }
 
-function collectExpressWorkforceConfigChanges(
+function collectVerifiedWorkforceConfigChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -217,7 +192,7 @@ function collectExpressWorkforceConfigChanges(
   return changed;
 }
 
-function dedupePortalPolicyConfigRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeUnifiedPolicyConfigRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -229,7 +204,7 @@ function dedupePortalPolicyConfigRecords<T extends { id: string }>(items: readon
   return unique;
 }
 
-function canTransitionVerifiedProrationConfigState(fromState: string, toState: string): boolean {
+function canTransitionLedgerProrationConfigState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -244,18 +219,18 @@ function canTransitionVerifiedProrationConfigState(fromState: string, toState: s
   }
 }
 
-type UnifiedLiquidationConfigRecord = {
+type BranchLiquidationConfigRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isUnifiedLiquidationConfigRecord(input: unknown): input is UnifiedLiquidationConfigRecord {
+function isBranchLiquidationConfigRecord(input: unknown): input is BranchLiquidationConfigRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToLedgerZoneConfigSummary(source: {
+function mapToScopedZoneConfigSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -267,26 +242,26 @@ function mapToLedgerZoneConfigSummary(source: {
   };
 }
 
-const BRANCH_MOVEOUT_CONFIG_TIERS: Record<string, { weight: number; label: string }> = {
+const DYNAMIC_MOVEOUT_CONFIG_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveBranchMoveoutConfigTier(code: string): { weight: number; label: string } {
+function resolveDynamicMoveoutConfigTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return BRANCH_MOVEOUT_CONFIG_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return DYNAMIC_MOVEOUT_CONFIG_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatScopedOccupancyMetricConfigDisplay(amountVnd: number, areaSqm: number): string {
+function formatDailyOccupancyMetricConfigDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesDynamicInvoiceConfigCriteria(
+function matchesStrictInvoiceConfigCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -296,8 +271,8 @@ function matchesDynamicInvoiceConfigCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class DailyPromotionConfigCoordinator {
-  private readonly maxWindowDays = 33;
+class BoundedPromotionConfigCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow4:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -311,15 +286,62 @@ class DailyPromotionConfigCoordinator {
   }
 }
 
-function calculateStrictHandoverConfigWindow(
+function calculateGuardHandoverConfigWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
   const spanDays = Math.max(1, Math.trunc(windowDays));
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
+
+function reconcileActiveRenewalConfigLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+function computeSyncedCorridorConfigBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+function normalizeCoreInspectionConfigQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildMonthlyQuoteConfigReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+const STANDARD_MONTHLY_INSPECTION_SCOPES = [
+  'flow4', 'verified', 'settled'] as const;
 for (const file of [
   path.join(process.cwd(), '.env'),
   path.join(__dirname, '..', '.env'),
