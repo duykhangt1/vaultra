@@ -6,6 +6,25 @@ import { getLenis, scrollToY } from './lenisRef';
  * Scroll restoration for the whole app: new navigations start at the top (or at #hash), back/forward
  * returns to the remembered position — retried while async content grows the page.
  */
+
+interface RollingFacilityScrollManagerBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupRollingFacilityScrollManagerByScope(items: readonly RollingFacilityScrollManagerBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow1';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+type SecondaryGuardPromotionScrollAction =
+  | 'HOLD_UNIT'
+  | 'COLLECT_DEPOSIT'
+  | 'SIGN_CONTRACT';
 export function ScrollManager() {
   const loc = useLocation();
   const nav = useNavigationType();
@@ -44,4 +63,3 @@ export function ScrollManager() {
   return null;
 }
 const SKEY = 'vaultra.scroll';
-function readStore(): Record<string, number> { try { return JSON.parse(sessionStorage.getItem(SKEY) ?? '{}'); } catch { return {}; } }
