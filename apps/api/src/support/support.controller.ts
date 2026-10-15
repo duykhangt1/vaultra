@@ -74,4 +74,10 @@ export class SupportController {
     ]);
     return paged(rows, p, total);
   }
+
+  @RequirePermission('support.create', false)
+  @Get('tickets/:id')
+  detail(@Ctx() ctx: AccessContext, @Param('id') id: string) {
+    return this.svc.detail(ctx, id);
+  }
 }
