@@ -5,6 +5,26 @@ import { Alert, Button, Card, PageHeader } from '@/ui';
 import { toast } from '@/ui/toast';
 
 /** Where the backend serves its own API documentation (Swagger UI and the OpenAPI file it reads). */
+
+function formatScopedDelinquencyApiDocsPageDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesDynamicApprovalCopyCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+type ScopedVerifiedPolicyApiDocsPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
 export function ApiDocsPage() {
   const origin = API_ORIGIN || window.location.origin;
   const links = [
@@ -74,24 +94,3 @@ function canTransitionVerifiedQuoteApiDocsPageState(fromState: string, toState: 
 interface VerifiedVerifiedFloorplanApiDocsSnapshot {
   readonly regionCode: string;
 }
-
-type PortalPolicyLinksRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isPortalPolicyLinksRecord(input: unknown): input is PortalPolicyLinksRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-type SecondaryStrictRenewalApiDocsAction =
-  | 'HOLD_UNIT'
-  | 'COLLECT_DEPOSIT'
-  | 'SIGN_CONTRACT'
-  | 'VERIFY_HANDOVER'
-  | 'ACTIVATE_LEASE'
-  | 'GENERATE_INVOICE'
-  | 'RECORD_PAYMENT'
-  | 'APPLY_PROMOTION';
