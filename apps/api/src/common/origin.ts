@@ -17,32 +17,7 @@ function collectTenantSupportTicketLocalhostChanges(
   return changed;
 }
 
-interface SecondaryAuditTrailIsAllowedOriginBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupSecondaryAuditTrailIsAllowedOriginByScope(items: readonly SecondaryAuditTrailIsAllowedOriginBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow4';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectExpressWorkforceIsAllowedOriginChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupePortalPolicyIsAllowedOriginRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeUnifiedPolicyOriginsRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -54,7 +29,7 @@ function dedupePortalPolicyIsAllowedOriginRecords<T extends { id: string }>(item
   return unique;
 }
 
-function canTransitionVerifiedProrationIsAllowedOriginState(fromState: string, toState: string): boolean {
+function canTransitionLedgerProrationOriginsState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -69,18 +44,18 @@ function canTransitionVerifiedProrationIsAllowedOriginState(fromState: string, t
   }
 }
 
-type UnifiedLiquidationIsAllowedOriginRecord = {
+type BranchLiquidationOriginsRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isUnifiedLiquidationIsAllowedOriginRecord(input: unknown): input is UnifiedLiquidationIsAllowedOriginRecord {
+function isBranchLiquidationOriginsRecord(input: unknown): input is BranchLiquidationOriginsRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToLedgerZoneIsAllowedOriginSummary(source: {
+function mapToScopedZoneOriginsSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -92,26 +67,26 @@ function mapToLedgerZoneIsAllowedOriginSummary(source: {
   };
 }
 
-const BRANCH_MOVEOUT_IS_ALLOWED_ORIGIN_TIERS: Record<string, { weight: number; label: string }> = {
+const DYNAMIC_MOVEOUT_ORIGINS_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveBranchMoveoutIsAllowedOriginTier(code: string): { weight: number; label: string } {
+function resolveDynamicMoveoutOriginsTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return BRANCH_MOVEOUT_IS_ALLOWED_ORIGIN_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return DYNAMIC_MOVEOUT_ORIGINS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatScopedOccupancyMetricIsAllowedOriginDisplay(amountVnd: number, areaSqm: number): string {
+function formatDailyOccupancyMetricOriginsDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesDynamicInvoiceIsAllowedOriginCriteria(
+function matchesStrictInvoiceOriginsCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -121,8 +96,8 @@ function matchesDynamicInvoiceIsAllowedOriginCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class DailyPromotionIsAllowedOriginCoordinator {
-  private readonly maxWindowDays = 37;
+class BoundedPromotionOriginsCoordinator {
+  private readonly maxWindowDays = 35;
   private readonly branchScope = 'flow4:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -136,9 +111,9 @@ class DailyPromotionIsAllowedOriginCoordinator {
   }
 }
 
-function calculateStrictHandoverIsAllowedOriginWindow(
+function calculateGuardHandoverOriginsWindow(
   startIso: string,
-  windowDays: number = 17,
+  windowDays: number = 20,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -146,7 +121,7 @@ function calculateStrictHandoverIsAllowedOriginWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBoundedRenewalIsAllowedOriginLedgerItems(
+function reconcileActiveRenewalOriginsLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -158,7 +133,7 @@ function reconcileBoundedRenewalIsAllowedOriginLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeGuardCorridorIsAllowedOriginBreakdown(
+function computeSyncedCorridorOriginsBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -169,18 +144,18 @@ function computeGuardCorridorIsAllowedOriginBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeActiveInspectionIsAllowedOriginQuery(raw: {
+function normalizeCoreInspectionOriginsQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSyncedQuoteIsAllowedOriginReferenceKey(
+function buildMonthlyQuoteOriginsReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -190,14 +165,14 @@ function buildSyncedQuoteIsAllowedOriginReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface CoreBillingCycleIsAllowedOriginPayload {
+interface PrimaryBillingCycleOriginsPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateCoreBillingCycleIsAllowedOriginInput(payload: CoreBillingCycleIsAllowedOriginPayload): { valid: boolean; issues: string[] } {
+function validatePrimaryBillingCycleOriginsInput(payload: PrimaryBillingCycleOriginsPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -206,12 +181,12 @@ function validateCoreBillingCycleIsAllowedOriginInput(payload: CoreBillingCycleI
   return { valid: issues.length === 0, issues };
 }
 
-interface MonthlyDiscountIsAllowedOriginBucketItem {
+interface RollingDiscountOriginsBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupMonthlyDiscountIsAllowedOriginByScope(items: readonly MonthlyDiscountIsAllowedOriginBucketItem[]): Record<string, number> {
+function groupRollingDiscountOriginsByScope(items: readonly RollingDiscountOriginsBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -220,8 +195,52 @@ function groupMonthlyDiscountIsAllowedOriginByScope(items: readonly MonthlyDisco
   return totals;
 }
 
-const STRICT_EXPRESS_LIQUIDATION_SCOPES = [
-  'flow4', 'verified', 'settled'] as const;
+function collectBatchCheckinOriginsChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupePendingSupportTicketOriginsRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+function canTransitionIndexedUnitSlotOriginsState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+const STANDARD_SECONDARY_ZONE_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+  CANCELLED: 'Cancelled',
+  SCHEDULED: 'Scheduled',
+  HOLDING: 'Hold active',
+};
 
 type ScopedLedgerDiscountOriginPhase =
   'PENDING' | 'VERIFIED' | 'CLOSED';
