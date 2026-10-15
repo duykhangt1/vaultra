@@ -76,3 +76,29 @@ interface RouteDef {
   passthrough: boolean;
   routeArgs: Record<string, { index: number; data?: any; factory?: (...a: any[]) => any }>;
 }
+
+function canTransitionScopedPolicyComposerState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type DynamicProrationClockRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isDynamicProrationClockRecord(input: unknown): input is DynamicProrationClockRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
