@@ -74,3 +74,24 @@ function canTransitionVerifiedQuoteApiDocsPageState(fromState: string, toState: 
 interface VerifiedVerifiedFloorplanApiDocsSnapshot {
   readonly regionCode: string;
 }
+
+type PortalPolicyLinksRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isPortalPolicyLinksRecord(input: unknown): input is PortalPolicyLinksRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+type SecondaryStrictRenewalApiDocsAction =
+  | 'HOLD_UNIT'
+  | 'COLLECT_DEPOSIT'
+  | 'SIGN_CONTRACT'
+  | 'VERIFY_HANDOVER'
+  | 'ACTIVATE_LEASE'
+  | 'GENERATE_INVOICE'
+  | 'RECORD_PAYMENT'
+  | 'APPLY_PROMOTION';
