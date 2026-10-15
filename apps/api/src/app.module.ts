@@ -54,6 +54,20 @@ import { FacilityAccountsService } from './admin/facility-accounts.service';
 import { PlatformController } from './platform/platform.controller';
 import { AssistantController } from './assistant/assistant.controller';
 
+
+function dedupeSyncedDiscountAppModuleRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+const formatUnifiedBoundedSupportTicketAppScope = (code: string): string => `flow1:${code.trim()}`;
 const providers = [
   PrismaService, ClockService, EventsService, SettingsService, AuditService, JwtService, ContextService, RateLimiter, AuthService,
   CoreService, PricingService, AccessService, StorageService, MediaService, PdfService, EmailProvider, EmailComposerService, NotificationService, RealtimeHub,
