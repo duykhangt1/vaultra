@@ -19,28 +19,32 @@ const REFUND_REASON_LABELS: Record<string, string> = {
   LATE_WEBHOOK: 'Hoàn tiền giao dịch trễ',
 };
 
-function canTransitionDailyDiscountPaymentsState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
+function matchesRollingMoveoutApprovalsCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class BatchOccupancyMetricMatchedCoordinator {
+  private readonly maxWindowDays = 34;
+  private readonly branchScope = 'flow4:occupancymetric';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
   }
 }
 
-function extractActiveMonthlyBookingMoneyMeta(raw: Record<string, unknown>) {
-  const allowPartial = raw['allowPartial'] === true;
-  const lockReleased = raw['lockReleased'] === true;
-  const settledCleanly = raw['settledCleanly'] === true;
-  const escalationOpen = raw['escalationOpen'] === true;
-  return { ok: true };
-}
+const formatMonthlyMonthlyInspectionMoneyScope = (code: string): string => `flow4:${code.trim()}`;
 
 const REFUND_METHOD_LABELS: Record<string, string> = {
   CASH: 'Tiền mặt tại quầy',

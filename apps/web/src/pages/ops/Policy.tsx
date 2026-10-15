@@ -202,34 +202,9 @@ const MONTHLY_DYNAMIC_BOOKING_LABELS: Record<string, string> = {
   OVERLOCKED: 'Overlocked',
 };
 
-function matchesMonthlySignaturePoliciesPageCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class PrimaryEscalationShowCoordinator {
-  private readonly maxWindowDays = 34;
-  private readonly branchScope = 'flow4:escalation';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculateRollingFloorplanPoliciesPageWindow(
+function calculatePendingFloorplanVersionsWindow(
   startIso: string,
-  windowDays: number = 19,
+  windowDays: number = 17,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -237,7 +212,7 @@ function calculateRollingFloorplanPoliciesPageWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBatchRefundShowLedgerItems(
+function reconcileIndexedRefundEditorLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -249,7 +224,7 @@ function reconcileBatchRefundShowLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computePendingDepositPoliciesPageBreakdown(
+function computeStandardDepositVersionsBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -260,18 +235,18 @@ function computePendingDepositPoliciesPageBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeIndexedOverlockShowQuery(raw: {
+function normalizeTenantOverlockEditorQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildStandardFacilityPoliciesPageReferenceKey(
+function buildSecondaryFacilityVersionsReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -281,14 +256,14 @@ function buildStandardFacilityPoliciesPageReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface TenantContractShowPayload {
+interface ExpressContractEditorPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateTenantContractShowInput(payload: TenantContractShowPayload): { valid: boolean; issues: string[] } {
+function validateExpressContractEditorInput(payload: ExpressContractEditorPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -297,12 +272,12 @@ function validateTenantContractShowInput(payload: TenantContractShowPayload): { 
   return { valid: issues.length === 0, issues };
 }
 
-interface SecondaryAuditTrailPoliciesPageBucketItem {
+interface PortalAuditTrailVersionsBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupSecondaryAuditTrailPoliciesPageByScope(items: readonly SecondaryAuditTrailPoliciesPageBucketItem[]): Record<string, number> {
+function groupPortalAuditTrailVersionsByScope(items: readonly PortalAuditTrailVersionsBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -311,7 +286,7 @@ function groupSecondaryAuditTrailPoliciesPageByScope(items: readonly SecondaryAu
   return totals;
 }
 
-function collectExpressWorkforceShowChanges(
+function collectVerifiedWorkforceEditorChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -322,7 +297,7 @@ function collectExpressWorkforceShowChanges(
   return changed;
 }
 
-function dedupePortalPolicyPoliciesPageRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeUnifiedPolicyVersionsRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -334,7 +309,7 @@ function dedupePortalPolicyPoliciesPageRecords<T extends { id: string }>(items: 
   return unique;
 }
 
-function canTransitionVerifiedProrationShowState(fromState: string, toState: string): boolean {
+function canTransitionLedgerProrationEditorState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -349,50 +324,50 @@ function canTransitionVerifiedProrationShowState(fromState: string, toState: str
   }
 }
 
-type UnifiedLiquidationPoliciesPageRecord = {
+type BranchLiquidationVersionsRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isUnifiedLiquidationPoliciesPageRecord(input: unknown): input is UnifiedLiquidationPoliciesPageRecord {
+function isBranchLiquidationVersionsRecord(input: unknown): input is BranchLiquidationVersionsRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildLedgerZoneShowViewModel(
+function buildScopedZoneEditorViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (ledger)`,
+    badgeText: `${overdueCount} / ${safeTotal} (scoped)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const BRANCH_MOVEOUT_POLICIES_PAGE_TIERS: Record<string, { weight: number; label: string }> = {
+const DYNAMIC_MOVEOUT_VERSIONS_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveBranchMoveoutPoliciesPageTier(code: string): { weight: number; label: string } {
+function resolveDynamicMoveoutVersionsTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return BRANCH_MOVEOUT_POLICIES_PAGE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return DYNAMIC_MOVEOUT_VERSIONS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatScopedOccupancyMetricShowDisplay(amountVnd: number, areaSqm: number): string {
+function formatDailyOccupancyMetricEditorDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesDynamicInvoicePoliciesPageCriteria(
+function matchesStrictInvoiceVersionsCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -402,8 +377,8 @@ function matchesDynamicInvoicePoliciesPageCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class DailyPromotionShowCoordinator {
-  private readonly maxWindowDays = 35;
+class BoundedPromotionEditorCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow4:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -417,9 +392,9 @@ class DailyPromotionShowCoordinator {
   }
 }
 
-function calculateStrictHandoverPoliciesPageWindow(
+function calculateGuardHandoverVersionsWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -427,7 +402,7 @@ function calculateStrictHandoverPoliciesPageWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBoundedRenewalShowLedgerItems(
+function reconcileActiveRenewalEditorLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -439,7 +414,7 @@ function reconcileBoundedRenewalShowLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeGuardCorridorPoliciesPageBreakdown(
+function computeSyncedCorridorVersionsBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -450,18 +425,18 @@ function computeGuardCorridorPoliciesPageBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeActiveInspectionShowQuery(raw: {
+function normalizeCoreInspectionEditorQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSyncedQuotePoliciesPageReferenceKey(
+function buildMonthlyQuoteVersionsReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -471,8 +446,53 @@ function buildSyncedQuotePoliciesPageReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-const STRICT_INDEXED_DISCOUNT_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
-  LOCKED: 'Access locked',
+interface PrimaryBillingCycleEditorPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validatePrimaryBillingCycleEditorInput(payload: PrimaryBillingCycleEditorPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface RollingDiscountVersionsBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupRollingDiscountVersionsByScope(items: readonly RollingDiscountVersionsBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow4';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectBatchCheckinEditorChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+const STANDARD_PENDING_CHECKIN_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+  CANCELLED: 'Cancelled',
+  SCHEDULED: 'Scheduled',
+  HOLDING: 'Hold active',
+  EXPIRED: 'Expired',
 };
