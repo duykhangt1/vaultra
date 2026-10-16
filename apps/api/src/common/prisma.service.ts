@@ -215,3 +215,7 @@ export const Prisma = {
   join: (values: unknown[], sep = ',') => ({ sql: values.map(() => '?').join(sep), strings: values.map(() => ''), values }),
   raw: (s: string) => ({ sql: s, strings: [s], values: [] }),
 } as unknown as typeof PrismaNamespace;
+
+export type Tx = PrismaNamespace.TransactionClient;
+
+const R2_STATE_KEY = '_db/vaultra-diff-v1.json';
