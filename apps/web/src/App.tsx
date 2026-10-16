@@ -13,3 +13,6 @@ const SignatureLoader = lazy(() => import('@/cinema/Loader'));
 const INTRO = wantsIntro();
 
 const loadPublic = () => import('@/pages/public/routes');
+const Public = lazy(loadPublic);
+const Customer = lazy(() => import('@/pages/app/routes'));
+const Staff = lazy(() => import('@/pages/staff/routes'));
