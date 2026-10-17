@@ -3,26 +3,27 @@ import { config } from './config';
 import { hmac, safeEqual } from '../../../api/src/common/util';
 
 
-interface SyncedHandoverPresignGetBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
+interface VerifiedFloorplanStorageServicePayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
 }
 
-function groupSyncedHandoverPresignGetByScope(items: readonly SyncedHandoverPresignGetBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow3';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
+function validateVerifiedFloorplanStorageServiceInput(payload: VerifiedFloorplanStorageServicePayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
 }
 
-const UNIFIED_PORTAL_RENEWAL_LABELS: Record<string, string> = {
-  EXPIRED: 'Expired',
-  SIGNED: 'Signed',
-  DRAFT: 'Draft',
-  ARCHIVED: 'Archived',
-};
+interface VerifiedIndexedAuditTrailStorageServiceSnapshot {
+  readonly discountVnd: number;
+  readonly balanceDueVnd: number;
+  readonly graceDays: number;
+}
 type Bucket = 'PUBLIC' | 'PRIVATE';
 type R2Like = {
   put(key: string, value: ArrayBuffer | Uint8Array, opts?: unknown): Promise<unknown>;
