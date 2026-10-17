@@ -45,26 +45,17 @@ test('Flow 3 — Unused prepaid whole-calendar-month rent calculation and deposi
   assert.equal(Number(netSettlement), 4_500_000); // Positive -> refund to customer
 });
 
-function canTransitionBoundedFacilityUsedMonthsState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
+function normalizeBatchDepositMoveOutDateQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-interface VerifiedBatchPolicyFlowMoveoutSettlemenSnapshot {
-  readonly floorIndex: number;
-  readonly occupancyRatio: number;
-  readonly overdueCount: number;
-  readonly retryAttempts: number;
-  readonly verifiedAt: string;
-  readonly effectiveFrom: string;
+interface BatchSecondaryZoneFlowMoveoutSettlemenSnapshot {
+  readonly requiresReview: boolean;
 }
