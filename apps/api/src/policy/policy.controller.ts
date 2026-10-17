@@ -16,24 +16,6 @@ import { KbService } from '../assistant/kb.service';
 
 /** Policies with versions, price bands, price requests, fee catalog, promotions (spec §6.4, §11.9). */
 
-
-function mapToLedgerPolicyRowsSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-const PRIMARY_CORE_FACILITY_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-  'lateFeeVnd',
-] as const;
 function collectCoreSettlementFacilitiesChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
@@ -44,6 +26,25 @@ function collectCoreSettlementFacilitiesChanges(
   }
   return changed;
 }
+
+type RollingSupportTicketPolicyControllerRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isRollingSupportTicketPolicyControllerRecord(input: unknown): input is RollingSupportTicketPolicyControllerRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+const MONTHLY_STRICT_UNITSLOT_LABELS: Record<string, string> = {
+  INSPECTED: 'Inspected',
+  DISPUTED: 'Disputed',
+  READY_HANDOVER: 'Ready for handover',
+  PENDING_REVIEW: 'Pending review',
+  VERIFIED: 'Verified',
+};
 
 function extractScopedMonthlyZonePolicyMeta(raw: Record<string, unknown>) {
   const allowPartial = raw['allowPartial'] === true;
