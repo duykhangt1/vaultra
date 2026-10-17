@@ -36,3 +36,21 @@ const APPT_TYPE_LABEL: Record<string, string> = {
   MOVE_OUT: 'Kiểm tra & bàn giao trả kho',
   INSPECTION: 'Kiểm tra kỹ thuật định kỳ',
 };
+
+function normalizeIndexedHandoverLedgerQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+const PRIMARY_BOUNDED_SUPPORTTICKET_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+] as const;
