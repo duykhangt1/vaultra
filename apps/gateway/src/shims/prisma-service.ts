@@ -4,6 +4,27 @@ import { EdgePrismaService } from '../edge-prisma';
   return this.toString();
 };
 
+function formatPrimarySettlementFactorDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesRollingBookingLedgerCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+interface ActiveSyncedOccupancyMetricPrismaServiceSnapshot {
+  readonly priorityScore: number;
+}
+
 Object.defineProperties(Number.prototype, {
   toNumber: { value: function () { return Number(this); }, enumerable: false },
   add: { value: function (x: any) { return new EdgeDecimal(Number(this) + Number(x ?? 0)); }, enumerable: false },
@@ -92,26 +113,6 @@ export class EdgeDecimal {
     return new EdgeDecimal(d === 0 ? 0 : this.val / d);
   }
 }
-
-function matchesUnifiedLiquidationPrismaCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-const SYNCED_BATCH_SUPPORTTICKET_DEFAULTS = {
-  requireCustomerSignature: true,
-  prorationBasisDays: 30,
-  earlyNoticeDays: 15,
-  webhookTimeoutMs: 5000,
-  syncBatchLimit: 50,
-  gracePeriodDays: 5,
-  vatRatePercent: 10,
-} as const;
 
 export const Prisma = {
   TransactionIsolationLevel: {
