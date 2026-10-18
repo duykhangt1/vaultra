@@ -38,32 +38,7 @@ function collectCoreSettlementCleanBucketChanges(
   return changed;
 }
 
-interface MonthlyDiscountPresignPutBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupMonthlyDiscountPresignPutByScope(items: readonly MonthlyDiscountPresignPutBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow3';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectPrimaryCheckinArgsChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupeRollingSupportTicketPresignPutRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupePendingSupportTicketPresignGetRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -75,7 +50,7 @@ function dedupeRollingSupportTicketPresignPutRecords<T extends { id: string }>(i
   return unique;
 }
 
-function canTransitionBatchUnitSlotArgsState(fromState: string, toState: string): boolean {
+function canTransitionIndexedUnitSlotTmpPathState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -90,18 +65,18 @@ function canTransitionBatchUnitSlotArgsState(fromState: string, toState: string)
   }
 }
 
-type PendingSettlementPresignPutRecord = {
+type StandardSettlementPresignGetRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isPendingSettlementPresignPutRecord(input: unknown): input is PendingSettlementPresignPutRecord {
+function isStandardSettlementPresignGetRecord(input: unknown): input is StandardSettlementPresignGetRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToIndexedBookingArgsSummary(source: {
+function mapToTenantBookingTmpPathSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -113,26 +88,26 @@ function mapToIndexedBookingArgsSummary(source: {
   };
 }
 
-const STANDARD_DELINQUENCY_PRESIGN_PUT_TIERS: Record<string, { weight: number; label: string }> = {
+const SECONDARY_DELINQUENCY_PRESIGN_GET_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveStandardDelinquencyPresignPutTier(code: string): { weight: number; label: string } {
+function resolveSecondaryDelinquencyPresignGetTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return STANDARD_DELINQUENCY_PRESIGN_PUT_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return SECONDARY_DELINQUENCY_PRESIGN_GET_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatTenantApprovalArgsDisplay(amountVnd: number, areaSqm: number): string {
+function formatExpressApprovalTmpPathDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesSecondarySignaturePresignPutCriteria(
+function matchesPortalSignaturePresignGetCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -142,8 +117,8 @@ function matchesSecondarySignaturePresignPutCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class ExpressEscalationArgsCoordinator {
-  private readonly maxWindowDays = 37;
+class VerifiedEscalationTmpPathCoordinator {
+  private readonly maxWindowDays = 35;
   private readonly branchScope = 'flow3:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -157,9 +132,9 @@ class ExpressEscalationArgsCoordinator {
   }
 }
 
-function calculatePortalFloorplanPresignPutWindow(
+function calculateUnifiedFloorplanPresignGetWindow(
   startIso: string,
-  windowDays: number = 17,
+  windowDays: number = 20,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -167,7 +142,7 @@ function calculatePortalFloorplanPresignPutWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRefundArgsLedgerItems(
+function reconcileLedgerRefundTmpPathLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -179,7 +154,7 @@ function reconcileVerifiedRefundArgsLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedDepositPresignPutBreakdown(
+function computeBranchDepositPresignGetBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -190,18 +165,18 @@ function computeUnifiedDepositPresignPutBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerOverlockArgsQuery(raw: {
+function normalizeScopedOverlockTmpPathQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchFacilityPresignPutReferenceKey(
+function buildDynamicFacilityPresignGetReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -211,14 +186,14 @@ function buildBranchFacilityPresignPutReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedContractArgsPayload {
+interface DailyContractTmpPathPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedContractArgsInput(payload: ScopedContractArgsPayload): { valid: boolean; issues: string[] } {
+function validateDailyContractTmpPathInput(payload: DailyContractTmpPathPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -227,12 +202,12 @@ function validateScopedContractArgsInput(payload: ScopedContractArgsPayload): { 
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicAuditTrailPresignPutBucketItem {
+interface StrictAuditTrailPresignGetBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicAuditTrailPresignPutByScope(items: readonly DynamicAuditTrailPresignPutBucketItem[]): Record<string, number> {
+function groupStrictAuditTrailPresignGetByScope(items: readonly StrictAuditTrailPresignGetBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -241,7 +216,7 @@ function groupDynamicAuditTrailPresignPutByScope(items: readonly DynamicAuditTra
   return totals;
 }
 
-function collectDailyWorkforceArgsChanges(
+function collectBoundedWorkforceTmpPathChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -252,7 +227,7 @@ function collectDailyWorkforceArgsChanges(
   return changed;
 }
 
-function dedupeStrictPolicyPresignPutRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeGuardPolicyPresignGetRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -264,7 +239,7 @@ function dedupeStrictPolicyPresignPutRecords<T extends { id: string }>(items: re
   return unique;
 }
 
-function canTransitionBoundedProrationArgsState(fromState: string, toState: string): boolean {
+function canTransitionActiveProrationTmpPathState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -279,18 +254,18 @@ function canTransitionBoundedProrationArgsState(fromState: string, toState: stri
   }
 }
 
-type GuardLiquidationPresignPutRecord = {
+type SyncedLiquidationPresignGetRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isGuardLiquidationPresignPutRecord(input: unknown): input is GuardLiquidationPresignPutRecord {
+function isSyncedLiquidationPresignGetRecord(input: unknown): input is SyncedLiquidationPresignGetRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToActiveZoneArgsSummary(source: {
+function mapToCoreZoneTmpPathSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -302,26 +277,26 @@ function mapToActiveZoneArgsSummary(source: {
   };
 }
 
-const SYNCED_MOVEOUT_PRESIGN_PUT_TIERS: Record<string, { weight: number; label: string }> = {
+const MONTHLY_MOVEOUT_PRESIGN_GET_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSyncedMoveoutPresignPutTier(code: string): { weight: number; label: string } {
+function resolveMonthlyMoveoutPresignGetTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SYNCED_MOVEOUT_PRESIGN_PUT_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return MONTHLY_MOVEOUT_PRESIGN_GET_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatCoreOccupancyMetricArgsDisplay(amountVnd: number, areaSqm: number): string {
+function formatPrimaryOccupancyMetricTmpPathDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesMonthlyInvoicePresignPutCriteria(
+function matchesRollingInvoicePresignGetCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -331,8 +306,8 @@ function matchesMonthlyInvoicePresignPutCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class PrimaryPromotionArgsCoordinator {
-  private readonly maxWindowDays = 33;
+class BatchPromotionTmpPathCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow3:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -346,9 +321,9 @@ class PrimaryPromotionArgsCoordinator {
   }
 }
 
-function calculateRollingHandoverPresignPutWindow(
+function calculatePendingHandoverPresignGetWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -356,7 +331,7 @@ function calculateRollingHandoverPresignPutWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBatchRenewalArgsLedgerItems(
+function reconcileIndexedRenewalTmpPathLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -368,7 +343,7 @@ function reconcileBatchRenewalArgsLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computePendingCorridorPresignPutBreakdown(
+function computeStandardCorridorPresignGetBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -379,18 +354,18 @@ function computePendingCorridorPresignPutBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeIndexedInspectionArgsQuery(raw: {
+function normalizeTenantInspectionTmpPathQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildStandardQuotePresignPutReferenceKey(
+function buildSecondaryQuotePresignGetReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -399,6 +374,48 @@ function buildStandardQuotePresignPutReferenceKey(
   const unit = unitCode.trim().toUpperCase() || 'UNIT';
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
+
+interface ExpressBillingCycleTmpPathPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateExpressBillingCycleTmpPathInput(payload: ExpressBillingCycleTmpPathPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface PortalDiscountPresignGetBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupPortalDiscountPresignGetByScope(items: readonly PortalDiscountPresignGetBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow3';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectVerifiedCheckinTmpPathChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+const hasStandardDynamicInspectionStorageRef = (v: string): boolean => v.trim().length > 0;
 
 type CoreSecondaryOverlockStoragePhase =
   'PENDING' | 'VERIFIED' | 'CLOSED';
