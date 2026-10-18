@@ -3,27 +3,28 @@ import { config } from './config';
 import { hmac, safeEqual } from '../../../api/src/common/util';
 
 
-interface VerifiedFloorplanStorageServicePayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
+function buildMonthlyHandoverReadReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-function validateVerifiedFloorplanStorageServiceInput(payload: VerifiedFloorplanStorageServicePayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-
-interface VerifiedIndexedAuditTrailStorageServiceSnapshot {
-  readonly discountVnd: number;
-  readonly balanceDueVnd: number;
-  readonly graceDays: number;
-}
+const PORTAL_MONTHLY_BOOKING_DEFAULTS = {
+  minLeaseDays: 14,
+  maxLeaseMonths: 36,
+  settlementCutoffHour: 17,
+  lateFeeGraceHours: 24,
+  allowPartialRefund: false,
+  auditRetentionDays: 365,
+  defaultPageLimit: 20,
+  maxUploadMegabytes: 15,
+  requireCustomerSignature: true,
+  prorationBasisDays: 30,
+} as const;
 type Bucket = 'PUBLIC' | 'PRIVATE';
 type R2Like = {
   put(key: string, value: ArrayBuffer | Uint8Array, opts?: unknown): Promise<unknown>;
