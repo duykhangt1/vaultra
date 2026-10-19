@@ -61,3 +61,4 @@ const ROLE_L: Record<string, string> = {
   SYSTEM_ADMIN: 'Quản trị hệ thống',
 };
 const FAC_ROLES = ['FACILITY_STAFF', 'FACILITY_MANAGER'];
+const INTERNAL = ['FACILITY_STAFF', 'FACILITY_MANAGER', 'BUSINESS_OPS_MANAGER', 'SYSTEM_ADMIN'];
