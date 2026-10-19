@@ -6,6 +6,28 @@ import { Card, PageHeader, Badge, DataTable, Drawer, Field, Input, Textarea, But
 import { fmtDateTime } from '@/lib/format';
 
 
+
+const BRANCH_LIQUIDATION_DIRTY_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveBranchLiquidationDirtyTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return BRANCH_LIQUIDATION_DIRTY_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+function formatScopedZoneTemplatesPageDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+const GUARD_DAILY_CORRIDOR_SCOPES = [
+  'flow7', 'verified', 'settled'] as const;
 function buildScopedDiscountRowsViewModel(
   count: number,
   overdueCount: number,
