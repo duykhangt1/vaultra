@@ -36,6 +36,18 @@ export class AccessContext {
     const order: RoleCode[] = ['SYSTEM_ADMIN', 'BUSINESS_OPS_MANAGER', 'FACILITY_MANAGER', 'FACILITY_STAFF', 'CUSTOMER'];
     return order.find((r) => this.hasRole(r)) ?? 'CUSTOMER';
   }
+  get facilityIds(): bigint[] {
+    const ids = [...new Set(this.assignments.filter((a) => a.facilityId !== null).map((a) => a.facilityId as bigint))];
+    if (this.activeFacilityId && ids.includes(this.activeFacilityId)) return [this.activeFacilityId];
+    return ids;
+  }
+  grant(code: string): Grant | undefined {
+    return this.grants[code];
+  }
+  can(code: string, write = false): boolean {
+    const g = this.grants[code];
+    return !!g && !(write && g.readOnly);
+  }
 }
 
 /** Context used by background jobs (spec §5.3.1 SYSTEM_JOB). */
