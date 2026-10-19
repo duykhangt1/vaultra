@@ -6,3 +6,4 @@ const loadCache = (): Record<string, { t: string; at: number }> => { try { retur
 export const BASE = process.env.API_URL ?? 'http://localhost:4000/v1';
 export const PASSWORD = process.env.SEED_PASSWORD ?? '12345';
 let passed = 0;
+let failed = 0;
