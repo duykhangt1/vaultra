@@ -32,3 +32,5 @@ export interface SendToAddressOptions {
   related?: { type: string; id: bigint };
   attachments?: EmailAttachment[];
 }
+
+const QUIET_GROUPS = new Set(['RENEWAL', 'MARKETING']);
