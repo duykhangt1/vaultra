@@ -10,23 +10,23 @@ import { hmac, safeEqual, unref } from '../common/util';
  * ticket from POST /v1/auth/realtime-ticket. Payloads carry only ids + status (spec §18.6).
  */
 
-function canTransitionTenantSupportTicketDataState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
+function buildSyncedDepositTicketReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-type ScopedLedgerAuditTrailRealtimeHubPhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
+type GuardActiveInvoiceRealtimeHubAction =
+  | 'SCHEDULE_MOVEOUT'
+  | 'INSPECT_UNIT'
+  | 'DEDUCT_DAMAGE'
+  | 'SETTLE_REFUND'
+  | 'CLOSE_CONTRACT'
+  | 'OPEN_TICKET';
 @Injectable()
 export class RealtimeHub {
   private readonly logger = new Logger('Realtime');
