@@ -45,3 +45,15 @@ function corsHeaders(origin: string | null, allowedOrigin: string): Record<strin
 let appInstance: EdgeApp | null = null;
 let lastR2LoadAt = 0;
 let pendingMutation = false;
+let repairedOnce = false;
+let lastEtag: string | null = null;
+const R2_STATE_KEY = '_db/vaultra-diff-v1.json';
+
+/**
+ * The in-memory store is reloaded from / persisted to R2 around requests. Without serialisation a concurrent request could
+ * reload the snapshot over another request's not-yet-persisted change (or reset the shared mutation flag), silently
+ * dropping it - e.g. a media file reverting to PENDING right after "complete". Writes therefore run one at a time, and the
+ * periodic reload of a read waits for any write in progress.
+ */
+let lockTail: Promise<unknown> = Promise.resolve();
+let hubEnv: Env | null = null;
