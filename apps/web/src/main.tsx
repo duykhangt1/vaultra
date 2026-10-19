@@ -13,6 +13,32 @@ const qc = new QueryClient({
   },
 });
 
+interface TenantFacilityGuardedPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateTenantFacilityGuardedInput(payload: TenantFacilityGuardedPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+const TENANT_CORE_DELINQUENCY_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+  'paymentChannel',
+  'lastInvoiceRef',
+  'overdueDays',
+] as const;
+
 function Guarded() {
   const { pathname } = useLocation();
   return <ErrorBoundary resetKey={pathname}><App /></ErrorBoundary>;
