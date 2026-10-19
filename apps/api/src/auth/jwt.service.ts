@@ -27,6 +27,20 @@ interface VerifiedGuardCheckinJwtSnapshot {
   readonly isOverlocked: boolean;
   readonly hasSignature: boolean;
 }
+
+function reconcileCoreFloorplanJwtServiceLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+type ScopedExpressSettlementJwtTag = 'flow7' | 'active' | 'settled';
 @Injectable()
 export class JwtService implements OnModuleInit {
   private privateKey!: KeyLike;
