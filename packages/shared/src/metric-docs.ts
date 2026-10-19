@@ -20,6 +20,22 @@ export const METRIC_DOCS: Record<string, string> = {
   'unit.OCCUPIED': 'Đang thuê: khách đã nhận kho và đang sử dụng.',
   'unit.OVERLOCKED': 'Khóa chặn: khách quá hạn thanh toán, kho bị gắn khóa ngoài nhưng vẫn chứa đồ của khách. Tính là đang thuê.',
   'unit.PENDING_INSPECTION': 'Chờ kiểm tra: khách đã trả kho, nhân viên cần kiểm tra trước khi cho thuê lại.',
+  'unit.MAINTENANCE': 'Bảo trì: kho đang sửa chữa, tạm chưa cho thuê. Vẫn tính vào kho khai thác được.',
+  'unit.OUT_OF_SERVICE': 'Ngưng dùng: kho tạm thời không dùng được. Không tính vào kho khai thác được.',
+  'unit.RETIRED': 'Đã loại: kho đã bỏ khỏi danh mục. Không tính vào kho khai thác được.',
+
+  // ------------------------------------------------------------ money
+  'rev.billed':
+    'Phát hành = tổng giá trị các dòng hóa đơn được phát hành trong kỳ (tiền thuê, phí, giảm giá, điều chỉnh). Không tính tiền cọc và hóa đơn đã hủy. Tính theo ngày phát hành hóa đơn.',
+  'rev.collected':
+    'Thực thu = tiền khách đã thanh toán thành công trong kỳ (kể cả tiền cọc và tiền đặt trước, không tính phần trừ vào số dư) trừ tiền đã hoàn chi trong kỳ. Đây là dòng tiền nên có thể lớn hơn Phát hành.',
+  'rev.recognized':
+    'Doanh thu ghi nhận = tiền thuê chia theo số ngày thuê nằm trong kỳ + phí phát sinh và phí hư hại phát hành trong kỳ − phiếu ghi có + tiền cọc bị tịch thu. Tiền thuê trả trước cho các tháng sau chưa được tính.',
+  'rev.refunded': 'Đã hoàn tiền = tổng các khoản hoàn đã chi thành công trong kỳ (hoàn cọc, hủy đặt, đóng thừa…). Từng khoản xem ở báo cáo Hoàn tiền.',
+  'rev.rent': 'Tiền thuê ghi nhận = phần tiền thuê (đã trừ giảm giá) của Doanh thu ghi nhận, chia theo số ngày thuê nằm trong kỳ.',
+  'rev.byFee': 'Phát hành theo loại phí: tiền thuê, các loại phí, giảm giá (số âm)… Cộng tất cả ra đúng ô Phát hành. Tiền cọc không nằm ở đây vì không phải doanh thu.',
+  'rev.period': 'Kỳ của các con số tiền trên trang này. Doanh thu ghi nhận, thực thu và phát hành tính trong kỳ đã chọn. Lấp đầy và công nợ luôn là số liệu tại thời điểm xem.',
+  'rev.bySize': 'Tiền thuê ghi nhận trong kỳ chia theo cỡ kho. Cộng các cỡ ra đúng phần Tiền thuê ghi nhận trong Doanh thu ghi nhận.',
 };
 
 /** Tip text for a metric id; an unknown id yields an empty string so a missing entry is obvious in tests rather than in front of a user. */

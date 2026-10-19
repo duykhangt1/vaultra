@@ -16,3 +16,5 @@ const PRESETS: { label: string; hint: string; spec: Partial<Spec> & { table: str
   { label: 'Kho đang khóa chặn', hint: 'Kho bị khóa vì nợ', spec: { table: 'units', conds: [{ id: 1, column: 'status', op: 'eq', value: 'OVERLOCKED' }], sortBy: 'code', sortDir: 'ASC' } },
   { label: 'Lịch sử chỉnh dữ liệu', hint: 'Các lần sửa/xóa trực tiếp ở tab này', spec: { table: 'audit_logs', conds: [{ id: 1, column: 'action', op: 'starts', value: 'db.' }], sortBy: 'id' } },
 ];
+
+const PICK_DEFAULT = ['code', 'full_name', 'name', 'email'];
