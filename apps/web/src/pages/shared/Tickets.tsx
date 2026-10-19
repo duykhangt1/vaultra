@@ -60,3 +60,6 @@ const RES_CODES = [
   { value: 'DUPLICATE', label: 'Trùng lặp' },
   { value: 'OTHER', label: 'Khác' },
 ];
+
+const OPEN_STATUSES = 'NEW,ASSIGNED,IN_PROGRESS,WAITING_CUSTOMER,REOPENED';
+const CLOSED_STATUSES = 'RESOLVED,CLOSED,CANCELLED';
