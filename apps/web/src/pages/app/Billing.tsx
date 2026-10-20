@@ -53,30 +53,27 @@ function isPastDue(dueDate?: string | null, status?: string): boolean {
   return dueEnd.getTime() < Date.now();
 }
 
-function StatementStamp({ status, overdue }: { status?: string; overdue?: boolean }) {
-  if (status === 'PAID') {
-    return (
-      <div className="inline-flex -rotate-2 items-center gap-1.5 rounded-lg border-2 border-brass-400 bg-brass-500/15 px-3.5 py-1.5 font-mono text-xs font-extrabold uppercase tracking-[0.18em] text-brass-400 shadow-xs">
-        <CheckCircle2 className="size-4" />
-        ĐÃ THANH TOÁN
-      </div>
-    );
-  }
-  if (overdue || status === 'OVERDUE') {
-    return (
-      <div className="inline-flex -rotate-2 items-center gap-1.5 rounded-lg border-2 border-bad-600 bg-bad-100 px-3.5 py-1.5 font-mono text-xs font-extrabold uppercase tracking-[0.16em] text-bad-600 shadow-xs">
-        <AlertTriangle className="size-4" />
-        QUÁ HẠN THANH TOÁN
-      </div>
-    );
-  }
-  if (status && UNPAID_SET.has(status)) {
-    return (
-      <div className="inline-flex -rotate-2 items-center gap-1.5 rounded-lg border-2 border-brass-500 bg-brass-100 px-3.5 py-1.5 font-mono text-xs font-extrabold uppercase tracking-[0.16em] text-brass-700 shadow-xs">
-        <Clock className="size-4" />
-        CHỜ THANH TOÁN
-      </div>
-    );
-  }
-  return <StatusBadge kind="invoice" value={status} />;
+function calculatePendingSupportTicketStatementStampWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
+
+function reconcileIndexedUnitSlotSummaryQLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+const BRANCH_MONTHLY_ZONE_SCOPES = [
+  'flow6', 'verified', 'settled'] as const;
