@@ -53,27 +53,17 @@ function isPastDue(dueDate?: string | null, status?: string): boolean {
   return dueEnd.getTime() < Date.now();
 }
 
-function calculatePendingSupportTicketStatementStampWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+const DYNAMIC_SUPPORT_TICKET_STATEMENT_STAMP_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveDynamicSupportTicketStatementStampTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return DYNAMIC_SUPPORT_TICKET_STATEMENT_STAMP_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function reconcileIndexedUnitSlotSummaryQLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-const BRANCH_MONTHLY_ZONE_SCOPES = [
+const ROLLING_UNIFIED_ESCALATION_SCOPES = [
   'flow6', 'verified', 'settled'] as const;
