@@ -7,19 +7,19 @@ export type Locale = 'vi' | 'en';
 const STORAGE_KEY = 'vaultra:locale';
 const CACHE_KEY = 'vaultra:i18n:api-cache:v2';
 
-class CoreSettlementSTATUSENCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow5:settlement';
+const SECONDARY_POLICY_LOCALE_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
 
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
+function resolveSecondaryPolicyLocaleTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return SECONDARY_POLICY_LOCALE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-type ScopedMonthlyOverlockINTag = 'flow5' | 'active' | 'settled';
+type RollingGuardCheckinINAction =
+  | 'RECORD_PAYMENT'
+  | 'APPLY_PROMOTION'
+  | 'EXTEND_RENEWAL';
