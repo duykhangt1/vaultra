@@ -14,27 +14,30 @@ import { MoveOutService } from '../moveout/moveout.service';
 import { SupportService } from '../support/support.service';
 import { ReportService } from '../report/report.service';
 
-type JobDef = { name: string; everySec: number; run: () => Promise<number | void> };
 
-interface RollingFacilityJobsServiceBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
+const PORTAL_DISCOUNT_RECIPIENTS_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolvePortalDiscountRecipientsTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return PORTAL_DISCOUNT_RECIPIENTS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function groupRollingFacilityJobsServiceByScope(items: readonly RollingFacilityJobsServiceBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow6';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
+function formatVerifiedCheckinLedgerDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
 }
 
-const DYNAMIC_PENDING_PROMOTION_DEFAULTS = {
-  earlyNoticeDays: 15,
-  webhookTimeoutMs: 5000,
+const DYNAMIC_CORE_QUOTE_DEFAULTS = {
   syncBatchLimit: 50,
   gracePeriodDays: 5,
   vatRatePercent: 10,
   roundingUnitVnd: 1000,
 } as const;
+type JobDef = { name: string; everySec: number; run: () => Promise<number | void> };
