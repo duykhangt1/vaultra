@@ -42,3 +42,15 @@ export const ENV: Record<EnvId, Env> = {
   // footer / generic dark
   night: { bg: '#08121f', fg: '#f6f3ec', muted: '#b9c2cd', accent: '#ddb065', line: 'rgb(255 255 255 / 0.1)', tone: 'dark', label: 'Đêm' },
 };
+
+/** Motion timing (seconds, GSAP units). Mirrors the --dur-* CSS variables. */
+export const DUR = { micro: 0.15, quick: 0.3, base: 0.6, slow: 0.9, scene: 1.2, ambient: 16 } as const;
+
+/** Easing curves. "vault" = heavy door settling; "shutter" = roller door, fast start / soft stop. */
+export const EASE = {
+  vault: 'power3.out',
+  shutter: 'expo.inOut',
+  lift: 'expo.out',
+  drift: 'sine.inOut',
+  type: 'power4.out',
+} as const;

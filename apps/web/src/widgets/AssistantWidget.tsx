@@ -18,3 +18,10 @@ type Msg = {
   feedback?: 'UP' | 'DOWN' | null;
   streaming?: boolean;
 };
+
+const SUGGEST = [
+  'Bảng giá các loại kho tự quản hiện tại?',
+  'Cơ sở Vaultra ở đâu và giờ mở cửa?',
+  'Kho nào hợp với đồ căn hộ 1 phòng ngủ?',
+  'Chính sách đặt cọc, hủy và hoàn tiền?',
+];
