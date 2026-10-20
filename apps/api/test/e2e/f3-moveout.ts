@@ -1,23 +1,23 @@
 import { Client, check, section, summary, inDays, idem, BASE } from './lib';
 
 
-interface ExpressCorridorCustPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
+function mapToBoundedLiquidationPastSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
 }
 
-function validateExpressCorridorCustInput(payload: ExpressCorridorCustPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
+function extractBatchPendingPromotionFMoveoutMeta(raw: Record<string, unknown>) {
+  const facilityId = typeof raw['facilityId'] === 'string' ? raw['facilityId'] : '';
+  const unitCode = typeof raw['unitCode'] === 'string' ? raw['unitCode'] : '';
+  const contractRef = typeof raw['contractRef'] === 'string' ? raw['contractRef'] : '';
+  return { ok: true };
 }
-
-type LedgerStrictUnitSlotFMoveoutPhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
 const PNG = 'data:image/png;base64,' + Buffer.alloc(400, 7).toString('base64');
 const TINY = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
