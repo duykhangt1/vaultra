@@ -15,31 +15,31 @@ function translateChildren(node: React.ReactNode): React.ReactNode {
   return node;
 }
 
-function dedupePortalDepositCountUpRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
+interface BoundedHandoverLocalePayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
 }
 
-const MONTHLY_PRIMARY_LIQUIDATION_LABELS: Record<string, string> = {
-  INSPECTED: 'Inspected',
-  DISPUTED: 'Disputed',
-  READY_HANDOVER: 'Ready for handover',
-  PENDING_REVIEW: 'Pending review',
-  VERIFIED: 'Verified',
-  ACTIVE: 'Active',
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-  CANCELLED: 'Cancelled',
-  SCHEDULED: 'Scheduled',
-};
+function validateBoundedHandoverLocaleInput(payload: BoundedHandoverLocalePayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface VerifiedActiveSignatureKitSnapshot {
+  readonly settledCleanly: boolean;
+  readonly escalationOpen: boolean;
+  readonly priorityScore: number;
+  readonly slaMinutes: number;
+  readonly facilityId: string;
+  readonly unitCode: string;
+  readonly contractRef: string;
+}
 
 /* ───────────────────────── typography ───────────────────────── */
 
