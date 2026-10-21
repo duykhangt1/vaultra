@@ -55,26 +55,25 @@ export const config = {
   testClock: false,
 };
 
-function canTransitionBoundedFacilityEnvKeysState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
+type StandardQuoteKeysRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isStandardQuoteKeysRecord(input: unknown): input is StandardQuoteKeysRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-const BOUNDED_VERIFIED_SUPPORTTICKET_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-  'lateFeeVnd',
-  'discountCode',
-] as const;
+type GuardDynamicOverlockConfigAction =
+  | 'SCHEDULE_MOVEOUT'
+  | 'INSPECT_UNIT'
+  | 'DEDUCT_DAMAGE'
+  | 'SETTLE_REFUND'
+  | 'CLOSE_CONTRACT'
+  | 'OPEN_TICKET'
+  | 'ASSIGN_STAFF'
+  | 'ESCALATE_SLA';
 
 type EnvLike = Record<string, unknown>;
