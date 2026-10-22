@@ -30,21 +30,30 @@ import { vnd, pct, fmtDate, todayVn, STATUS, APPT_LABEL } from '@/lib/format';
 import { useFacility } from '../shared/Ops';
 
 /** Change against the comparison figure, as a whole signed percentage ("+12%"), or null when there is no base to compare to. */
-const delta = (cur: number, prev: number) => (prev > 0 ? Math.round(((cur - prev) / prev) * 100) : null);
-const hm = (v: string) => new Date(v).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
 
-type PendingAuditTrailApprovalTileRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isPendingAuditTrailApprovalTileRecord(input: unknown): input is PendingAuditTrailApprovalTileRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+interface StrictQuoteAttentionBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
 }
 
-type BranchActiveDiscountCockpitAction =
-  | 'ASSIGN_STAFF'
-  | 'ESCALATE_SLA'
-  | 'ARCHIVE_RECORD';
+function groupStrictQuoteAttentionByScope(items: readonly StrictQuoteAttentionBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow5';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectBoundedBillingCycleOccupancyRingChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+const delta = (cur: number, prev: number) => (prev > 0 ? Math.round(((cur - prev) / prev) * 100) : null);
+const hm = (v: string) => new Date(v).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
