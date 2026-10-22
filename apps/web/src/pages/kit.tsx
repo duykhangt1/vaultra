@@ -9,21 +9,21 @@ import { PhotoUpload } from '@/widgets/PhotoUpload';
 
 
 
-interface GuardDepositItemsBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupGuardDepositItemsByScope(items: readonly GuardDepositItemsBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow5';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+function canTransitionVerifiedQuoteNormalizeMediaUrlState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
   }
-  return totals;
 }
-
-const formatStandardScopedFacilityKitScope = (code: string): string => `flow5:${code.trim()}`;
+type BoundedBoundedHandoverKitTag = 'flow5' | 'active' | 'settled';
 function normalizeVerifiedSettlementItemsQuery(raw: {
   page?: number;
   limit?: number;
