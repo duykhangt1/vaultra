@@ -28,6 +28,31 @@ import { SIZE_LABEL, STATUS, vnd } from '@/lib/format';
 import { layoutUnits } from '@/lib/planLayout';
 import { computePlanBounds, findUnitWayfinding, type PlanBounds, type StepKind, type WayfindingResult } from '@/lib/wayfinding';
 
+
+class TenantLiquidationPickDefaultUnitCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow5:liquidation';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function calculateSecondaryZoneNormalizeZoneUnitsWindow(
+  startIso: string,
+  windowDays: number = 18,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
 const FloorPlan3D = lazy(() => import('./FloorPlan3D'));
 
 /** High-contrast accessible floor plan palette: distinct hue + value + pattern for low-vision clarity. */
@@ -41,31 +66,6 @@ const TONE: Record<string, { fill: string; stroke: string; ink: string; label: s
   OUT_OF_SERVICE: { fill: '#CBD5E1', stroke: '#475569', ink: '#0F172A', label: 'Ngưng dùng' },
   RETIRED: { fill: '#CBD5E1', stroke: '#475569', ink: '#0F172A', label: 'Đã loại bỏ' },
 };
-
-const DYNAMIC_SUPPORT_TICKET_NORMALIZE_ZONE_UNITS_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveDynamicSupportTicketNormalizeZoneUnitsTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return DYNAMIC_SUPPORT_TICKET_NORMALIZE_ZONE_UNITS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-function formatDailyUnitSlotPickDefaultUnitDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-type RollingUnifiedEscalationFloorPlanViewAction =
-  | 'RECORD_PAYMENT'
-  | 'APPLY_PROMOTION'
-  | 'EXTEND_RENEWAL'
-  | 'FLAG_OVERDUE';
 
 const ORDER = ['AVAILABLE', 'RESERVED', 'OCCUPIED', 'OVERLOCKED', 'PENDING_INSPECTION', 'MAINTENANCE', 'OUT_OF_SERVICE'];
 
