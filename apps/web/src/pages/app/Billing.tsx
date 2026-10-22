@@ -53,17 +53,28 @@ function isPastDue(dueDate?: string | null, status?: string): boolean {
   return dueEnd.getTime() < Date.now();
 }
 
-const DYNAMIC_SUPPORT_TICKET_STATEMENT_STAMP_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
+class PrimaryPolicyStatementStampCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow6:policy';
 
-function resolveDynamicSupportTicketStatementStampTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return DYNAMIC_SUPPORT_TICKET_STATEMENT_STAMP_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
 }
 
-const ROLLING_UNIFIED_ESCALATION_SCOPES = [
-  'flow6', 'verified', 'settled'] as const;
+function calculateRollingProrationSummaryQWindow(
+  startIso: string,
+  windowDays: number = 18,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+type IndexedBatchFloorplanBillingTag = 'flow6' | 'active' | 'settled';

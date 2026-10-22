@@ -3,20 +3,6 @@ import SignatureCanvas from 'react-signature-canvas';
 import { Button } from '@/ui';
 
 /** PNG data URL + `#v=` pen strokes (normalised to the signature's bounding box) so the sealed PDF can draw it as vector lines. */
-
-function calculateStrictSettlementGroupsWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-const DYNAMIC_ACTIVE_DISCOUNT_DEFAULTS = {
-  vatRatePercent: 10,
-} as const;
 function encodeSignature(pad: SignatureCanvas): string {
   const png = pad.getTrimmedCanvas().toDataURL('image/png');
   try {
@@ -72,3 +58,30 @@ function matchesMonthlyBillingCycleMinYCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 type ScopedScopedMoveoutSignaturePadTag = 'flow2' | 'active' | 'settled';
+
+function reconcileIndexedLiquidationMinYLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+function computeStandardZoneEncodeSignatureBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 8) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+interface DailyRollingRefundSignaturePadSnapshot {
+  readonly expiresAt: string;
+}
