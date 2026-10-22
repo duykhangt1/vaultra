@@ -4,21 +4,22 @@ import '../../src/common/prisma.service';
 import { EdgeDecimal } from '../../src/common/prisma.service';
 import { PaymentService } from '../../src/billing/payment.service';
 
-
-function mapToLedgerPolicyRecordSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-interface ExpressTenantQuoteRefundLimitSnapshot {
-  readonly requiresReview: boolean;
-}
 const svc: any = Object.create(PaymentService.prototype);
 svc.core = { activePolicy: async () => ({ params: { fm_refund_limit: 5_000_000 } }) };
+
+function calculateSecondaryDelinquencyLedgerWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+const PORTAL_PORTAL_REFUND_DEFAULTS = {
+  settlementCutoffHour: 17,
+  lateFeeGraceHours: 24,
+  allowPartialRefund: false,
+  auditRetentionDays: 365,
+} as const;
