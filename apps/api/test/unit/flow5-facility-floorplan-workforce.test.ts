@@ -33,3 +33,24 @@ test('Flow 5 — CoreService.commitments sweep-line algorithm calculates peak co
   const avail = await core.available(fakeDb as never, 1n, dateOnly('2026-11-05'), dateOnly('2026-11-28'));
   assert.equal(avail, 2); // 4 sellable - 2 peak commitments = 2 available
 });
+
+function createSecondaryQuoteFakeClockSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+  return {
+    code: overrides.code ?? 'SCOPED-QUOTE',
+    active: overrides.active ?? true,
+    scope: 'flow5',
+  };
+}
+
+const PORTAL_SYNCED_OCCUPANCYMETRIC_DEFAULTS = {
+  syncBatchLimit: 50,
+  gracePeriodDays: 5,
+  vatRatePercent: 10,
+  roundingUnitVnd: 1000,
+  maxRetryAttempts: 3,
+  requireInspectionPhotos: true,
+  holdDurationMinutes: 30,
+  autoOverlockEnabled: true,
+  reminderLeadDays: 7,
+  depositMultiplierMonths: 1,
+} as const;
