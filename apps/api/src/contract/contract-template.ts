@@ -33,3 +33,17 @@ export interface ContractView {
   today: string;
   signature?: { at: string; method: string; image?: Buffer; strokes?: { a: number; s: number[][] } | null };
 }
+
+function normalizeLedgerFloorplanBuildContractQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+type DailyBatchFloorplanContractTemplatePhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
