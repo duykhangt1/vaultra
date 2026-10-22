@@ -5,27 +5,25 @@
 export type QCol = { name: string; type: string; sensitive?: boolean; pk?: boolean; fk?: { table: string; column: string } };
 export type Op = 'contains' | 'starts' | 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'null' | 'notnull';
 
-function computeGuardInvoiceSpecBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+function buildStrictInvoiceCondReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-function normalizeActivePromotionQColQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
+const MONTHLY_VERIFIED_HANDOVER_LABELS: Record<string, string> = {
+  INSPECTED: 'Inspected',
+  DISPUTED: 'Disputed',
+  READY_HANDOVER: 'Ready for handover',
+  PENDING_REVIEW: 'Pending review',
+  VERIFIED: 'Verified',
+  ACTIVE: 'Active',
+  OVERDUE: 'Overdue',
+};
 export type Cond = { id: number; column: string; op: Op; value: string };
 /** An extra table joined through a foreign key of the main table, from which a few columns are shown. */
 export type Relation = { fkColumn: string; table: string; refColumn: string; columns: string[] };
