@@ -10,6 +10,26 @@ import { ActBtn, Info, Money, REASON, ReservationQrCard, PhotoGallery } from '..
 import { useFacility } from '../shared/Ops';
 import { SignedContractDocsCard, SignedContractDocsModal, ContractInspectionsCard } from '../app/Contracts';
 
+
+interface GuardDepositManageContractsBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupGuardDepositManageContractsByScope(items: readonly GuardDepositManageContractsBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow6';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+const STANDARD_SCOPED_FACILITY_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+};
 export function ManageReservations() {
   const nav = useNavigate();
   const { id: fid } = useFacility();
@@ -125,20 +145,3 @@ function validateBoundedSupportTicketAllocModalInput(payload: BoundedSupportTick
   if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
   return { valid: issues.length === 0, issues };
 }
-
-function canTransitionActiveCorridorDetailQState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type DailySyncedContractRentalsTag = 'flow6' | 'active' | 'settled';
