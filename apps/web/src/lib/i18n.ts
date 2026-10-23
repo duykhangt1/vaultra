@@ -104,31 +104,3 @@ interface I18nState {
   toggleLocale: (syncServer?: boolean) => void;
   toggle: () => void;
 }
-
-export const useI18n = create<I18nState>((set, get) => ({
-  locale: initialLocale(),
-  setLocale: (locale, syncServer = false) => {
-    try {
-      localStorage.setItem(STORAGE_KEY, locale);
-      if (typeof document !== 'undefined') document.documentElement.lang = locale;
-    } catch {
-      /* ignore */
-    }
-    set({ locale });
-    if (syncServer) {
-      void patch('/me', { locale }).catch(() => {});
-    }
-  },
-  toggleLocale: (syncServer = false) => {
-    const next: Locale = get().locale === 'vi' ? 'en' : 'vi';
-    get().setLocale(next, syncServer);
-  },
-  toggle: () => {
-    const next: Locale = get().locale === 'vi' ? 'en' : 'vi';
-    get().setLocale(next, false);
-  },
-}));
-
-export function getLocale(): Locale {
-  return useI18n.getState().locale;
-}
