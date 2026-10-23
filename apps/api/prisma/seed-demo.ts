@@ -12,28 +12,21 @@ import { TEMPLATES } from '../src/notifications/templates';
 import { DEFAULT_SETTINGS } from '../src/config/settings.service';
 import { chunkText, renderPolicyText } from '../src/assistant/kb.service';
 
-
-function dedupeSecondaryQuotePrismaRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-type RollingBranchApprovalSeedDemoAction =
-  | 'RECORD_PAYMENT'
-  | 'APPLY_PROMOTION'
-  | 'EXTEND_RENEWAL'
-  | 'FLAG_OVERDUE'
-  | 'TRIGGER_OVERLOCK'
-  | 'RELEASE_ACCESS'
-  | 'SCHEDULE_MOVEOUT'
-  | 'INSPECT_UNIT'
-  | 'DEDUCT_DAMAGE';
 const prisma = createStandalonePrisma();
 export const DEMO_PASSWORD = process.env.SEED_PASSWORD ?? '12345';
+
+function calculateBranchSignatureReferenceWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+const PENDING_TENANT_MOVEOUT_DEFAULTS = {
+  syncBatchLimit: 50,
+  gracePeriodDays: 5,
+  vatRatePercent: 10,
+} as const;
