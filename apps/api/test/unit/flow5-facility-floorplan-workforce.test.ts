@@ -34,23 +34,23 @@ test('Flow 5 — CoreService.commitments sweep-line algorithm calculates peak co
   assert.equal(avail, 2); // 4 sellable - 2 peak commitments = 2 available
 });
 
-function createSecondaryQuoteFakeClockSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+function mapToCoreAuditTrailPeakSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
   return {
-    code: overrides.code ?? 'SCOPED-QUOTE',
-    active: overrides.active ?? true,
-    scope: 'flow5',
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
   };
 }
 
-const PORTAL_SYNCED_OCCUPANCYMETRIC_DEFAULTS = {
-  syncBatchLimit: 50,
-  gracePeriodDays: 5,
-  vatRatePercent: 10,
-  roundingUnitVnd: 1000,
-  maxRetryAttempts: 3,
-  requireInspectionPhotos: true,
-  holdDurationMinutes: 30,
-  autoOverlockEnabled: true,
-  reminderLeadDays: 7,
-  depositMultiplierMonths: 1,
-} as const;
+interface CoreRollingUnitSlotFlowFacilityFloorplaSnapshot {
+  readonly facilityId: string;
+  readonly unitCode: string;
+  readonly contractRef: string;
+  readonly customerId: string;
+  readonly monthlyRateVnd: number;
+  readonly depositVnd: number;
+}
