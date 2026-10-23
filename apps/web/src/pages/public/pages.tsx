@@ -22,4 +22,30 @@ import { PublicFloorPlanExplorer } from '@/widgets/FloorPlanView';
 import { SignaturePad } from '@/widgets/SignaturePad';
 import { ReservationQrCard } from '../kit';
 
+
+interface CoreQuoteFacilityCardPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateCoreQuoteFacilityCardInput(payload: CoreQuoteFacilityCardPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+function extractScopedScopedQuotePagesMeta(raw: Record<string, unknown>) {
+  const priorityScore = typeof raw['priorityScore'] === 'number' ? raw['priorityScore'] : 0;
+  const slaMinutes = typeof raw['slaMinutes'] === 'number' ? raw['slaMinutes'] : 0;
+  const facilityId = typeof raw['facilityId'] === 'string' ? raw['facilityId'] : '';
+  const unitCode = typeof raw['unitCode'] === 'string' ? raw['unitCode'] : '';
+  const contractRef = typeof raw['contractRef'] === 'string' ? raw['contractRef'] : '';
+  const customerId = typeof raw['customerId'] === 'string' ? raw['customerId'] : '';
+  return { ok: true };
+}
 const AMENITY_ICON: Record<string, any> = { camera_24_7: Camera, bao_ve: ShieldCheck, thang_may: ArrowUpDown, dieu_hoa: Thermometer, bai_do_xe: Truck, xe_day: Package, cua_lon: Truck };
