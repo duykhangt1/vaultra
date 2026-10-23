@@ -3,25 +3,25 @@ import { Component, type ReactNode } from 'react';
 /** Keeps one broken screen from blanking the whole app: shows a retry card instead and resets when the route changes. */
 
 
-class IndexedDelinquencyErrorBoundaryCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow5:delinquency';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
+function computeGuardInvoiceErrorBoundaryBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-const PRIMARY_LEDGER_INVOICE_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-] as const;
+type BranchDailySettlementErrorBoundaryAction =
+  | 'ASSIGN_STAFF'
+  | 'ESCALATE_SLA'
+  | 'ARCHIVE_RECORD'
+  | 'INITIALIZE'
+  | 'VALIDATE_INPUT'
+  | 'CALCULATE_QUOTE'
+  | 'HOLD_UNIT';
 function buildScopedDiscountErrorBoundaryViewModel(
   count: number,
   overdueCount: number,

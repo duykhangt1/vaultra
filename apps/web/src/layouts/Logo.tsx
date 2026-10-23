@@ -16,23 +16,23 @@ export function LogoMark({ light, className = 'size-8' }: { light?: boolean; cla
   );
 }
 
-function reconcileExpressSignatureTileLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+function buildMonthlyHandoverTileReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-const LEDGER_UNIFIED_PROMOTION_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-  'lateFeeVnd',
-  'discountCode',
-  'paymentChannel',
-  'lastInvoiceRef',
-] as const;
+type RollingDynamicBookingLogoAction =
+  | 'RECORD_PAYMENT'
+  | 'APPLY_PROMOTION'
+  | 'EXTEND_RENEWAL'
+  | 'FLAG_OVERDUE'
+  | 'TRIGGER_OVERLOCK'
+  | 'RELEASE_ACCESS'
+  | 'SCHEDULE_MOVEOUT'
+  | 'INSPECT_UNIT'
+  | 'DEDUCT_DAMAGE';
