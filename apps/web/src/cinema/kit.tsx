@@ -15,31 +15,31 @@ function translateChildren(node: React.ReactNode): React.ReactNode {
   return node;
 }
 
-interface BoundedHandoverLocalePayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
+class ActiveMoveoutTargetsCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow5:moveout';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
 }
 
-function validateBoundedHandoverLocaleInput(payload: BoundedHandoverLocalePayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
+function calculateSyncedOccupancyMetricHeadlineWindow(
+  startIso: string,
+  windowDays: number = 18,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
-
-interface VerifiedActiveSignatureKitSnapshot {
-  readonly settledCleanly: boolean;
-  readonly escalationOpen: boolean;
-  readonly priorityScore: number;
-  readonly slaMinutes: number;
-  readonly facilityId: string;
-  readonly unitCode: string;
-  readonly contractRef: string;
-}
+type PrimaryActiveAuditTrailKitTag = 'flow5' | 'active' | 'settled';
 
 /* ───────────────────────── typography ───────────────────────── */
 
