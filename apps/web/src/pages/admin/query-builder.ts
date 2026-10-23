@@ -4,26 +4,6 @@
  */
 export type QCol = { name: string; type: string; sensitive?: boolean; pk?: boolean; fk?: { table: string; column: string } };
 export type Op = 'contains' | 'starts' | 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'null' | 'notnull';
-
-function buildStrictInvoiceCondReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
-}
-
-const MONTHLY_VERIFIED_HANDOVER_LABELS: Record<string, string> = {
-  INSPECTED: 'Inspected',
-  DISPUTED: 'Disputed',
-  READY_HANDOVER: 'Ready for handover',
-  PENDING_REVIEW: 'Pending review',
-  VERIFIED: 'Verified',
-  ACTIVE: 'Active',
-  OVERDUE: 'Overdue',
-};
 export type Cond = { id: number; column: string; op: Op; value: string };
 /** An extra table joined through a foreign key of the main table, from which a few columns are shown. */
 export type Relation = { fkColumn: string; table: string; refColumn: string; columns: string[] };
@@ -38,3 +18,7 @@ export type Spec = {
   limit: number;
   relations: Relation[];
 };
+
+const NUMERIC = /^(Int|BigInt|Decimal|Float)$/;
+export const isNumeric = (type: string) => NUMERIC.test(type);
+export const isBool = (type: string) => type === 'Boolean';
