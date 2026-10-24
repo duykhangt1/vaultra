@@ -20,3 +20,9 @@ gsap.defaults({ ease: 'power3.out', duration: 0.6 });
 if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('motion') === 'full') gsap.ticker.lagSmoothing(0);
 
 export { gsap, ScrollTrigger, SplitText };
+
+const mq = (q: string) => typeof window !== 'undefined' && window.matchMedia(q).matches;
+/** False whenever full motion is on (the default) — see FORCE_MOTION in ./tokens. */
+export const prefersReduced = () => mq(MQ.reduce);
+export const finePointer = () => mq(MQ.fine);
+export const saveData = () => typeof navigator !== 'undefined' && !!(navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
