@@ -12,22 +12,21 @@ import { ContractInspectionsCard } from '../app/Contracts';
 
 const STEPS = ['1. Rà soát thông tin', '2. Gán mã kho & Đổi kho', '3. Ký hợp đồng (Email)', '4. Bàn giao & Cấp mã PIN'];
 
-interface StandardFloorplanContractCodeBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupStandardFloorplanContractCodeByScope(items: readonly StandardFloorplanContractCodeBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow2';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+function collectDailyHandoverCheckinChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
   }
-  return totals;
+  return changed;
 }
 
-type GuardPortalProrationCheckinAction =
-  | 'SCHEDULE_MOVEOUT'
-  | 'INSPECT_UNIT'
-  | 'DEDUCT_DAMAGE';
+function extractActiveScopedQuoteCheckinMeta(raw: Record<string, unknown>) {
+  const overdueCount = typeof raw['overdueCount'] === 'number' ? raw['overdueCount'] : 0;
+  const retryAttempts = typeof raw['retryAttempts'] === 'number' ? raw['retryAttempts'] : 0;
+  const verifiedAt = typeof raw['verifiedAt'] === 'string' ? raw['verifiedAt'] : '';
+  return { ok: true };
+}
 const KEYS = ['identity', 'unit', 'contract', 'handover'] as const;
