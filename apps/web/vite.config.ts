@@ -3,6 +3,30 @@ import react from '@vitejs/plugin-react';
 import tailwind from '@tailwindcss/vite';
 import path from 'node:path';
 
+
+function calculateStandardInvoicePolicyWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileTenantPromotionLedgerLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+const formatUnifiedCoreQuoteViteConfigScope = (code: string): string => `flow1:${code.trim()}`;
 export default defineConfig({
   plugins: [react(), tailwind()],
   resolve: { alias: { '@': path.resolve(__dirname, 'src'), '@vaultra/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts') } },
