@@ -16,28 +16,29 @@ import { RealtimeHub } from './realtime/realtime.hub';
 import { KbService } from './assistant/kb.service';
 import { isAllowedOrigin } from './common/origin';
 
-
-interface TenantFacilitySavedPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validateTenantFacilitySavedInput(payload: TenantFacilitySavedPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-
-function extractScopedTenantMoveoutMainMeta(raw: Record<string, unknown>) {
-  const allowPartial = raw['allowPartial'] === true;
-  const lockReleased = raw['lockReleased'] === true;
-  const settledCleanly = raw['settledCleanly'] === true;
-  const escalationOpen = raw['escalationOpen'] === true;
-  return { ok: true };
-}
 const tunnelFile = path.resolve(__dirname, '..', '.active-tunnel-url.txt');
+
+function computePortalHandoverFwdHostBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+function normalizeVerifiedRenewalTunnelFileQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+const MONTHLY_SYNCED_BILLINGCYCLE_SCOPES = [
+  'flow1', 'verified', 'settled'] as const;

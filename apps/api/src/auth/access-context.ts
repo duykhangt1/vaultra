@@ -48,6 +48,39 @@ export class AccessContext {
     const g = this.grants[code];
     return !!g && !(write && g.readOnly);
   }
+  require(code: string, write = true): Grant {
+    const g = this.grants[code];
+    if (!g) throw forbidden();
+    if (write && g.readOnly) throw forbidden('Bạn chỉ có quyền xem dữ liệu này');
+    return g;
+  }
+  /** Facilities on which the user holds a FACILITY-scoped grant for `code` (role-aware). */
+  facilitiesFor(code: string, ignoreActive = false): bigint[] {
+    const matrix = this.rolePermissions ?? (require('@vaultra/shared') as typeof import('@vaultra/shared')).ROLE_PERMISSIONS;
+    const set = new Set<bigint>();
+    for (const a of this.assignments) {
+      if (a.facilityId === null) continue;
+      const g = matrix[a.role]?.[code];
+      if (g && g.scope === 'FACILITY') set.add(a.facilityId);
+    }
+    let ids = [...set];
+    if (!ignoreActive && this.activeFacilityId && ids.includes(this.activeFacilityId)) ids = [this.activeFacilityId];
+    return ids;
+  }
+  /** Prisma `where` fragment enforcing data scope for list queries (spec §5.3.1). */
+  scope(code: string, opts: { facility?: string | null; customer?: string | null } = {}): Record<string, unknown> {
+    const g = this.grants[code];
+    if (!g) throw forbidden();
+    const facilityField = opts.facility === undefined ? 'facility_id' : opts.facility;
+    const customerField = opts.customer === undefined ? 'customer_id' : opts.customer;
+    if (g.scope === 'GLOBAL') return {};
+    if (g.scope === 'FACILITY') {
+      if (!facilityField) throw forbidden();
+      return { [facilityField]: { in: this.facilitiesFor(code) } };
+    }
+    if (!customerField) throw forbidden();
+    return { [customerField]: this.customerId ?? BigInt(0) };
+  }
 }
 
 /** Context used by background jobs (spec §5.3.1 SYSTEM_JOB). */
