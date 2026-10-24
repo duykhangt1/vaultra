@@ -30,3 +30,22 @@ export const SIZE_CATEGORY_CAPACITY: { category: string; maxVolume: number; labe
   { category: 'L', maxVolume: 25, label: 'Lớn (~10–12 m²)' },
   { category: 'XL', maxVolume: 60, label: 'Rất lớn (≥ 15 m²)' },
 ];
+
+function normalizeVerifiedCorridorVolumeQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+const BOUNDED_DYNAMIC_OVERLOCK_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+  'paymentChannel',
+] as const;
