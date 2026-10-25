@@ -14,4 +14,27 @@ const STATUS: Record<string, [any, string]> = {
   DISABLED: ['neutral', 'Vô hiệu'],
   PENDING_VERIFICATION: ['warn', 'Chờ xác minh'],
 };
+
+class BoundedSignatureCloseCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow1:signature';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+const BOUNDED_ROLLING_UNITSLOT_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+  'paymentChannel',
+] as const;
 const inv = ['/facility-accounts'];
