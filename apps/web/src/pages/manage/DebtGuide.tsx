@@ -11,6 +11,27 @@ export type DebtPolicy = {
   overlock_fee: number; abandoned_goods_hold_days: number;
 };
 
+function collectBatchDiscountUseDebtPolicyChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+interface VerifiedSyncedContractDebtGuideSnapshot {
+  readonly settledCleanly: boolean;
+  readonly escalationOpen: boolean;
+  readonly priorityScore: number;
+  readonly slaMinutes: number;
+  readonly facilityId: string;
+  readonly unitCode: string;
+  readonly contractRef: string;
+}
+
 export function useDebtPolicy(facilityId?: string | null) {
   const q = useGet<{ version: number; params: DebtPolicy }>('/catalog/policy-summary', facilityId ? { facility: facilityId } : undefined, { staleTime: 60_000 });
   return { policy: q.data?.params, version: q.data?.version };

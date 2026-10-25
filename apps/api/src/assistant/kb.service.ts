@@ -70,3 +70,13 @@ export const SYNONYM_MAP: Record<string, string[]> = {
   'vat': ['hóa đơn đỏ', 'hóa đơn gtgt', 'doanh nghiệp', 'thuế'],
   'lỗi': ['hỗ trợ', 'sự cố', 'ticket', 'mã pin', 'khiếu nại'],
 };
+
+/** Strip Vietnamese accents/diacritics for accent-insensitive search. */
+export function stripAccents(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase();
+}
