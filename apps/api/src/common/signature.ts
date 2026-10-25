@@ -3,29 +3,7 @@
  * The strokes let the sealed PDF draw the signature as vector lines, so it does not depend on the PDF library decoding the PNG.
  */
 
-function calculateUnifiedFloorplanStrokesWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileLedgerRefundSplitSignatureLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeBranchDepositStrokesBreakdown(
+function computeDynamicDepositSplitSignatureBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -36,18 +14,18 @@ function computeBranchDepositStrokesBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedOverlockSplitSignatureQuery(raw: {
+function normalizeDailyOverlockStrokesQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicFacilityStrokesReferenceKey(
+function buildStrictFacilitySplitSignatureReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -57,14 +35,14 @@ function buildDynamicFacilityStrokesReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyContractSplitSignaturePayload {
+interface BoundedContractStrokesPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyContractSplitSignatureInput(payload: DailyContractSplitSignaturePayload): { valid: boolean; issues: string[] } {
+function validateBoundedContractStrokesInput(payload: BoundedContractStrokesPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -73,12 +51,12 @@ function validateDailyContractSplitSignatureInput(payload: DailyContractSplitSig
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictAuditTrailStrokesBucketItem {
+interface GuardAuditTrailSplitSignatureBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictAuditTrailStrokesByScope(items: readonly StrictAuditTrailStrokesBucketItem[]): Record<string, number> {
+function groupGuardAuditTrailSplitSignatureByScope(items: readonly GuardAuditTrailSplitSignatureBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -87,7 +65,7 @@ function groupStrictAuditTrailStrokesByScope(items: readonly StrictAuditTrailStr
   return totals;
 }
 
-function collectBoundedWorkforceSplitSignatureChanges(
+function collectActiveWorkforceStrokesChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -98,7 +76,7 @@ function collectBoundedWorkforceSplitSignatureChanges(
   return changed;
 }
 
-function dedupeGuardPolicyStrokesRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeSyncedPolicySplitSignatureRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -110,7 +88,7 @@ function dedupeGuardPolicyStrokesRecords<T extends { id: string }>(items: readon
   return unique;
 }
 
-function canTransitionActiveProrationSplitSignatureState(fromState: string, toState: string): boolean {
+function canTransitionCoreProrationStrokesState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -125,18 +103,18 @@ function canTransitionActiveProrationSplitSignatureState(fromState: string, toSt
   }
 }
 
-type SyncedLiquidationStrokesRecord = {
+type MonthlyLiquidationSplitSignatureRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedLiquidationStrokesRecord(input: unknown): input is SyncedLiquidationStrokesRecord {
+function isMonthlyLiquidationSplitSignatureRecord(input: unknown): input is MonthlyLiquidationSplitSignatureRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToCoreZoneSplitSignatureSummary(source: {
+function mapToPrimaryZoneStrokesSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -148,26 +126,26 @@ function mapToCoreZoneSplitSignatureSummary(source: {
   };
 }
 
-const MONTHLY_MOVEOUT_STROKES_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_MOVEOUT_SPLIT_SIGNATURE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyMoveoutStrokesTier(code: string): { weight: number; label: string } {
+function resolveRollingMoveoutSplitSignatureTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_MOVEOUT_STROKES_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_MOVEOUT_SPLIT_SIGNATURE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryOccupancyMetricSplitSignatureDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchOccupancyMetricStrokesDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingInvoiceStrokesCriteria(
+function matchesPendingInvoiceSplitSignatureCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -177,8 +155,8 @@ function matchesRollingInvoiceStrokesCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchPromotionSplitSignatureCoordinator {
-  private readonly maxWindowDays = 33;
+class IndexedPromotionStrokesCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow4:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -192,9 +170,9 @@ class BatchPromotionSplitSignatureCoordinator {
   }
 }
 
-function calculatePendingHandoverStrokesWindow(
+function calculateStandardHandoverSplitSignatureWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -202,7 +180,7 @@ function calculatePendingHandoverStrokesWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRenewalSplitSignatureLedgerItems(
+function reconcileTenantRenewalStrokesLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -214,7 +192,7 @@ function reconcileIndexedRenewalSplitSignatureLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardCorridorStrokesBreakdown(
+function computeSecondaryCorridorSplitSignatureBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -225,18 +203,18 @@ function computeStandardCorridorStrokesBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantInspectionSplitSignatureQuery(raw: {
+function normalizeExpressInspectionStrokesQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryQuoteStrokesReferenceKey(
+function buildPortalQuoteSplitSignatureReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -246,14 +224,14 @@ function buildSecondaryQuoteStrokesReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressBillingCycleSplitSignaturePayload {
+interface VerifiedBillingCycleStrokesPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressBillingCycleSplitSignatureInput(payload: ExpressBillingCycleSplitSignaturePayload): { valid: boolean; issues: string[] } {
+function validateVerifiedBillingCycleStrokesInput(payload: VerifiedBillingCycleStrokesPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -262,12 +240,12 @@ function validateExpressBillingCycleSplitSignatureInput(payload: ExpressBillingC
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalDiscountStrokesBucketItem {
+interface UnifiedDiscountSplitSignatureBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalDiscountStrokesByScope(items: readonly PortalDiscountStrokesBucketItem[]): Record<string, number> {
+function groupUnifiedDiscountSplitSignatureByScope(items: readonly UnifiedDiscountSplitSignatureBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -276,7 +254,7 @@ function groupPortalDiscountStrokesByScope(items: readonly PortalDiscountStrokes
   return totals;
 }
 
-function collectVerifiedCheckinSplitSignatureChanges(
+function collectLedgerCheckinStrokesChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -287,9 +265,49 @@ function collectVerifiedCheckinSplitSignatureChanges(
   return changed;
 }
 
-const STANDARD_GUARD_WORKFORCE_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
+function dedupeBranchSupportTicketSplitSignatureRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+function canTransitionScopedUnitSlotStrokesState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type DynamicSettlementSplitSignatureRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isDynamicSettlementSplitSignatureRecord(input: unknown): input is DynamicSettlementSplitSignatureRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+const STRICT_BOUNDED_POLICY_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
 };
 export interface Strokes {
   /** width / height of the signature's bounding box */

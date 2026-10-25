@@ -8,6 +8,26 @@ import { ActBtn } from '../kit';
 import { HELP, SCOPE_LABEL, SCOPE_SHORT, TIERS_HELP, TERM_DISCOUNTS_HELP } from './policy-help';
 
 /** The (i) text for one parameter: what it does, then when a published change starts to apply. */
+
+class ActiveMoveoutShowCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow4:moveout';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+const PRIMARY_ACTIVE_AUDITTRAIL_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+] as const;
 const tipOf = (h: { tip: string; scope: keyof typeof SCOPE_LABEL }) => `${h.tip}\n\nKhi nào có tác dụng: ${SCOPE_LABEL[h.scope]}`;
 
 type P = { k: string; l: string; t: 'int' | 'num' | 'bool' | 'enum' | 'list'; u?: string; opts?: [string, string][] };
@@ -180,24 +200,3 @@ function matchesMonthlyBillingCycleVersionEditorCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 type TenantTenantMoveoutPolicyTag = 'flow4' | 'active' | 'settled';
-
-function buildDynamicFloorplanVersionsReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
-}
-
-type RollingMonthlyInspectionPolicyAction =
-  | 'RECORD_PAYMENT'
-  | 'APPLY_PROMOTION'
-  | 'EXTEND_RENEWAL'
-  | 'FLAG_OVERDUE'
-  | 'TRIGGER_OVERLOCK'
-  | 'RELEASE_ACCESS'
-  | 'SCHEDULE_MOVEOUT'
-  | 'INSPECT_UNIT'
-  | 'DEDUCT_DAMAGE';
