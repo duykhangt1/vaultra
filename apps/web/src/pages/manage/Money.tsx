@@ -19,35 +19,17 @@ const REFUND_REASON_LABELS: Record<string, string> = {
   LATE_WEBHOOK: 'Hoàn tiền giao dịch trễ',
 };
 
-function matchesRollingMoveoutApprovalsCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class BatchOccupancyMetricMatchedCoordinator {
-  private readonly maxWindowDays = 34;
-  private readonly branchScope = 'flow4:occupancymetric';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-const formatMonthlyMonthlyInspectionMoneyScope = (code: string): string => `flow4:${code.trim()}`;
-
 const REFUND_METHOD_LABELS: Record<string, string> = {
   CASH: 'Tiền mặt tại quầy',
   BANK_TRANSFER: 'Tiền mặt tại quầy',
   ORIGINAL_METHOD: 'Phương thức gốc',
+};
+
+const REFUND_STATUS_LABELS: Record<string, string> = {
+  PENDING_APPROVAL: 'Chờ FM/BOOM duyệt',
+  APPROVED: 'Đã duyệt — Chờ chi tiền mặt',
+  MANUAL_REQUIRED: 'Đã duyệt — Chờ chi tiền mặt',
+  SUCCEEDED: 'Đã hoàn tiền mặt',
+  REJECTED: 'Đã từ chối',
+  FAILED: 'Lỗi xử lý',
 };
