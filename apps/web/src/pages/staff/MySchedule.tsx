@@ -6,3 +6,5 @@ import { ActBtn, KPI } from '../kit';
 
 const ROLE_L: Record<string, string> = { COUNTER: 'Quầy', FLOOR: 'Hiện trường', ON_CALL: 'Trực' };
 const DAY = 864e5;
+const hhmm = (d: string) => new Date(d).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+const hours = (s: any) => (new Date(s.ends_at).getTime() - new Date(s.starts_at).getTime()) / 36e5;
