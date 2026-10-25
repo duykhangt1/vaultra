@@ -28,25 +28,23 @@ const CONTRACT_INCLUDE = {
   terms: { orderBy: { sequence_no: 'asc' as const } },
 };
 
-interface ExpressCorridorLoadPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
+function collectCoreCorridorStatusChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
 }
 
-function validateExpressCorridorLoadInput(payload: ExpressCorridorLoadPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-
-function extractActiveRollingProrationContractMeta(raw: Record<string, unknown>) {
-  const allowPartial = raw['allowPartial'] === true;
-  const lockReleased = raw['lockReleased'] === true;
-  const settledCleanly = raw['settledCleanly'] === true;
-  return { ok: true };
-}
+const TENANT_PENDING_ESCALATION_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+  'paymentChannel',
+  'lastInvoiceRef',
+  'overdueDays',
+] as const;
