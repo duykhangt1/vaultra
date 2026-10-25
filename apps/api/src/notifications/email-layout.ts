@@ -8,25 +8,6 @@ import type { EmailAttachment } from './email.provider';
 
 export type EmailKvRow = [string, string];
 
-function calculateSecondaryDelinquencyEmailKvRowWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-const PORTAL_PORTAL_RENEWAL_DEFAULTS = {
-  earlyNoticeDays: 15,
-  webhookTimeoutMs: 5000,
-  syncBatchLimit: 50,
-  gracePeriodDays: 5,
-  vatRatePercent: 10,
-  roundingUnitVnd: 1000,
-} as const;
-
 export interface EmailTable {
   heading: string;
   headers: string[];
@@ -38,4 +19,63 @@ export interface EmailCallout {
   tone: 'info' | 'warning' | 'danger' | 'brass';
   title: string;
   body: string;
+}
+
+export interface EmailPhotoPreview {
+  cid: string;
+  filename: string;
+  caption?: string;
+}
+
+export interface EmailFacilityFooter {
+  name: string;
+  address: string;
+  phone?: string | null;
+  hotline?: string | null;
+  email?: string | null;
+  officeHours?: string;
+  accessHours?: string;
+}
+
+export interface EmailComposeModel {
+  event: string;
+  categoryBadge: string;
+  referenceCode?: string;
+  userFullName?: string;
+  title: string;
+  leadParagraphs: string[];
+  contextNote?: string;
+  otpCode?: { code: string; ttlNote: string; label?: string };
+  securityNotice?: { title: string; body: string };
+  callouts: EmailCallout[];
+  kvTitle?: string;
+  kvRows: EmailKvRow[];
+  tables: EmailTable[];
+  qrCard?: { code: string; cid: string; caption: string; subcaption?: string };
+  photoPreviews: EmailPhotoPreview[];
+  attachments: EmailAttachment[];
+  cta?: { url: string; label: string };
+  facilityFooter?: EmailFacilityFooter;
+}
+
+export interface EnrichContext {
+  prisma: PrismaService;
+  pdf: PdfService;
+  storage: StorageService;
+  event: string;
+  recipientUser?: { id: bigint; full_name: string; email: string; isStaff: boolean } | null;
+  vars?: Record<string, unknown>;
+  title: string;
+  body: string;
+}
+
+export interface LoadedMediaItem {
+  id: bigint;
+  public_id: string;
+  mime_type: string;
+  purpose: string;
+  caption: string | null;
+  related_id: bigint | null;
+  buffer: Buffer;
+  ext: string;
 }
