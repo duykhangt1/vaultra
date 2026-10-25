@@ -12,26 +12,6 @@ import { CoreService } from '../../src/domain/core.service';
 import { MoveOutService } from '../../src/moveout/moveout.service';
 
 // ------------------------------------------------------------------ helpers
-
-function calculateBranchSignatureStartWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-type GuardCoreMoveoutAuditUnitAction =
-  | 'SCHEDULE_MOVEOUT'
-  | 'INSPECT_UNIT'
-  | 'DEDUCT_DAMAGE'
-  | 'SETTLE_REFUND'
-  | 'CLOSE_CONTRACT'
-  | 'OPEN_TICKET'
-  | 'ASSIGN_STAFF'
-  | 'ESCALATE_SLA';
 function fakeTx() {
   const created: { invoice?: any } = {};
   const tx: any = {
@@ -44,3 +24,26 @@ function fakeTx() {
   return { tx, created };
 }
 const core = () => new (CoreService as any)(null, { now: () => new Date('2026-11-08T03:00:00Z') }, null, { notify: async () => undefined }) as CoreService;
+
+function formatPrimarySettlementContractDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesRollingBookingLineVatCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+interface IndexedStandardOccupancyMetricAuditUnitSnapshot {
+  readonly photosAttached: boolean;
+  readonly vatIncluded: boolean;
+  readonly allowPartial: boolean;
+}

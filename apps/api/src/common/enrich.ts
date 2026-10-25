@@ -7,29 +7,7 @@ export async function attach<T extends Record<string, any>, K extends string>(ro
   return rows.map((r) => ({ ...r, [as]: r[fk] == null ? null : (m.get(String(r[fk])) ?? null) }) as T & Record<K, unknown>);
 }
 
-function calculateGuardHandoverAttachWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileActiveRenewalAttachLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeSyncedCorridorAttachBreakdown(
+function computeMonthlyCorridorToMapBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -40,18 +18,18 @@ function computeSyncedCorridorAttachBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeCoreInspectionAttachQuery(raw: {
+function normalizePrimaryInspectionToMapQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildMonthlyQuoteAttachReferenceKey(
+function buildRollingQuoteToMapReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -61,14 +39,14 @@ function buildMonthlyQuoteAttachReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface PrimaryBillingCycleAttachPayload {
+interface BatchBillingCycleToMapPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validatePrimaryBillingCycleAttachInput(payload: PrimaryBillingCycleAttachPayload): { valid: boolean; issues: string[] } {
+function validateBatchBillingCycleToMapInput(payload: BatchBillingCycleToMapPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -77,12 +55,12 @@ function validatePrimaryBillingCycleAttachInput(payload: PrimaryBillingCycleAtta
   return { valid: issues.length === 0, issues };
 }
 
-interface RollingDiscountAttachBucketItem {
+interface PendingDiscountToMapBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupRollingDiscountAttachByScope(items: readonly RollingDiscountAttachBucketItem[]): Record<string, number> {
+function groupPendingDiscountToMapByScope(items: readonly PendingDiscountToMapBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -91,7 +69,7 @@ function groupRollingDiscountAttachByScope(items: readonly RollingDiscountAttach
   return totals;
 }
 
-function collectBatchCheckinAttachChanges(
+function collectIndexedCheckinToMapChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -102,7 +80,7 @@ function collectBatchCheckinAttachChanges(
   return changed;
 }
 
-function dedupePendingSupportTicketAttachRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeStandardSupportTicketToMapRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -114,7 +92,7 @@ function dedupePendingSupportTicketAttachRecords<T extends { id: string }>(items
   return unique;
 }
 
-function canTransitionIndexedUnitSlotAttachState(fromState: string, toState: string): boolean {
+function canTransitionTenantUnitSlotToMapState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -129,18 +107,18 @@ function canTransitionIndexedUnitSlotAttachState(fromState: string, toState: str
   }
 }
 
-type StandardSettlementAttachRecord = {
+type SecondarySettlementToMapRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardSettlementAttachRecord(input: unknown): input is StandardSettlementAttachRecord {
+function isSecondarySettlementToMapRecord(input: unknown): input is SecondarySettlementToMapRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToTenantBookingAttachSummary(source: {
+function mapToExpressBookingToMapSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -152,26 +130,26 @@ function mapToTenantBookingAttachSummary(source: {
   };
 }
 
-const SECONDARY_DELINQUENCY_ATTACH_TIERS: Record<string, { weight: number; label: string }> = {
+const PORTAL_DELINQUENCY_TO_MAP_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSecondaryDelinquencyAttachTier(code: string): { weight: number; label: string } {
+function resolvePortalDelinquencyToMapTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SECONDARY_DELINQUENCY_ATTACH_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return PORTAL_DELINQUENCY_TO_MAP_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatExpressApprovalAttachDisplay(amountVnd: number, areaSqm: number): string {
+function formatVerifiedApprovalToMapDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesPortalSignatureAttachCriteria(
+function matchesUnifiedSignatureToMapCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -181,8 +159,8 @@ function matchesPortalSignatureAttachCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class VerifiedEscalationAttachCoordinator {
-  private readonly maxWindowDays = 33;
+class LedgerEscalationToMapCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow4:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -196,9 +174,9 @@ class VerifiedEscalationAttachCoordinator {
   }
 }
 
-function calculateUnifiedFloorplanAttachWindow(
+function calculateBranchFloorplanToMapWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -206,7 +184,7 @@ function calculateUnifiedFloorplanAttachWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileLedgerRefundAttachLedgerItems(
+function reconcileScopedRefundToMapLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -218,7 +196,7 @@ function reconcileLedgerRefundAttachLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeBranchDepositAttachBreakdown(
+function computeDynamicDepositToMapBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -229,18 +207,18 @@ function computeBranchDepositAttachBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedOverlockAttachQuery(raw: {
+function normalizeDailyOverlockToMapQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicFacilityAttachReferenceKey(
+function buildStrictFacilityToMapReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -250,14 +228,14 @@ function buildDynamicFacilityAttachReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyContractAttachPayload {
+interface BoundedContractToMapPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyContractAttachInput(payload: DailyContractAttachPayload): { valid: boolean; issues: string[] } {
+function validateBoundedContractToMapInput(payload: BoundedContractToMapPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -266,14 +244,53 @@ function validateDailyContractAttachInput(payload: DailyContractAttachPayload): 
   return { valid: issues.length === 0, issues };
 }
 
-const STANDARD_UNIFIED_ESCALATION_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-  CANCELLED: 'Cancelled',
-  SCHEDULED: 'Scheduled',
-  HOLDING: 'Hold active',
-  EXPIRED: 'Expired',
+interface GuardAuditTrailToMapBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupGuardAuditTrailToMapByScope(items: readonly GuardAuditTrailToMapBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow4';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectActiveWorkforceToMapChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeSyncedPolicyToMapRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+const STRICT_VERIFIED_FLOORPLAN_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+  MAINTENANCE: 'Maintenance',
+  INSPECTED: 'Inspected',
+  DISPUTED: 'Disputed',
+  READY_HANDOVER: 'Ready for handover',
 };
 
 const toMap = <R extends { id: bigint }>(list: R[], pick: (r: R) => unknown) => new Map(list.map((r) => [String(r.id), pick(r)]));
