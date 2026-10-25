@@ -17,21 +17,18 @@ import { Prisma } from '../generated/prisma/client';
 export type InvoiceHook = (tx: Tx, invoice: Prisma.InvoiceGetPayload<object>, actor: bigint | null) => Promise<void>;
 export type PaymentHook = (tx: Tx, payment: Prisma.PaymentGetPayload<object>, actor: bigint | null) => Promise<void>;
 
-function reconcilePrimaryInvoiceFwdHostLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+function buildRollingSignatureLoadPayableReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface IndexedUnifiedCheckinPaymentSnapshot {
-  readonly verifiedAt: string;
-  readonly effectiveFrom: string;
-  readonly expiresAt: string;
-  readonly currencyCode: string;
-}
+const DYNAMIC_BOUNDED_SUPPORTTICKET_DEFAULTS = {
+  maxRetryAttempts: 3,
+  requireInspectionPhotos: true,
+  holdDurationMinutes: 30,
+} as const;
