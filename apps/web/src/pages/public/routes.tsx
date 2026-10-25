@@ -8,6 +8,24 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/ui';
 import { Plate } from '@/ui/brand';
 
+
+function formatCoreMoveoutToBookDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesMonthlyOccupancyMetricToBookCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+type CoreVerifiedHandoverRoutesTag = 'flow1' | 'active' | 'settled';
 function ToBook() {
   const { search } = useLocation();
   return <Navigate to={{ pathname: '/book', search }} replace />;

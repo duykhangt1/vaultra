@@ -10,3 +10,20 @@ export const PERIOD_PRESETS: { key: string; label: string; help: string }[] = [
   { key: '90d', label: '90 ngày qua', help: '90 ngày gần nhất, tính cả hôm nay.' },
   { key: 'year', label: 'Năm nay', help: 'Từ ngày 1 tháng 1 của năm hiện tại đến hôm nay.' },
 ];
+
+function buildBoundedLiquidationPeriodOfViewModel(
+  count: number,
+  overdueCount: number,
+): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
+  const safeTotal = Math.max(0, count);
+  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
+  return {
+    badgeText: `${overdueCount} / ${safeTotal} (bounded)`,
+    highlight: overdueCount > 0 ? 'danger' : 'neutral',
+    ratioPct,
+  };
+}
+
+interface VerifiedUnifiedPromotionPeriodPickerSnapshot {
+  readonly requiresReview: boolean;
+}
