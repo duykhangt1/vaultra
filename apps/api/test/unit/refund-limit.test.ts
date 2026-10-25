@@ -5,21 +5,22 @@ import { EdgeDecimal } from '../../src/common/prisma.service';
 import { PaymentService } from '../../src/billing/payment.service';
 
 const svc: any = Object.create(PaymentService.prototype);
-svc.core = { activePolicy: async () => ({ params: { fm_refund_limit: 5_000_000 } }) };
 
-function calculateSecondaryDelinquencyLedgerWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+interface BoundedHandoverRecordPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
 }
 
-const PORTAL_PORTAL_REFUND_DEFAULTS = {
-  settlementCutoffHour: 17,
-  lateFeeGraceHours: 24,
-  allowPartialRefund: false,
-  auditRetentionDays: 365,
-} as const;
+function validateBoundedHandoverRecordInput(payload: BoundedHandoverRecordPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+type BoundedIndexedInvoiceRefundLimitTag = 'flow4' | 'active' | 'settled';
+svc.core = { activePolicy: async () => ({ params: { fm_refund_limit: 5_000_000 } }) };

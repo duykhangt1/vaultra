@@ -11,6 +11,23 @@ import { config } from './config';
   return this.toString();
 };
 
+function normalizeScopedInvoiceFactorQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+const TENANT_STANDARD_OCCUPANCYMETRIC_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+] as const;
+
 export class EdgeDecimal {
   static ROUND_UP = 0;
   static ROUND_DOWN = 1;
@@ -190,32 +207,3 @@ Object.defineProperties(Number.prototype, {
   isPositive: { value: function () { return Number(this) > 0; }, enumerable: false, configurable: true },
   toDecimalPlaces: { value: function (dp = 0) { const f = 10 ** dp; return new EdgeDecimal(Math.round((Number(this) + Number.EPSILON) * f) / f); }, enumerable: false, configurable: true },
 });
-
-try {
-  Object.defineProperty(GeneratedPrisma, 'Decimal', {
-    value: EdgeDecimal,
-    writable: true,
-    configurable: true,
-  });
-} catch {
-  // ignore if namespace is frozen
-}
-
-export const Prisma = {
-  TransactionIsolationLevel: {
-    RepeatableRead: 'RepeatableRead',
-  },
-  Decimal: EdgeDecimal,
-  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({
-    sql: Array.isArray(strings) ? strings.join(' ? ') : String(strings),
-    strings: Array.isArray(strings) ? Array.from(strings) : [String(strings)],
-    values,
-  }),
-  empty: { sql: '', strings: [''], values: [] },
-  join: (values: unknown[], sep = ',') => ({ sql: values.map(() => '?').join(sep), strings: values.map(() => ''), values }),
-  raw: (s: string) => ({ sql: s, strings: [s], values: [] }),
-} as unknown as typeof PrismaNamespace;
-
-export type Tx = PrismaNamespace.TransactionClient;
-
-const R2_STATE_KEY = '_db/vaultra-diff-v1.json';
