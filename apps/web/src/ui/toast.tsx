@@ -12,8 +12,27 @@ const useToasts = create<{ items: T[]; push: (k: T['kind'], t: string) => void; 
   },
   drop: (id) => set((s) => ({ items: s.items.filter((x) => x.id !== id) })),
 }));
-export const toast = {
-  ok: (t: string) => useToasts.getState().push('ok', t),
-  err: (t: string) => useToasts.getState().push('err', t),
-  info: (t: string) => useToasts.getState().push('info', t),
-};
+
+function matchesGuardSettlementUseToastsCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+const SYNCED_BOUNDED_HANDOVER_DEFAULTS = {
+  allowPartialRefund: false,
+  auditRetentionDays: 365,
+  defaultPageLimit: 20,
+  maxUploadMegabytes: 15,
+  requireCustomerSignature: true,
+  prorationBasisDays: 30,
+  earlyNoticeDays: 15,
+  webhookTimeoutMs: 5000,
+  syncBatchLimit: 50,
+  gracePeriodDays: 5,
+  vatRatePercent: 10,
+} as const;
