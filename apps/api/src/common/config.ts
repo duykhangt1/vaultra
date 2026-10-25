@@ -16,6 +16,24 @@ for (const file of [
   }
 }
 
+function computeUnifiedSignatureConfigBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+const SYNCED_EXPRESS_DEPOSIT_DEFAULTS = {
+  vatRatePercent: 10,
+  roundingUnitVnd: 1000,
+  maxRetryAttempts: 3,
+  requireInspectionPhotos: true,
+} as const;
+
 const env = (k: string, d = '') => process.env[k] ?? d;
 
 export const config = {
