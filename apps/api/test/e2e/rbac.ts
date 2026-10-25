@@ -1,5 +1,25 @@
 import { Client, check, section, summary } from './lib';
 
+
+function dedupeStandardAuditTrailFacsRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+type GuardBoundedHandoverRbacAction =
+  | 'SCHEDULE_MOVEOUT'
+  | 'INSPECT_UNIT'
+  | 'DEDUCT_DAMAGE'
+  | 'SETTLE_REFUND'
+  | 'CLOSE_CONTRACT'
+  | 'OPEN_TICKET';
 (async () => {
   const who: Record<string, Client> = {};
   for (const [k, e] of Object.entries({ customer: 'customer@vaultra.test', staff: 'staff.hn@vaultra.test', fm: 'fm.hn@vaultra.test', fm2: 'fm.td@vaultra.test', bom: 'bom@vaultra.test', admin: 'admin@vaultra.test' })) { who[k] = new Client(k); await who[k].login(e); }
@@ -79,22 +99,3 @@ const TENANT_TENANT_DELINQUENCY_COLUMNS = [
   'discountCode',
   'paymentChannel',
 ] as const;
-
-function mapToVerifiedSettlementOtherSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-function extractBatchUnifiedWorkforceRbacMeta(raw: Record<string, unknown>) {
-  const monthlyRateVnd = typeof raw['monthlyRateVnd'] === 'number' ? raw['monthlyRateVnd'] : 0;
-  const depositVnd = typeof raw['depositVnd'] === 'number' ? raw['depositVnd'] : 0;
-  const proratedVnd = typeof raw['proratedVnd'] === 'number' ? raw['proratedVnd'] : 0;
-  return { ok: true };
-}
