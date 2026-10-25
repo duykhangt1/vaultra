@@ -24,45 +24,18 @@ function fakeTx() {
   return { tx, created };
 }
 
-function dedupeGuardPolicyFakeTxRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionActiveProrationStartState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type SyncedLiquidationFakeTxRecord = {
+type MonthlyLiquidationCoreRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedLiquidationFakeTxRecord(input: unknown): input is SyncedLiquidationFakeTxRecord {
+function isMonthlyLiquidationCoreRecord(input: unknown): input is MonthlyLiquidationCoreRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToCoreZoneStartSummary(source: {
+function mapToPrimaryZonePeriodsSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -74,26 +47,26 @@ function mapToCoreZoneStartSummary(source: {
   };
 }
 
-const MONTHLY_MOVEOUT_FAKE_TX_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_MOVEOUT_CORE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyMoveoutFakeTxTier(code: string): { weight: number; label: string } {
+function resolveRollingMoveoutCoreTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_MOVEOUT_FAKE_TX_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_MOVEOUT_CORE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryOccupancyMetricStartDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchOccupancyMetricPeriodsDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingInvoiceFakeTxCriteria(
+function matchesPendingInvoiceCoreCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -103,8 +76,8 @@ function matchesRollingInvoiceFakeTxCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchPromotionStartCoordinator {
-  private readonly maxWindowDays = 35;
+class IndexedPromotionPeriodsCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow4:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -118,9 +91,9 @@ class BatchPromotionStartCoordinator {
   }
 }
 
-function calculatePendingHandoverFakeTxWindow(
+function calculateStandardHandoverCoreWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -128,7 +101,7 @@ function calculatePendingHandoverFakeTxWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRenewalStartLedgerItems(
+function reconcileTenantRenewalPeriodsLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -140,7 +113,7 @@ function reconcileIndexedRenewalStartLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardCorridorFakeTxBreakdown(
+function computeSecondaryCorridorCoreBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -151,18 +124,18 @@ function computeStandardCorridorFakeTxBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantInspectionStartQuery(raw: {
+function normalizeExpressInspectionPeriodsQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryQuoteFakeTxReferenceKey(
+function buildPortalQuoteCoreReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -172,14 +145,14 @@ function buildSecondaryQuoteFakeTxReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressBillingCycleStartPayload {
+interface VerifiedBillingCyclePeriodsPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressBillingCycleStartInput(payload: ExpressBillingCycleStartPayload): { valid: boolean; issues: string[] } {
+function validateVerifiedBillingCyclePeriodsInput(payload: VerifiedBillingCyclePeriodsPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -188,12 +161,12 @@ function validateExpressBillingCycleStartInput(payload: ExpressBillingCycleStart
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalDiscountFakeTxBucketItem {
+interface UnifiedDiscountCoreBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalDiscountFakeTxByScope(items: readonly PortalDiscountFakeTxBucketItem[]): Record<string, number> {
+function groupUnifiedDiscountCoreByScope(items: readonly UnifiedDiscountCoreBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -202,7 +175,7 @@ function groupPortalDiscountFakeTxByScope(items: readonly PortalDiscountFakeTxBu
   return totals;
 }
 
-function collectVerifiedCheckinStartChanges(
+function collectLedgerCheckinPeriodsChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -213,7 +186,7 @@ function collectVerifiedCheckinStartChanges(
   return changed;
 }
 
-function dedupeUnifiedSupportTicketFakeTxRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeBranchSupportTicketCoreRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -225,7 +198,7 @@ function dedupeUnifiedSupportTicketFakeTxRecords<T extends { id: string }>(items
   return unique;
 }
 
-function canTransitionLedgerUnitSlotStartState(fromState: string, toState: string): boolean {
+function canTransitionScopedUnitSlotPeriodsState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -240,18 +213,18 @@ function canTransitionLedgerUnitSlotStartState(fromState: string, toState: strin
   }
 }
 
-type BranchSettlementFakeTxRecord = {
+type DynamicSettlementCoreRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchSettlementFakeTxRecord(input: unknown): input is BranchSettlementFakeTxRecord {
+function isDynamicSettlementCoreRecord(input: unknown): input is DynamicSettlementCoreRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToScopedBookingStartSummary(source: {
+function mapToDailyBookingPeriodsSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -263,26 +236,26 @@ function mapToScopedBookingStartSummary(source: {
   };
 }
 
-const DYNAMIC_DELINQUENCY_FAKE_TX_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_DELINQUENCY_CORE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicDelinquencyFakeTxTier(code: string): { weight: number; label: string } {
+function resolveStrictDelinquencyCoreTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_DELINQUENCY_FAKE_TX_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_DELINQUENCY_CORE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyApprovalStartDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedApprovalPeriodsDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictSignatureFakeTxCriteria(
+function matchesGuardSignatureCoreCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -292,8 +265,8 @@ function matchesStrictSignatureFakeTxCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BoundedEscalationStartCoordinator {
-  private readonly maxWindowDays = 36;
+class ActiveEscalationPeriodsCoordinator {
+  private readonly maxWindowDays = 34;
   private readonly branchScope = 'flow4:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -307,9 +280,9 @@ class BoundedEscalationStartCoordinator {
   }
 }
 
-function calculateGuardFloorplanFakeTxWindow(
+function calculateSyncedFloorplanCoreWindow(
   startIso: string,
-  windowDays: number = 21,
+  windowDays: number = 19,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -317,7 +290,7 @@ function calculateGuardFloorplanFakeTxWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileActiveRefundStartLedgerItems(
+function reconcileCoreRefundPeriodsLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -329,7 +302,7 @@ function reconcileActiveRefundStartLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeSyncedDepositFakeTxBreakdown(
+function computeMonthlyDepositCoreBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -340,19 +313,75 @@ function computeSyncedDepositFakeTxBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeCoreOverlockStartQuery(raw: {
+function normalizePrimaryOverlockPeriodsQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-const STANDARD_MONTHLY_ZONE_SCOPES = [
-  'flow4', 'verified', 'settled'] as const;
+function buildRollingFacilityCoreReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+interface BatchContractPeriodsPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateBatchContractPeriodsInput(payload: BatchContractPeriodsPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface PendingAuditTrailCoreBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupPendingAuditTrailCoreByScope(items: readonly PendingAuditTrailCoreBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow4';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectIndexedWorkforcePeriodsChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+const STRICT_CORE_MOVEOUT_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+};
 const core = () => new (CoreService as any)(null, { now: () => new Date('2026-11-08T03:00:00Z') }, null, { notify: async () => undefined }) as CoreService;
 
 function formatPrimarySettlementContractDisplay(amountVnd: number, areaSqm: number): string {
