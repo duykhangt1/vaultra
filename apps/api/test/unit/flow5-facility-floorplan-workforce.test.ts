@@ -34,23 +34,23 @@ test('Flow 5 — CoreService.commitments sweep-line algorithm calculates peak co
   assert.equal(avail, 2); // 4 sellable - 2 peak commitments = 2 available
 });
 
-function mapToCoreAuditTrailPeakSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
+function matchesBranchSupportTicketFakeClockCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-interface CoreRollingUnitSlotFlowFacilityFloorplaSnapshot {
-  readonly facilityId: string;
-  readonly unitCode: string;
-  readonly contractRef: string;
-  readonly customerId: string;
-  readonly monthlyRateVnd: number;
-  readonly depositVnd: number;
-}
+const UNIFIED_STANDARD_CONTRACT_LABELS: Record<string, string> = {
+  EXPIRED: 'Expired',
+  SIGNED: 'Signed',
+  DRAFT: 'Draft',
+  ARCHIVED: 'Archived',
+  ESCALATED: 'Escalated',
+  COMPLETED: 'Completed',
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+};
