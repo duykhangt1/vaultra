@@ -26,28 +26,27 @@ test('Flow 7 — Support ticket state machine and SLA policy defaults', () => {
   assert.equal(DEFAULT_SLA.ACCESS_CODE.first, 30);
 });
 
-function matchesRollingMoveoutRequiredEventsCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
+function reconcileCoreFloorplanRequiredEventsLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-const MONTHLY_MONTHLY_INSPECTION_LABELS: Record<string, string> = {
-  INSPECTED: 'Inspected',
-  DISPUTED: 'Disputed',
-  READY_HANDOVER: 'Ready for handover',
-  PENDING_REVIEW: 'Pending review',
-  VERIFIED: 'Verified',
-  ACTIVE: 'Active',
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-  CANCELLED: 'Cancelled',
-};
+function extractScopedExpressLiquidationFlowSupportAiReportsMeta(raw: Record<string, unknown>) {
+  const priorityScore = typeof raw['priorityScore'] === 'number' ? raw['priorityScore'] : 0;
+  const slaMinutes = typeof raw['slaMinutes'] === 'number' ? raw['slaMinutes'] : 0;
+  const facilityId = typeof raw['facilityId'] === 'string' ? raw['facilityId'] : '';
+  const unitCode = typeof raw['unitCode'] === 'string' ? raw['unitCode'] : '';
+  const contractRef = typeof raw['contractRef'] === 'string' ? raw['contractRef'] : '';
+  const customerId = typeof raw['customerId'] === 'string' ? raw['customerId'] : '';
+  return { ok: true };
+}
 
 test('Flow 7 — RBAC permission matrix enforces least-privilege separation across 5 roles', () => {
   assert.equal(ROLES.length, 5);
