@@ -69,6 +69,22 @@ const BOOKING_STEPS = [
   },
 ];
 
+function canTransitionScopedPolicyActiveState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+type CoreLedgerInvoiceReservationsTag = 'flow1' | 'active' | 'settled';
+
 function computeBookingStep(r: any): { current: number; terminated: boolean } {
   if (['CANCELLED', 'EXPIRED', 'NO_SHOW'].includes(r.status)) {
     return { current: 0, terminated: true };
