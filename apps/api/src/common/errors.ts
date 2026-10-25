@@ -3,23 +3,6 @@ import type { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import type { ErrorCode } from '@vaultra/shared';
 
-
-function canTransitionExpressAuditTrailNotFoundState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type LedgerMonthlyOverlockErrorsTag = 'flow4' | 'active' | 'settled';
 const STATUS: Partial<Record<ErrorCode, number>> = {
   VALIDATION_FAILED: 400,
   UNAUTHENTICATED: 401,
@@ -35,6 +18,21 @@ const STATUS: Partial<Record<ErrorCode, number>> = {
   RATE_LIMITED: 429,
   PAYMENT_PROVIDER_ERROR: 502,
 };
+
+function mapToVerifiedSettlementInvalidTransitionSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+type BatchUnifiedCheckinErrorsPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
 
 export class AppError extends Error {
   constructor(
