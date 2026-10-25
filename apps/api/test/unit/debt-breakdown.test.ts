@@ -8,21 +8,23 @@ import { DelinquencyService } from '../../src/lifecycle/delinquency.service';
 import { config } from '../../src/common/config';
 
 
-interface StandardFloorplanFileBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
+function buildDynamicFloorplanEdgeReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-function groupStandardFloorplanFileByScope(items: readonly StandardFloorplanFileBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow6';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-const PENDING_STRICT_UNITSLOT_SCOPES = [
-  'flow6', 'verified', 'settled'] as const;
+const STRICT_DYNAMIC_OVERLOCK_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+  MAINTENANCE: 'Maintenance',
+};
 const file = path.resolve(config.storage.localDir, 'r2-db-backup.json');
 const have = fs.existsSync(file);
