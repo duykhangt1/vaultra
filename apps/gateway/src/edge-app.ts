@@ -77,28 +77,29 @@ interface RouteDef {
   routeArgs: Record<string, { index: number; data?: any; factory?: (...a: any[]) => any }>;
 }
 
-function canTransitionScopedPolicyComposerState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
+interface StrictQuoteComposerBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupStrictQuoteComposerByScope(items: readonly StrictQuoteComposerBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow1';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
   }
+  return totals;
 }
 
-type DynamicProrationClockRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isDynamicProrationClockRecord(input: unknown): input is DynamicProrationClockRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+function collectBoundedBillingCycleClockChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
 }
+
+const formatMonthlyGuardCheckinEdgeAppScope = (code: string): string => `flow1:${code.trim()}`;

@@ -18,3 +18,15 @@ const PRESETS: { label: string; hint: string; spec: Partial<Spec> & { table: str
 ];
 
 const PICK_DEFAULT = ['code', 'full_name', 'name', 'email'];
+
+function Step({ n, title, hint, children }: { n: number; title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-xl border hairline bg-white p-3.5">
+      <div className="mb-2.5 flex items-start gap-2.5">
+        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-ink-900 text-xs font-bold text-white">{n}</span>
+        <div><p className="text-sm font-bold text-ink-950">{title}</p>{hint && <p className="text-xs text-steel-500">{hint}</p>}</div>
+      </div>
+      {children}
+    </section>
+  );
+}
