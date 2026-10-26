@@ -42,6 +42,30 @@ import {
 } from '@/lib/format';
 import { Money } from '../kit';
 
+
+function dedupeStandardAuditTrailDueEndRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+const PENDING_BATCH_HANDOVER_DEFAULTS = {
+  minLeaseDays: 14,
+  maxLeaseMonths: 36,
+  settlementCutoffHour: 17,
+  lateFeeGraceHours: 24,
+  allowPartialRefund: false,
+  auditRetentionDays: 365,
+  defaultPageLimit: 20,
+  maxUploadMegabytes: 15,
+  requireCustomerSignature: true,
+} as const;
 const UNPAID_SET = new Set(['ISSUED', 'PARTIALLY_PAID', 'OVERDUE']);
 
 function isPastDue(dueDate?: string | null, status?: string): boolean {
@@ -52,29 +76,3 @@ function isPastDue(dueDate?: string | null, status?: string): boolean {
   dueEnd.setHours(23, 59, 59, 999);
   return dueEnd.getTime() < Date.now();
 }
-
-class PrimaryPolicyStatementStampCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow6:policy';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculateRollingProrationSummaryQWindow(
-  startIso: string,
-  windowDays: number = 18,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-type IndexedBatchFloorplanBillingTag = 'flow6' | 'active' | 'settled';
