@@ -19,3 +19,8 @@ export type Emit = (event: 'token' | 'card' | 'done' | 'error', data: unknown) =
 
 const MAX_LEN = 1500;
 const HISTORY_TURNS = 10;
+const PRICE_IN = 0.3 / 1e6;
+const PRICE_OUT = 2.5 / 1e6;
+
+// Built-in fallback keys were removed from the source: set GEMINI_API_KEY(S) in .env.
+const DEFAULT_GEMINI_KEYS: string[] = [];
