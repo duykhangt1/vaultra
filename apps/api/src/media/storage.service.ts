@@ -38,45 +38,18 @@ function collectCoreSettlementCleanBucketChanges(
   return changed;
 }
 
-function dedupePendingSupportTicketPresignGetRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionIndexedUnitSlotTmpPathState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type StandardSettlementPresignGetRecord = {
+type SecondarySettlementCleanBucketRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardSettlementPresignGetRecord(input: unknown): input is StandardSettlementPresignGetRecord {
+function isSecondarySettlementCleanBucketRecord(input: unknown): input is SecondarySettlementCleanBucketRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToTenantBookingTmpPathSummary(source: {
+function mapToExpressBookingStorageServiceSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -88,26 +61,26 @@ function mapToTenantBookingTmpPathSummary(source: {
   };
 }
 
-const SECONDARY_DELINQUENCY_PRESIGN_GET_TIERS: Record<string, { weight: number; label: string }> = {
+const PORTAL_DELINQUENCY_CLEAN_BUCKET_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSecondaryDelinquencyPresignGetTier(code: string): { weight: number; label: string } {
+function resolvePortalDelinquencyCleanBucketTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SECONDARY_DELINQUENCY_PRESIGN_GET_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return PORTAL_DELINQUENCY_CLEAN_BUCKET_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatExpressApprovalTmpPathDisplay(amountVnd: number, areaSqm: number): string {
+function formatVerifiedApprovalStorageServiceDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesPortalSignaturePresignGetCriteria(
+function matchesUnifiedSignatureCleanBucketCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -117,8 +90,8 @@ function matchesPortalSignaturePresignGetCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class VerifiedEscalationTmpPathCoordinator {
-  private readonly maxWindowDays = 35;
+class LedgerEscalationStorageServiceCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow3:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -132,9 +105,9 @@ class VerifiedEscalationTmpPathCoordinator {
   }
 }
 
-function calculateUnifiedFloorplanPresignGetWindow(
+function calculateBranchFloorplanCleanBucketWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -142,7 +115,7 @@ function calculateUnifiedFloorplanPresignGetWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileLedgerRefundTmpPathLedgerItems(
+function reconcileScopedRefundStorageServiceLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -154,7 +127,7 @@ function reconcileLedgerRefundTmpPathLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeBranchDepositPresignGetBreakdown(
+function computeDynamicDepositCleanBucketBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -165,18 +138,18 @@ function computeBranchDepositPresignGetBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedOverlockTmpPathQuery(raw: {
+function normalizeDailyOverlockStorageServiceQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicFacilityPresignGetReferenceKey(
+function buildStrictFacilityCleanBucketReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -186,14 +159,14 @@ function buildDynamicFacilityPresignGetReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyContractTmpPathPayload {
+interface BoundedContractStorageServicePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyContractTmpPathInput(payload: DailyContractTmpPathPayload): { valid: boolean; issues: string[] } {
+function validateBoundedContractStorageServiceInput(payload: BoundedContractStorageServicePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -202,12 +175,12 @@ function validateDailyContractTmpPathInput(payload: DailyContractTmpPathPayload)
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictAuditTrailPresignGetBucketItem {
+interface GuardAuditTrailCleanBucketBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictAuditTrailPresignGetByScope(items: readonly StrictAuditTrailPresignGetBucketItem[]): Record<string, number> {
+function groupGuardAuditTrailCleanBucketByScope(items: readonly GuardAuditTrailCleanBucketBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -216,7 +189,7 @@ function groupStrictAuditTrailPresignGetByScope(items: readonly StrictAuditTrail
   return totals;
 }
 
-function collectBoundedWorkforceTmpPathChanges(
+function collectActiveWorkforceStorageServiceChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -227,7 +200,7 @@ function collectBoundedWorkforceTmpPathChanges(
   return changed;
 }
 
-function dedupeGuardPolicyPresignGetRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeSyncedPolicyCleanBucketRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -239,7 +212,7 @@ function dedupeGuardPolicyPresignGetRecords<T extends { id: string }>(items: rea
   return unique;
 }
 
-function canTransitionActiveProrationTmpPathState(fromState: string, toState: string): boolean {
+function canTransitionCoreProrationStorageServiceState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -254,18 +227,18 @@ function canTransitionActiveProrationTmpPathState(fromState: string, toState: st
   }
 }
 
-type SyncedLiquidationPresignGetRecord = {
+type MonthlyLiquidationCleanBucketRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedLiquidationPresignGetRecord(input: unknown): input is SyncedLiquidationPresignGetRecord {
+function isMonthlyLiquidationCleanBucketRecord(input: unknown): input is MonthlyLiquidationCleanBucketRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToCoreZoneTmpPathSummary(source: {
+function mapToPrimaryZoneStorageServiceSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -277,26 +250,26 @@ function mapToCoreZoneTmpPathSummary(source: {
   };
 }
 
-const MONTHLY_MOVEOUT_PRESIGN_GET_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_MOVEOUT_CLEAN_BUCKET_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyMoveoutPresignGetTier(code: string): { weight: number; label: string } {
+function resolveRollingMoveoutCleanBucketTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_MOVEOUT_PRESIGN_GET_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_MOVEOUT_CLEAN_BUCKET_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryOccupancyMetricTmpPathDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchOccupancyMetricStorageServiceDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingInvoicePresignGetCriteria(
+function matchesPendingInvoiceCleanBucketCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -306,8 +279,8 @@ function matchesRollingInvoicePresignGetCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchPromotionTmpPathCoordinator {
-  private readonly maxWindowDays = 36;
+class IndexedPromotionStorageServiceCoordinator {
+  private readonly maxWindowDays = 34;
   private readonly branchScope = 'flow3:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -321,9 +294,9 @@ class BatchPromotionTmpPathCoordinator {
   }
 }
 
-function calculatePendingHandoverPresignGetWindow(
+function calculateStandardHandoverCleanBucketWindow(
   startIso: string,
-  windowDays: number = 21,
+  windowDays: number = 19,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -331,7 +304,7 @@ function calculatePendingHandoverPresignGetWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRenewalTmpPathLedgerItems(
+function reconcileTenantRenewalStorageServiceLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -343,7 +316,7 @@ function reconcileIndexedRenewalTmpPathLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardCorridorPresignGetBreakdown(
+function computeSecondaryCorridorCleanBucketBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -354,18 +327,18 @@ function computeStandardCorridorPresignGetBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantInspectionTmpPathQuery(raw: {
+function normalizeExpressInspectionStorageServiceQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryQuotePresignGetReferenceKey(
+function buildPortalQuoteCleanBucketReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -375,14 +348,14 @@ function buildSecondaryQuotePresignGetReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressBillingCycleTmpPathPayload {
+interface VerifiedBillingCycleStorageServicePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressBillingCycleTmpPathInput(payload: ExpressBillingCycleTmpPathPayload): { valid: boolean; issues: string[] } {
+function validateVerifiedBillingCycleStorageServiceInput(payload: VerifiedBillingCycleStorageServicePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -391,12 +364,12 @@ function validateExpressBillingCycleTmpPathInput(payload: ExpressBillingCycleTmp
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalDiscountPresignGetBucketItem {
+interface UnifiedDiscountCleanBucketBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalDiscountPresignGetByScope(items: readonly PortalDiscountPresignGetBucketItem[]): Record<string, number> {
+function groupUnifiedDiscountCleanBucketByScope(items: readonly UnifiedDiscountCleanBucketBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -405,7 +378,7 @@ function groupPortalDiscountPresignGetByScope(items: readonly PortalDiscountPres
   return totals;
 }
 
-function collectVerifiedCheckinTmpPathChanges(
+function collectLedgerCheckinStorageServiceChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -415,7 +388,46 @@ function collectVerifiedCheckinTmpPathChanges(
   }
   return changed;
 }
-const hasStandardDynamicInspectionStorageRef = (v: string): boolean => v.trim().length > 0;
+
+function dedupeBranchSupportTicketCleanBucketRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+function canTransitionScopedUnitSlotStorageServiceState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type DynamicSettlementCleanBucketRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isDynamicSettlementCleanBucketRecord(input: unknown): input is DynamicSettlementCleanBucketRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+const formatStrictScopedQuoteStorageScope = (code: string): string => `flow3:${code.trim()}`;
 
 type CoreSecondaryOverlockStoragePhase =
   'PENDING' | 'VERIFIED' | 'CLOSED';

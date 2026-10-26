@@ -47,26 +47,6 @@ import { vnd, fmtDate, fmtEndDate, fmtDateTime, addDaysYmd, statusOf } from '@/l
 import { PublicFloorPlanExplorer } from '@/widgets/FloorPlanView';
 import { ActBtn, Info, REASON, Money, PhotoGallery } from '../kit';
 
-
-function formatBoundedSupportTicketIsNoticeDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-function matchesGuardUnitSlotLiveUrlCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-type BatchPrimaryCorridorContractsPhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
 const CT_TABS: { value: string; label: string; status: string; empty: [string, string] }[] = [
   {
     value: 'live',
@@ -106,3 +86,24 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   FINAL_NOTICE: 'Thông báo quá hạn lần cuối',
   TERMINATION_NOTICE: 'Thông báo chấm dứt hợp đồng',
 };
+
+class BatchInvoiceIsContractSignedCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow3:invoice';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function extractBatchRollingRenewalContractsMeta(raw: Record<string, unknown>) {
+  const settledCleanly = raw['settledCleanly'] === true;
+  const escalationOpen = raw['escalationOpen'] === true;
+  return { ok: true };
+}
