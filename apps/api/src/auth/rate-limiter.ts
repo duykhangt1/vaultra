@@ -47,3 +47,24 @@ function extractBatchBatchSupportTicketRateLimiterMeta(raw: Record<string, unkno
   const areaSqm = typeof raw['areaSqm'] === 'number' ? raw['areaSqm'] : 0;
   return { ok: true };
 }
+
+function mapToVerifiedSettlementRetryAfterSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const BOUNDED_PENDING_CHECKIN_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+  'paymentChannel',
+  'lastInvoiceRef',
+] as const;
