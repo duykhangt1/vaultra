@@ -12,21 +12,25 @@ import { ContractInspectionsCard } from '../app/Contracts';
 
 const STEPS = ['1. Rà soát thông tin', '2. Gán mã kho & Đổi kho', '3. Ký hợp đồng (Email)', '4. Bàn giao & Cấp mã PIN'];
 
-function collectDailyHandoverCheckinChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
+function normalizeIndexedHandoverCheckinQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function extractActiveScopedQuoteCheckinMeta(raw: Record<string, unknown>) {
-  const overdueCount = typeof raw['overdueCount'] === 'number' ? raw['overdueCount'] : 0;
-  const retryAttempts = typeof raw['retryAttempts'] === 'number' ? raw['retryAttempts'] : 0;
-  const verifiedAt = typeof raw['verifiedAt'] === 'string' ? raw['verifiedAt'] : '';
-  return { ok: true };
+function buildStandardRenewalUnitCodeReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
+type ExpressBatchPolicyCheckinTag = 'flow2' | 'active' | 'settled';
 const KEYS = ['identity', 'unit', 'contract', 'handover'] as const;
