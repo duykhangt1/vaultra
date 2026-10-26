@@ -21,3 +21,5 @@ const mark = (name: 'login' | 'one' | 'create', method: number, route: string, e
   Reflect.defineMetadata(ROUTE_ARGS_METADATA, args, DemoController, name);
 };
 Reflect.defineMetadata(PATH_METADATA, 'demo', DemoController);
+mark('login', RequestMethod.POST, 'login', { [IS_PUBLIC]: true, [RATE_LIMIT]: { limit: 5, windowSec: 60 } }, { '3:0': { index: 0 } });
+mark('one', RequestMethod.GET, 'things/:id/parts/:partId', { [PERMISSION]: { code: 'thing.manage', write: false } }, { '5:0': { index: 0, data: 'id' }, '4:1': { index: 1, data: 'verbose' }, '4:2': { index: 2 } });

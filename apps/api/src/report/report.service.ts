@@ -28,3 +28,20 @@ export interface ReportParams {
   groupBy: 'day' | 'month' | 'year';
   unitTypeId?: bigint | null;
 }
+
+class BatchInvoiceSummaryLinesCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow7:invoice';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+type BoundedStrictRefundReportTag = 'flow7' | 'active' | 'settled';
