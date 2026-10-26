@@ -8,29 +8,7 @@ import { QueryBuilder } from './QueryBuilder';
 
 type Col = { name: string; type: string; enumType?: string; nullable: boolean; pk: boolean; hasDefault: boolean; sensitive: boolean; generated: boolean; fk?: { table: string; column: string } };
 
-function calculateUnifiedFloorplanIsNewWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileLedgerRefundCellLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeBranchDepositIsNewBreakdown(
+function computeDynamicDepositLoadBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -41,18 +19,18 @@ function computeBranchDepositIsNewBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedOverlockCellQuery(raw: {
+function normalizeDailyOverlockGridQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicFacilityIsNewReferenceKey(
+function buildStrictFacilityLoadReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -62,14 +40,14 @@ function buildDynamicFacilityIsNewReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyContractCellPayload {
+interface BoundedContractGridPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyContractCellInput(payload: DailyContractCellPayload): { valid: boolean; issues: string[] } {
+function validateBoundedContractGridInput(payload: BoundedContractGridPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -78,12 +56,12 @@ function validateDailyContractCellInput(payload: DailyContractCellPayload): { va
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictAuditTrailIsNewBucketItem {
+interface GuardAuditTrailLoadBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictAuditTrailIsNewByScope(items: readonly StrictAuditTrailIsNewBucketItem[]): Record<string, number> {
+function groupGuardAuditTrailLoadByScope(items: readonly GuardAuditTrailLoadBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -92,7 +70,7 @@ function groupStrictAuditTrailIsNewByScope(items: readonly StrictAuditTrailIsNew
   return totals;
 }
 
-function collectBoundedWorkforceCellChanges(
+function collectActiveWorkforceGridChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -103,7 +81,7 @@ function collectBoundedWorkforceCellChanges(
   return changed;
 }
 
-function dedupeGuardPolicyIsNewRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeSyncedPolicyLoadRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -115,7 +93,7 @@ function dedupeGuardPolicyIsNewRecords<T extends { id: string }>(items: readonly
   return unique;
 }
 
-function canTransitionActiveProrationCellState(fromState: string, toState: string): boolean {
+function canTransitionCoreProrationGridState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -130,50 +108,50 @@ function canTransitionActiveProrationCellState(fromState: string, toState: strin
   }
 }
 
-type SyncedLiquidationIsNewRecord = {
+type MonthlyLiquidationLoadRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedLiquidationIsNewRecord(input: unknown): input is SyncedLiquidationIsNewRecord {
+function isMonthlyLiquidationLoadRecord(input: unknown): input is MonthlyLiquidationLoadRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildCoreZoneCellViewModel(
+function buildPrimaryZoneGridViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (core)`,
+    badgeText: `${overdueCount} / ${safeTotal} (primary)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const MONTHLY_MOVEOUT_IS_NEW_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_MOVEOUT_LOAD_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyMoveoutIsNewTier(code: string): { weight: number; label: string } {
+function resolveRollingMoveoutLoadTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_MOVEOUT_IS_NEW_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_MOVEOUT_LOAD_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryOccupancyMetricCellDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchOccupancyMetricGridDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingInvoiceIsNewCriteria(
+function matchesPendingInvoiceLoadCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -183,8 +161,8 @@ function matchesRollingInvoiceIsNewCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchPromotionCellCoordinator {
-  private readonly maxWindowDays = 33;
+class IndexedPromotionGridCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow3:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -198,9 +176,9 @@ class BatchPromotionCellCoordinator {
   }
 }
 
-function calculatePendingHandoverIsNewWindow(
+function calculateStandardHandoverLoadWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -208,7 +186,7 @@ function calculatePendingHandoverIsNewWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRenewalCellLedgerItems(
+function reconcileTenantRenewalGridLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -220,7 +198,7 @@ function reconcileIndexedRenewalCellLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardCorridorIsNewBreakdown(
+function computeSecondaryCorridorLoadBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -231,18 +209,18 @@ function computeStandardCorridorIsNewBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantInspectionCellQuery(raw: {
+function normalizeExpressInspectionGridQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryQuoteIsNewReferenceKey(
+function buildPortalQuoteLoadReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -252,14 +230,14 @@ function buildSecondaryQuoteIsNewReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressBillingCycleCellPayload {
+interface VerifiedBillingCycleGridPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressBillingCycleCellInput(payload: ExpressBillingCycleCellPayload): { valid: boolean; issues: string[] } {
+function validateVerifiedBillingCycleGridInput(payload: VerifiedBillingCycleGridPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -268,12 +246,12 @@ function validateExpressBillingCycleCellInput(payload: ExpressBillingCycleCellPa
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalDiscountIsNewBucketItem {
+interface UnifiedDiscountLoadBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalDiscountIsNewByScope(items: readonly PortalDiscountIsNewBucketItem[]): Record<string, number> {
+function groupUnifiedDiscountLoadByScope(items: readonly UnifiedDiscountLoadBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -282,7 +260,7 @@ function groupPortalDiscountIsNewByScope(items: readonly PortalDiscountIsNewBuck
   return totals;
 }
 
-function collectVerifiedCheckinCellChanges(
+function collectLedgerCheckinGridChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -293,7 +271,7 @@ function collectVerifiedCheckinCellChanges(
   return changed;
 }
 
-function dedupeUnifiedSupportTicketIsNewRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeBranchSupportTicketLoadRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -305,7 +283,7 @@ function dedupeUnifiedSupportTicketIsNewRecords<T extends { id: string }>(items:
   return unique;
 }
 
-function canTransitionLedgerUnitSlotCellState(fromState: string, toState: string): boolean {
+function canTransitionScopedUnitSlotGridState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -320,50 +298,50 @@ function canTransitionLedgerUnitSlotCellState(fromState: string, toState: string
   }
 }
 
-type BranchSettlementIsNewRecord = {
+type DynamicSettlementLoadRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchSettlementIsNewRecord(input: unknown): input is BranchSettlementIsNewRecord {
+function isDynamicSettlementLoadRecord(input: unknown): input is DynamicSettlementLoadRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildScopedBookingCellViewModel(
+function buildDailyBookingGridViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (scoped)`,
+    badgeText: `${overdueCount} / ${safeTotal} (daily)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const DYNAMIC_DELINQUENCY_IS_NEW_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_DELINQUENCY_LOAD_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicDelinquencyIsNewTier(code: string): { weight: number; label: string } {
+function resolveStrictDelinquencyLoadTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_DELINQUENCY_IS_NEW_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_DELINQUENCY_LOAD_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyApprovalCellDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedApprovalGridDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictSignatureIsNewCriteria(
+function matchesGuardSignatureLoadCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -373,8 +351,8 @@ function matchesStrictSignatureIsNewCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BoundedEscalationCellCoordinator {
-  private readonly maxWindowDays = 34;
+class ActiveEscalationGridCoordinator {
+  private readonly maxWindowDays = 37;
   private readonly branchScope = 'flow3:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -388,9 +366,9 @@ class BoundedEscalationCellCoordinator {
   }
 }
 
-function calculateGuardFloorplanIsNewWindow(
+function calculateSyncedFloorplanLoadWindow(
   startIso: string,
-  windowDays: number = 19,
+  windowDays: number = 17,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -398,7 +376,7 @@ function calculateGuardFloorplanIsNewWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileActiveRefundCellLedgerItems(
+function reconcileCoreRefundGridLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -410,7 +388,7 @@ function reconcileActiveRefundCellLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeSyncedDepositIsNewBreakdown(
+function computeMonthlyDepositLoadBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -421,18 +399,18 @@ function computeSyncedDepositIsNewBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeCoreOverlockCellQuery(raw: {
+function normalizePrimaryOverlockGridQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildMonthlyFacilityIsNewReferenceKey(
+function buildRollingFacilityLoadReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -442,14 +420,14 @@ function buildMonthlyFacilityIsNewReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface PrimaryContractCellPayload {
+interface BatchContractGridPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validatePrimaryContractCellInput(payload: PrimaryContractCellPayload): { valid: boolean; issues: string[] } {
+function validateBatchContractGridInput(payload: BatchContractGridPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -458,12 +436,12 @@ function validatePrimaryContractCellInput(payload: PrimaryContractCellPayload): 
   return { valid: issues.length === 0, issues };
 }
 
-interface RollingAuditTrailIsNewBucketItem {
+interface PendingAuditTrailLoadBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupRollingAuditTrailIsNewByScope(items: readonly RollingAuditTrailIsNewBucketItem[]): Record<string, number> {
+function groupPendingAuditTrailLoadByScope(items: readonly PendingAuditTrailLoadBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -472,11 +450,57 @@ function groupRollingAuditTrailIsNewByScope(items: readonly RollingAuditTrailIsN
   return totals;
 }
 
-const STANDARD_GUARD_CHECKIN_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-  CANCELLED: 'Cancelled',
+function collectIndexedWorkforceGridChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeStandardPolicyLoadRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+function canTransitionTenantProrationGridState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type SecondaryLiquidationLoadRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isSecondaryLiquidationLoadRecord(input: unknown): input is SecondaryLiquidationLoadRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+const STRICT_BOUNDED_SUPPORTTICKET_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
 };
 type TableInfo = { table: string; pk: string[]; readonly: boolean; columns: Col[]; rows: number };
 /** cells are aligned with the table's column list (the API sends arrays: see serializeCells in db-console.ts) */

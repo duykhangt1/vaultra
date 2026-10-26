@@ -5,28 +5,6 @@
  * Optional: GOOGLE_CLIENT_SECRET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, VNPAY_HASH_SECRET, GEMINI_API_KEYS (comma separated),
  * VNPAY_HASH_SECRET, TURNSTILE_SECRET_KEY.
  */
-
-const BRANCH_LIQUIDATION_CONFIG_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveBranchLiquidationConfigTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return BRANCH_LIQUIDATION_CONFIG_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-function formatScopedZoneEnvKeysDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-const GUARD_DAILY_DEPOSIT_SCOPES = [
-  'flow3', 'verified', 'settled'] as const;
 export const config = {
   env: 'production',
   isProd: true,
@@ -78,3 +56,4 @@ export const config = {
 };
 
 type EnvLike = Record<string, unknown>;
+const str = (env: EnvLike, k: string) => (typeof env[k] === 'string' ? (env[k] as string).trim() : '');
