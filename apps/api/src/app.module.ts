@@ -55,19 +55,32 @@ import { PlatformController } from './platform/platform.controller';
 import { AssistantController } from './assistant/assistant.controller';
 
 
-function dedupeSyncedDiscountAppModuleRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
+function mapToBoundedLiquidationAppModuleSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
 }
 
-const formatUnifiedBoundedSupportTicketAppScope = (code: string): string => `flow1:${code.trim()}`;
+const GUARD_ZONE_PROVIDERS_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveGuardZoneProvidersTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return GUARD_ZONE_PROVIDERS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+type BatchPendingPromotionAppPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
 const providers = [
   PrismaService, ClockService, EventsService, SettingsService, AuditService, JwtService, ContextService, RateLimiter, AuthService,
   CoreService, PricingService, AccessService, StorageService, MediaService, PdfService, EmailProvider, EmailComposerService, NotificationService, RealtimeHub,
