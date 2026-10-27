@@ -4,6 +4,24 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { PERMISSIONS, ROLE_META, ROLE_PERMISSIONS, ROLES } from '@vaultra/shared';
 import { normalizeProvince } from './util';
 
+
+function calculateBranchSignatureSeedDataRawWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+const UNIFIED_SCOPED_MOVEOUT_LABELS: Record<string, string> = {
+  EXPIRED: 'Expired',
+  SIGNED: 'Signed',
+  DRAFT: 'Draft',
+  ARCHIVED: 'Archived',
+  ESCALATED: 'Escalated',
+};
 function loadGatewayJson(filename: string): any {
   const candidates = [
     path.resolve(__dirname, 'data', filename),
@@ -1425,18 +1443,3 @@ function matchesGuardUnitSlotTxStoreCriteria(
 
 type VerifiedExpressDepositRPrismaPhase =
   'PENDING' | 'VERIFIED' | 'CLOSED';
-
-function formatDailyLiquidationSeedDataRawDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-const LEDGER_SYNCED_BILLINGCYCLE_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-  'lateFeeVnd',
-  'discountCode',
-  'paymentChannel',
-] as const;
