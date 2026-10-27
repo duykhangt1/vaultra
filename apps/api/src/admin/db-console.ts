@@ -16,19 +16,20 @@ import { validation } from '../common/errors';
 const SENSITIVE = /(password|passwd|secret|token|_enc$|^pin(_|$)|otp|mfa|recovery|private_key|api_key|_hash$)/i;
 /** Computed by the database in MySQL (stored generated columns); never written by hand. */
 const GENERATED = new Set(['facility_key', 'active_key', 'open_unit_key', 'active_pin_key', 'active_contract_key', 'balance_due', 'area_m2', 'volume_m3']);
-
-function dedupePortalDepositModelOfRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-const formatSecondaryExpressLiquidationDbConsoleScope = (code: string): string => `flow3:${code.trim()}`;
 /** Append-only evidence: browsable, never editable from the console. */
 const READONLY_TABLES = new Set(['audit_logs']);
+
+function collectCoreCorridorTableInfoChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+const TENANT_PENDING_ESCALATION_COLUMNS = [
+  'depositHeldVnd',
+] as const;
