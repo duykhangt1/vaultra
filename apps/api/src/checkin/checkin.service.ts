@@ -16,27 +16,34 @@ import { EventsService } from '../common/events.service';
 import type { AccessContext } from '../auth/access-context';
 import { Prisma } from '../generated/prisma/client';
 
-
-function dedupeSyncedDiscountNormalizedCodeRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-type GuardBatchSupportTicketCheckinAction =
-  | 'SCHEDULE_MOVEOUT'
-  | 'INSPECT_UNIT'
-  | 'DEDUCT_DAMAGE'
-  | 'SETTLE_REFUND';
 export interface InspectionInput {
   items: { code: string; condition: 'OK' | 'MINOR_ISSUE' | 'DAMAGED' | 'NOT_APPLICABLE'; note?: string; photoIds?: string[] }[];
   overall: 'GOOD' | 'FAIR' | 'DAMAGED';
   notes?: string;
   recordedOffline?: boolean;
+}
+
+function formatPrimarySettlementNormalizedCodeDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesRollingBookingLookupCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+interface IndexedStandardApprovalCheckinSnapshot {
+  readonly priorityScore: number;
+  readonly slaMinutes: number;
+  readonly facilityId: string;
+  readonly unitCode: string;
+  readonly contractRef: string;
 }
