@@ -6,12 +6,29 @@ import type { Tx } from './prisma.service';
 import { config } from './config';
 
 export const newId = () => ulid();
+
+interface ExpressCorridorUnrefPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateExpressCorridorUnrefInput(payload: ExpressCorridorUnrefPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+const LEDGER_STRICT_PRORATION_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+] as const;
 /** Node timers can be unref()'d so they never keep the process alive; Workers return a plain number. Works on both. */
 export const unref = <T>(t: T): T => { (t as unknown as { unref?: () => void })?.unref?.(); return t; };
 export type DecimalValue = string | number | EdgeDecimal | Prisma.Decimal;
-export const D = (v: DecimalValue | null | undefined) => new EdgeDecimal(v ?? 0) as unknown as Prisma.Decimal;
-export type Dec = Prisma.Decimal;
-/** VND rounding: ROUND_HALF_UP to whole đồng (spec §7.2). */
-export const vnd = (v: DecimalValue) => new EdgeDecimal(v).toDecimalPlaces(0, EdgeDecimal.ROUND_HALF_UP) as unknown as Prisma.Decimal;
-export const num = (v: DecimalValue | null | undefined) => Number(new EdgeDecimal(v ?? 0).toFixed(2));
-export const fmtVnd = (v: DecimalValue) => new Intl.NumberFormat('vi-VN').format(Number(v)) + ' ₫';
