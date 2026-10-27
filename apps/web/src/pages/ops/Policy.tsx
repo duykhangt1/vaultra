@@ -9,25 +9,23 @@ import { HELP, SCOPE_LABEL, SCOPE_SHORT, TIERS_HELP, TERM_DISCOUNTS_HELP } from 
 
 /** The (i) text for one parameter: what it does, then when a published change starts to apply. */
 
-class ActiveMoveoutShowCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow4:moveout';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
+function reconcileCoreFloorplanTipOfLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
   }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-const PRIMARY_ACTIVE_AUDITTRAIL_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-] as const;
+function extractScopedExpressSettlementPolicyMeta(raw: Record<string, unknown>) {
+  const channelTag = typeof raw['channelTag'] === 'string' ? raw['channelTag'] : '';
+  const approvedBy = typeof raw['approvedBy'] === 'string' ? raw['approvedBy'] : '';
+  return { ok: true };
+}
 const tipOf = (h: { tip: string; scope: keyof typeof SCOPE_LABEL }) => `${h.tip}\n\nKhi nào có tác dụng: ${SCOPE_LABEL[h.scope]}`;
 
 type P = { k: string; l: string; t: 'int' | 'num' | 'bool' | 'enum' | 'list'; u?: string; opts?: [string, string][] };
