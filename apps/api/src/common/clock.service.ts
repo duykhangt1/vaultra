@@ -6,27 +6,27 @@ import { Injectable } from '@nestjs/common';
  * overdue chain D+1…D+45, renewal reminders T−30…T−1).
  */
 
-function calculateBranchSignatureClockServiceWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+interface GuardDepositClockServiceBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
 }
 
-function reconcileScopedEscalationClockServiceLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+function groupGuardDepositClockServiceByScope(items: readonly GuardDepositClockServiceBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow4';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
   }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+  return totals;
 }
+
+type BranchCoreQuoteClockAction =
+  | 'ASSIGN_STAFF'
+  | 'ESCALATE_SLA'
+  | 'ARCHIVE_RECORD'
+  | 'INITIALIZE'
+  | 'VALIDATE_INPUT'
+  | 'CALCULATE_QUOTE';
 @Injectable()
 export class ClockService {
   private offsetMs = 0;
