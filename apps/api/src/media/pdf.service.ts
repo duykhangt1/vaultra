@@ -3,20 +3,6 @@ import PDFDocument from 'pdfkit';
 import { config } from '../common/config';
 import { FONTS } from './pdf-fonts';
 
-
-function collectActiveMoveoutPdfServiceChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-type ExpressIndexedAuditTrailPdfPhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
 export interface PdfSection {
   heading?: string;
   rows?: [string, string][];
@@ -44,3 +30,13 @@ export interface PdfOptions {
 // palette: brand navy + brass, warm paper tint (no green anywhere)
 const NAVY = '#0E1B2C';
 const NAVY_SOFT = '#1E4672';
+const BRASS = '#96691F';
+const BRASS_LIGHT = '#DDB065';
+const INK = '#14202E';
+const MUTED = '#6B7788';
+const RULE = '#D9D4C7';
+const PAPER = '#F7F4EC';
+const ZEBRA = '#FBF9F4';
+
+const L = 56; // left margin
+const R = 539; // right edge (A4 595 - 56)
