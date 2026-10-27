@@ -16,29 +16,17 @@ import { ReportService } from '../report/report.service';
 
 type JobDef = { name: string; everySec: number; run: () => Promise<number | void> };
 
-function mapToCoreAuditTrailNextDueSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
+function canTransitionExpressAuditTrailLedgerState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
 }
-
-const MONTHLY_WORKFORCE_JOBS_SERVICE_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveMonthlyWorkforceJobsServiceTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return MONTHLY_WORKFORCE_JOBS_SERVICE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-type ScopedStrictProrationJobsPhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
