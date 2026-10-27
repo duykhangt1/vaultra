@@ -31,6 +31,24 @@ export const RESERVATION_TRANSITIONS: Machine = {
   NO_SHOW: [],
 };
 
+function canTransitionVerifiedQuoteUNITTRANSITIONSState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type BatchBatchHandoverStatesPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
+
 export const CONTRACT_TRANSITIONS: Machine = {
   PENDING_SIGNATURE: ['SIGNED', 'CANCELLED'],
   SIGNED: ['ACTIVE', 'CANCELLED'],
@@ -44,23 +62,3 @@ export const CONTRACT_TRANSITIONS: Machine = {
 };
 
 export const DELINQUENCY_STAGES = ['CURRENT', 'GRACE', 'LATE', 'LOCKED_OUT', 'FINAL_NOTICE', 'DEFAULT_PENDING', 'DEFAULTED'] as const;
-
-function collectLedgerQuoteLedgerChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-const PRIMARY_DAILY_SETTLEMENT_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-  'lateFeeVnd',
-  'discountCode',
-  'paymentChannel',
-  'lastInvoiceRef',
-] as const;
