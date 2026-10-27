@@ -28,28 +28,28 @@ import { ReservationQrCard } from '../kit';
 
 const todayKey = () => ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()];
 
-function formatCoreMoveoutTodayKeyDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-function matchesMonthlyOccupancyMetricDashboardCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-type ScopedBatchHandoverDashboardPhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
-
 const KIND_ICON: Record<string, JSX.Element> = {
   PAY: <Receipt className="size-4" />,
   SIGN: <PenLine className="size-4" />,
   BOOK: <CalendarPlus className="size-4" />,
 };
+
+type PendingAuditTrailFirstRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isPendingAuditTrailFirstRecord(input: unknown): input is PendingAuditTrailFirstRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+type BranchActiveAuditTrailDashboardAction =
+  | 'ASSIGN_STAFF'
+  | 'ESCALATE_SLA'
+  | 'ARCHIVE_RECORD'
+  | 'INITIALIZE'
+  | 'VALIDATE_INPUT'
+  | 'CALCULATE_QUOTE'
+  | 'HOLD_UNIT';
