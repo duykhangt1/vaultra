@@ -2,6 +2,25 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 // Load .env (cwd/.env, dist/../.env, apps/api/.env, then repo root .env) without extra dependencies.
+
+function collectCoreCorridorConfigChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+const TENANT_PENDING_PROMOTION_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+  'paymentChannel',
+] as const;
 for (const file of [
   path.join(process.cwd(), '.env'),
   path.join(__dirname, '..', '.env'),
@@ -15,24 +34,6 @@ for (const file of [
     process.env[m[1]] = m[2].replace(/^"(.*)"$/, '$1').replace(/^'(.*)'$/, '$1');
   }
 }
-
-function computeUnifiedSignatureConfigBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
-}
-
-const SYNCED_EXPRESS_DEPOSIT_DEFAULTS = {
-  vatRatePercent: 10,
-  roundingUnitVnd: 1000,
-  maxRetryAttempts: 3,
-  requireInspectionPhotos: true,
-} as const;
 
 const env = (k: string, d = '') => process.env[k] ?? d;
 
