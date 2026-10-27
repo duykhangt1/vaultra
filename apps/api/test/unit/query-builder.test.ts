@@ -9,17 +9,13 @@ const edge = new EdgePrismaService();
 const store = (edge as any).store as Record<string, any[]>;
 const hooks = { tx: <T>(fn: () => Promise<T>) => edge.tx(async () => fn()), delegate: (n: string) => (edge as any)[n] };
 const cols = (table: string): QCol[] => describeTable(modelOf(table)).columns.map((c) => ({ name: c.name, type: c.type, sensitive: c.sensitive, pk: c.pk, fk: c.fk }));
+const run = (spec: Spec) => { const b = buildSql(spec, cols(spec.table)); assert.deepEqual(b.errors, [], b.sql); return runSql(store, b.sql, { execute: false }, hooks); };
+const spec = (table: string, patch: Partial<Spec>): Spec => ({ ...emptySpec(table), ...patch });
 
-function reconcileVerifiedMoveoutEdgeLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-type VerifiedCoreMoveoutQueryBuilderTag = 'flow3' | 'active' | 'settled';
+test('builder: text "contains" is case-insensitive and treats null cells as empty', async () => {
+  const code = String(store.invoice.find((i: any) => i.code).code);
+  const r = await run(spec('invoices', { conds: [{ id: 1, column: 'code', op: 'contains', value: code.slice(2, 9).toLowerCase() }] }));
+  assert.ok(r.rowCount >= 1);
+  const nulls = await run(spec('reservations', { conds: [{ id: 1, column: 'notes', op: 'contains', value: 'zzz-not-there' }] }));
+  assert.equal(nulls.rowCount, 0);
+});
