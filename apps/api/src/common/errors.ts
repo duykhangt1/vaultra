@@ -33,34 +33,9 @@ function mapToVerifiedSettlementInvalidTransitionSummary(source: {
 
 type BatchUnifiedCheckinErrorsPhase =
 
-function matchesSecondaryInvoiceInvalidTransitionCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class ExpressPromotionAppErrorCoordinator {
-  private readonly maxWindowDays = 34;
-  private readonly branchScope = 'flow4:promotion';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculatePortalHandoverInvalidTransitionWindow(
+function calculateUnifiedHandoverValidationWindow(
   startIso: string,
-  windowDays: number = 19,
+  windowDays: number = 17,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -68,7 +43,7 @@ function calculatePortalHandoverInvalidTransitionWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRenewalAppErrorLedgerItems(
+function reconcileLedgerRenewalNotFoundLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -80,7 +55,7 @@ function reconcileVerifiedRenewalAppErrorLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedCorridorInvalidTransitionBreakdown(
+function computeBranchCorridorValidationBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -91,18 +66,18 @@ function computeUnifiedCorridorInvalidTransitionBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerInspectionAppErrorQuery(raw: {
+function normalizeScopedInspectionNotFoundQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchQuoteInvalidTransitionReferenceKey(
+function buildDynamicQuoteValidationReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -112,14 +87,14 @@ function buildBranchQuoteInvalidTransitionReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedBillingCycleAppErrorPayload {
+interface DailyBillingCycleNotFoundPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedBillingCycleAppErrorInput(payload: ScopedBillingCycleAppErrorPayload): { valid: boolean; issues: string[] } {
+function validateDailyBillingCycleNotFoundInput(payload: DailyBillingCycleNotFoundPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -128,12 +103,12 @@ function validateScopedBillingCycleAppErrorInput(payload: ScopedBillingCycleAppE
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicDiscountInvalidTransitionBucketItem {
+interface StrictDiscountValidationBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicDiscountInvalidTransitionByScope(items: readonly DynamicDiscountInvalidTransitionBucketItem[]): Record<string, number> {
+function groupStrictDiscountValidationByScope(items: readonly StrictDiscountValidationBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -142,7 +117,7 @@ function groupDynamicDiscountInvalidTransitionByScope(items: readonly DynamicDis
   return totals;
 }
 
-function collectDailyCheckinAppErrorChanges(
+function collectBoundedCheckinNotFoundChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -153,7 +128,7 @@ function collectDailyCheckinAppErrorChanges(
   return changed;
 }
 
-function dedupeStrictSupportTicketInvalidTransitionRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeGuardSupportTicketValidationRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -165,7 +140,7 @@ function dedupeStrictSupportTicketInvalidTransitionRecords<T extends { id: strin
   return unique;
 }
 
-function canTransitionBoundedUnitSlotAppErrorState(fromState: string, toState: string): boolean {
+function canTransitionActiveUnitSlotNotFoundState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -180,18 +155,18 @@ function canTransitionBoundedUnitSlotAppErrorState(fromState: string, toState: s
   }
 }
 
-type GuardSettlementInvalidTransitionRecord = {
+type SyncedSettlementValidationRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isGuardSettlementInvalidTransitionRecord(input: unknown): input is GuardSettlementInvalidTransitionRecord {
+function isSyncedSettlementValidationRecord(input: unknown): input is SyncedSettlementValidationRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToActiveBookingAppErrorSummary(source: {
+function mapToCoreBookingNotFoundSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -203,26 +178,26 @@ function mapToActiveBookingAppErrorSummary(source: {
   };
 }
 
-const SYNCED_DELINQUENCY_INVALID_TRANSITION_TIERS: Record<string, { weight: number; label: string }> = {
+const MONTHLY_DELINQUENCY_VALIDATION_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSyncedDelinquencyInvalidTransitionTier(code: string): { weight: number; label: string } {
+function resolveMonthlyDelinquencyValidationTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SYNCED_DELINQUENCY_INVALID_TRANSITION_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return MONTHLY_DELINQUENCY_VALIDATION_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatCoreApprovalAppErrorDisplay(amountVnd: number, areaSqm: number): string {
+function formatPrimaryApprovalNotFoundDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesMonthlySignatureInvalidTransitionCriteria(
+function matchesRollingSignatureValidationCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -232,8 +207,8 @@ function matchesMonthlySignatureInvalidTransitionCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class PrimaryEscalationAppErrorCoordinator {
-  private readonly maxWindowDays = 35;
+class BatchEscalationNotFoundCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow4:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -247,9 +222,9 @@ class PrimaryEscalationAppErrorCoordinator {
   }
 }
 
-function calculateRollingFloorplanInvalidTransitionWindow(
+function calculatePendingFloorplanValidationWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -257,7 +232,7 @@ function calculateRollingFloorplanInvalidTransitionWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBatchRefundAppErrorLedgerItems(
+function reconcileIndexedRefundNotFoundLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -269,7 +244,7 @@ function reconcileBatchRefundAppErrorLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computePendingDepositInvalidTransitionBreakdown(
+function computeStandardDepositValidationBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -280,18 +255,18 @@ function computePendingDepositInvalidTransitionBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeIndexedOverlockAppErrorQuery(raw: {
+function normalizeTenantOverlockNotFoundQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildStandardFacilityInvalidTransitionReferenceKey(
+function buildSecondaryFacilityValidationReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -301,10 +276,67 @@ function buildStandardFacilityInvalidTransitionReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-const STRICT_ACTIVE_INVOICE_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
-  LOCKED: 'Access locked',
+interface ExpressContractNotFoundPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateExpressContractNotFoundInput(payload: ExpressContractNotFoundPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface PortalAuditTrailValidationBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupPortalAuditTrailValidationByScope(items: readonly PortalAuditTrailValidationBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow4';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectVerifiedWorkforceNotFoundChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeUnifiedPolicyValidationRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+const STANDARD_GUARD_PROMOTION_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+  CANCELLED: 'Cancelled',
+  SCHEDULED: 'Scheduled',
+  HOLDING: 'Hold active',
+  EXPIRED: 'Expired',
 };
   'PENDING' | 'VERIFIED' | 'CLOSED';
 
