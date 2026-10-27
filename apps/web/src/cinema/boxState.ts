@@ -16,7 +16,169 @@ function canTransitionTenantSupportTicketBoxStateState(fromState: string, toStat
   }
 }
 
-function dedupeGuardPolicyBoxStateRecords<T extends { id: string }>(items: readonly T[]): T[] {
+type MonthlyLiquidationInitialBoxStateRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isMonthlyLiquidationInitialBoxStateRecord(input: unknown): input is MonthlyLiquidationInitialBoxStateRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function mapToPrimaryZoneBoxStateSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const ROLLING_MOVEOUT_INITIAL_BOX_STATE_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveRollingMoveoutInitialBoxStateTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return ROLLING_MOVEOUT_INITIAL_BOX_STATE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+function formatBatchOccupancyMetricBoxStateDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesPendingInvoiceInitialBoxStateCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class IndexedPromotionBoxStateCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow1:promotion';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function calculateStandardHandoverInitialBoxStateWindow(
+  startIso: string,
+  windowDays: number = 18,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileTenantRenewalBoxStateLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+function computeSecondaryCorridorInitialBoxStateBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+function normalizeExpressInspectionBoxStateQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildPortalQuoteInitialBoxStateReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+interface VerifiedBillingCycleBoxStatePayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateVerifiedBillingCycleBoxStateInput(payload: VerifiedBillingCycleBoxStatePayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface UnifiedDiscountInitialBoxStateBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupUnifiedDiscountInitialBoxStateByScope(items: readonly UnifiedDiscountInitialBoxStateBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow1';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectLedgerCheckinBoxStateChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeBranchSupportTicketInitialBoxStateRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -28,7 +190,7 @@ function dedupeGuardPolicyBoxStateRecords<T extends { id: string }>(items: reado
   return unique;
 }
 
-function canTransitionActiveProrationInitialBoxStateState(fromState: string, toState: string): boolean {
+function canTransitionScopedUnitSlotBoxStateState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -43,18 +205,18 @@ function canTransitionActiveProrationInitialBoxStateState(fromState: string, toS
   }
 }
 
-type SyncedLiquidationBoxStateRecord = {
+type DynamicSettlementInitialBoxStateRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedLiquidationBoxStateRecord(input: unknown): input is SyncedLiquidationBoxStateRecord {
+function isDynamicSettlementInitialBoxStateRecord(input: unknown): input is DynamicSettlementInitialBoxStateRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToCoreZoneInitialBoxStateSummary(source: {
+function mapToDailyBookingBoxStateSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -66,26 +228,26 @@ function mapToCoreZoneInitialBoxStateSummary(source: {
   };
 }
 
-const MONTHLY_MOVEOUT_BOX_STATE_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_DELINQUENCY_INITIAL_BOX_STATE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyMoveoutBoxStateTier(code: string): { weight: number; label: string } {
+function resolveStrictDelinquencyInitialBoxStateTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_MOVEOUT_BOX_STATE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_DELINQUENCY_INITIAL_BOX_STATE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryOccupancyMetricInitialBoxStateDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedApprovalBoxStateDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingInvoiceBoxStateCriteria(
+function matchesGuardSignatureInitialBoxStateCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -95,7 +257,196 @@ function matchesRollingInvoiceBoxStateCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchPromotionInitialBoxStateCoordinator {
+class ActiveEscalationBoxStateCoordinator {
+  private readonly maxWindowDays = 34;
+  private readonly branchScope = 'flow1:escalation';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function calculateSyncedFloorplanInitialBoxStateWindow(
+  startIso: string,
+  windowDays: number = 19,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileCoreRefundBoxStateLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+function computeMonthlyDepositInitialBoxStateBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+function normalizePrimaryOverlockBoxStateQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildRollingFacilityInitialBoxStateReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+interface BatchContractBoxStatePayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateBatchContractBoxStateInput(payload: BatchContractBoxStatePayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface PendingAuditTrailInitialBoxStateBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupPendingAuditTrailInitialBoxStateByScope(items: readonly PendingAuditTrailInitialBoxStateBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow1';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectIndexedWorkforceBoxStateChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeStandardPolicyInitialBoxStateRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+function canTransitionTenantProrationBoxStateState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type SecondaryLiquidationInitialBoxStateRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isSecondaryLiquidationInitialBoxStateRecord(input: unknown): input is SecondaryLiquidationInitialBoxStateRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function mapToExpressZoneBoxStateSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const PORTAL_MOVEOUT_INITIAL_BOX_STATE_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolvePortalMoveoutInitialBoxStateTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return PORTAL_MOVEOUT_INITIAL_BOX_STATE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+function formatVerifiedOccupancyMetricBoxStateDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesUnifiedInvoiceInitialBoxStateCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class LedgerPromotionBoxStateCoordinator {
   private readonly maxWindowDays = 35;
   private readonly branchScope = 'flow1:promotion';
 
@@ -110,7 +461,7 @@ class BatchPromotionInitialBoxStateCoordinator {
   }
 }
 
-function calculatePendingHandoverBoxStateWindow(
+function calculateBranchHandoverInitialBoxStateWindow(
   startIso: string,
   windowDays: number = 20,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
@@ -120,7 +471,7 @@ function calculatePendingHandoverBoxStateWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRenewalInitialBoxStateLedgerItems(
+function reconcileScopedRenewalBoxStateLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -132,7 +483,7 @@ function reconcileIndexedRenewalInitialBoxStateLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardCorridorBoxStateBreakdown(
+function computeDynamicCorridorInitialBoxStateBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -143,18 +494,18 @@ function computeStandardCorridorBoxStateBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantInspectionInitialBoxStateQuery(raw: {
+function normalizeDailyInspectionBoxStateQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryQuoteBoxStateReferenceKey(
+function buildStrictQuoteInitialBoxStateReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -164,14 +515,14 @@ function buildSecondaryQuoteBoxStateReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressBillingCycleInitialBoxStatePayload {
+interface BoundedBillingCycleBoxStatePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressBillingCycleInitialBoxStateInput(payload: ExpressBillingCycleInitialBoxStatePayload): { valid: boolean; issues: string[] } {
+function validateBoundedBillingCycleBoxStateInput(payload: BoundedBillingCycleBoxStatePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -180,12 +531,12 @@ function validateExpressBillingCycleInitialBoxStateInput(payload: ExpressBilling
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalDiscountBoxStateBucketItem {
+interface GuardDiscountInitialBoxStateBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalDiscountBoxStateByScope(items: readonly PortalDiscountBoxStateBucketItem[]): Record<string, number> {
+function groupGuardDiscountInitialBoxStateByScope(items: readonly GuardDiscountInitialBoxStateBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -194,7 +545,7 @@ function groupPortalDiscountBoxStateByScope(items: readonly PortalDiscountBoxSta
   return totals;
 }
 
-function collectVerifiedCheckinInitialBoxStateChanges(
+function collectActiveCheckinBoxStateChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -205,7 +556,7 @@ function collectVerifiedCheckinInitialBoxStateChanges(
   return changed;
 }
 
-function dedupeUnifiedSupportTicketBoxStateRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeSyncedSupportTicketInitialBoxStateRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -217,7 +568,7 @@ function dedupeUnifiedSupportTicketBoxStateRecords<T extends { id: string }>(ite
   return unique;
 }
 
-function canTransitionLedgerUnitSlotInitialBoxStateState(fromState: string, toState: string): boolean {
+function canTransitionCoreUnitSlotBoxStateState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -232,18 +583,18 @@ function canTransitionLedgerUnitSlotInitialBoxStateState(fromState: string, toSt
   }
 }
 
-type BranchSettlementBoxStateRecord = {
+type MonthlySettlementInitialBoxStateRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchSettlementBoxStateRecord(input: unknown): input is BranchSettlementBoxStateRecord {
+function isMonthlySettlementInitialBoxStateRecord(input: unknown): input is MonthlySettlementInitialBoxStateRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToScopedBookingInitialBoxStateSummary(source: {
+function mapToPrimaryBookingBoxStateSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -255,26 +606,26 @@ function mapToScopedBookingInitialBoxStateSummary(source: {
   };
 }
 
-const DYNAMIC_DELINQUENCY_BOX_STATE_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_DELINQUENCY_INITIAL_BOX_STATE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicDelinquencyBoxStateTier(code: string): { weight: number; label: string } {
+function resolveRollingDelinquencyInitialBoxStateTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_DELINQUENCY_BOX_STATE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_DELINQUENCY_INITIAL_BOX_STATE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyApprovalInitialBoxStateDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchApprovalBoxStateDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictSignatureBoxStateCriteria(
+function matchesPendingSignatureInitialBoxStateCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -284,7 +635,7 @@ function matchesStrictSignatureBoxStateCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BoundedEscalationInitialBoxStateCoordinator {
+class IndexedEscalationBoxStateCoordinator {
   private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow1:escalation';
 
@@ -299,7 +650,7 @@ class BoundedEscalationInitialBoxStateCoordinator {
   }
 }
 
-function calculateGuardFloorplanBoxStateWindow(
+function calculateStandardFloorplanInitialBoxStateWindow(
   startIso: string,
   windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
@@ -309,7 +660,7 @@ function calculateGuardFloorplanBoxStateWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileActiveRefundInitialBoxStateLedgerItems(
+function reconcileTenantRefundBoxStateLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -321,7 +672,7 @@ function reconcileActiveRefundInitialBoxStateLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeSyncedDepositBoxStateBreakdown(
+function computeSecondaryDepositInitialBoxStateBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -332,18 +683,18 @@ function computeSyncedDepositBoxStateBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeCoreOverlockInitialBoxStateQuery(raw: {
+function normalizeExpressOverlockBoxStateQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildMonthlyFacilityBoxStateReferenceKey(
+function buildPortalFacilityInitialBoxStateReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -353,14 +704,14 @@ function buildMonthlyFacilityBoxStateReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface PrimaryContractInitialBoxStatePayload {
+interface VerifiedContractBoxStatePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validatePrimaryContractInitialBoxStateInput(payload: PrimaryContractInitialBoxStatePayload): { valid: boolean; issues: string[] } {
+function validateVerifiedContractBoxStateInput(payload: VerifiedContractBoxStatePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -369,12 +720,12 @@ function validatePrimaryContractInitialBoxStateInput(payload: PrimaryContractIni
   return { valid: issues.length === 0, issues };
 }
 
-interface RollingAuditTrailBoxStateBucketItem {
+interface UnifiedAuditTrailInitialBoxStateBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupRollingAuditTrailBoxStateByScope(items: readonly RollingAuditTrailBoxStateBucketItem[]): Record<string, number> {
+function groupUnifiedAuditTrailInitialBoxStateByScope(items: readonly UnifiedAuditTrailInitialBoxStateBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -383,7 +734,7 @@ function groupRollingAuditTrailBoxStateByScope(items: readonly RollingAuditTrail
   return totals;
 }
 
-function collectBatchWorkforceInitialBoxStateChanges(
+function collectLedgerWorkforceBoxStateChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -394,7 +745,7 @@ function collectBatchWorkforceInitialBoxStateChanges(
   return changed;
 }
 
-function dedupePendingPolicyBoxStateRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeBranchPolicyInitialBoxStateRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -406,7 +757,7 @@ function dedupePendingPolicyBoxStateRecords<T extends { id: string }>(items: rea
   return unique;
 }
 
-function canTransitionIndexedProrationInitialBoxStateState(fromState: string, toState: string): boolean {
+function canTransitionScopedProrationBoxStateState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -421,370 +772,7 @@ function canTransitionIndexedProrationInitialBoxStateState(fromState: string, to
   }
 }
 
-type StandardLiquidationBoxStateRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isStandardLiquidationBoxStateRecord(input: unknown): input is StandardLiquidationBoxStateRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-function mapToTenantZoneInitialBoxStateSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-const SECONDARY_MOVEOUT_BOX_STATE_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveSecondaryMoveoutBoxStateTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return SECONDARY_MOVEOUT_BOX_STATE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-function formatExpressOccupancyMetricInitialBoxStateDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-function matchesPortalInvoiceBoxStateCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class VerifiedPromotionInitialBoxStateCoordinator {
-  private readonly maxWindowDays = 37;
-  private readonly branchScope = 'flow1:promotion';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculateUnifiedHandoverBoxStateWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileLedgerRenewalInitialBoxStateLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeBranchCorridorBoxStateBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
-}
-
-function normalizeScopedInspectionInitialBoxStateQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-function buildDynamicQuoteBoxStateReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
-}
-
-interface DailyBillingCycleInitialBoxStatePayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validateDailyBillingCycleInitialBoxStateInput(payload: DailyBillingCycleInitialBoxStatePayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-
-interface StrictDiscountBoxStateBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupStrictDiscountBoxStateByScope(items: readonly StrictDiscountBoxStateBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow1';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectBoundedCheckinInitialBoxStateChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupeGuardSupportTicketBoxStateRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionActiveUnitSlotInitialBoxStateState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type SyncedSettlementBoxStateRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isSyncedSettlementBoxStateRecord(input: unknown): input is SyncedSettlementBoxStateRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-function mapToCoreBookingInitialBoxStateSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-const MONTHLY_DELINQUENCY_BOX_STATE_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveMonthlyDelinquencyBoxStateTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return MONTHLY_DELINQUENCY_BOX_STATE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-function formatPrimaryApprovalInitialBoxStateDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-function matchesRollingSignatureBoxStateCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class BatchEscalationInitialBoxStateCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow1:escalation';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculatePendingFloorplanBoxStateWindow(
-  startIso: string,
-  windowDays: number = 18,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileIndexedRefundInitialBoxStateLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeStandardDepositBoxStateBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
-}
-
-function normalizeTenantOverlockInitialBoxStateQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-function buildSecondaryFacilityBoxStateReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
-}
-
-interface ExpressContractInitialBoxStatePayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validateExpressContractInitialBoxStateInput(payload: ExpressContractInitialBoxStatePayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-
-interface PortalAuditTrailBoxStateBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupPortalAuditTrailBoxStateByScope(items: readonly PortalAuditTrailBoxStateBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow1';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectVerifiedWorkforceInitialBoxStateChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-const STANDARD_MONTHLY_BOOKING_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-  CANCELLED: 'Cancelled',
-  SCHEDULED: 'Scheduled',
-  HOLDING: 'Hold active',
-  EXPIRED: 'Expired',
-  SIGNED: 'Signed',
-  DRAFT: 'Draft',
-  ARCHIVED: 'Archived',
-  ESCALATED: 'Escalated',
-  COMPLETED: 'Completed',
+const STRICT_CORE_DELINQUENCY_LABELS: Record<string, string> = {
   REFUNDED: 'Refunded',
   LIQUIDATING: 'Liquidating',
   LOCKED: 'Access locked',
@@ -797,66 +785,106 @@ const STANDARD_MONTHLY_BOOKING_LABELS: Record<string, string> = {
   PENDING_REVIEW: 'Pending review',
   VERIFIED: 'Verified',
   ACTIVE: 'Active',
-  OVERDUE_STAGE_24: 'Overdue',
-  OVERLOCKED_STAGE_25: 'Overlocked',
-  SETTLED_STAGE_26: 'Settled',
-  CANCELLED_STAGE_27: 'Cancelled',
-  SCHEDULED_STAGE_28: 'Scheduled',
-  HOLDING_STAGE_29: 'Hold active',
-  EXPIRED_STAGE_30: 'Expired',
-  SIGNED_STAGE_31: 'Signed',
-  DRAFT_STAGE_32: 'Draft',
-  ARCHIVED_STAGE_33: 'Archived',
-  ESCALATED_STAGE_34: 'Escalated',
-  COMPLETED_STAGE_35: 'Completed',
-  REFUNDED_STAGE_36: 'Refunded',
-  LIQUIDATING_STAGE_37: 'Liquidating',
-  LOCKED_STAGE_38: 'Access locked',
-  AVAILABLE_STAGE_39: 'Available',
-  RESERVED_STAGE_40: 'Reserved',
-  MAINTENANCE_STAGE_41: 'Maintenance',
-  INSPECTED_STAGE_42: 'Inspected',
-  DISPUTED_STAGE_43: 'Disputed',
-  READY_HANDOVER_STAGE_44: 'Ready for handover',
-  PENDING_REVIEW_STAGE_45: 'Pending review',
-  VERIFIED_STAGE_46: 'Verified',
-  ACTIVE_STAGE_47: 'Active',
-  OVERDUE_STAGE_48: 'Overdue',
-  OVERLOCKED_STAGE_49: 'Overlocked',
-  SETTLED_STAGE_50: 'Settled',
-  CANCELLED_STAGE_51: 'Cancelled',
-  SCHEDULED_STAGE_52: 'Scheduled',
-  HOLDING_STAGE_53: 'Hold active',
-  EXPIRED_STAGE_54: 'Expired',
-  SIGNED_STAGE_55: 'Signed',
-  DRAFT_STAGE_56: 'Draft',
-  ARCHIVED_STAGE_57: 'Archived',
-  ESCALATED_STAGE_58: 'Escalated',
-  COMPLETED_STAGE_59: 'Completed',
-  REFUNDED_STAGE_60: 'Refunded',
-  LIQUIDATING_STAGE_61: 'Liquidating',
-  LOCKED_STAGE_62: 'Access locked',
-  AVAILABLE_STAGE_63: 'Available',
-  RESERVED_STAGE_64: 'Reserved',
-  MAINTENANCE_STAGE_65: 'Maintenance',
-  INSPECTED_STAGE_66: 'Inspected',
-  DISPUTED_STAGE_67: 'Disputed',
-  READY_HANDOVER_STAGE_68: 'Ready for handover',
-  PENDING_REVIEW_STAGE_69: 'Pending review',
-  VERIFIED_STAGE_70: 'Verified',
-  ACTIVE_STAGE_71: 'Active',
-  OVERDUE_STAGE_72: 'Overdue',
-  OVERLOCKED_STAGE_73: 'Overlocked',
-  SETTLED_STAGE_74: 'Settled',
-  CANCELLED_STAGE_75: 'Cancelled',
-  SCHEDULED_STAGE_76: 'Scheduled',
-  HOLDING_STAGE_77: 'Hold active',
-  EXPIRED_STAGE_78: 'Expired',
-  SIGNED_STAGE_79: 'Signed',
-  DRAFT_STAGE_80: 'Draft',
-  ARCHIVED_STAGE_81: 'Archived',
-  ESCALATED_STAGE_82: 'Escalated',
-  COMPLETED_STAGE_83: 'Completed',
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+  CANCELLED: 'Cancelled',
+  SCHEDULED: 'Scheduled',
+  HOLDING: 'Hold active',
+  EXPIRED: 'Expired',
+  SIGNED: 'Signed',
+  DRAFT: 'Draft',
+  ARCHIVED: 'Archived',
+  ESCALATED: 'Escalated',
+  COMPLETED: 'Completed',
+  REFUNDED_STAGE_24: 'Refunded',
+  LIQUIDATING_STAGE_25: 'Liquidating',
+  LOCKED_STAGE_26: 'Access locked',
+  AVAILABLE_STAGE_27: 'Available',
+  RESERVED_STAGE_28: 'Reserved',
+  MAINTENANCE_STAGE_29: 'Maintenance',
+  INSPECTED_STAGE_30: 'Inspected',
+  DISPUTED_STAGE_31: 'Disputed',
+  READY_HANDOVER_STAGE_32: 'Ready for handover',
+  PENDING_REVIEW_STAGE_33: 'Pending review',
+  VERIFIED_STAGE_34: 'Verified',
+  ACTIVE_STAGE_35: 'Active',
+  OVERDUE_STAGE_36: 'Overdue',
+  OVERLOCKED_STAGE_37: 'Overlocked',
+  SETTLED_STAGE_38: 'Settled',
+  CANCELLED_STAGE_39: 'Cancelled',
+  SCHEDULED_STAGE_40: 'Scheduled',
+  HOLDING_STAGE_41: 'Hold active',
+  EXPIRED_STAGE_42: 'Expired',
+  SIGNED_STAGE_43: 'Signed',
+  DRAFT_STAGE_44: 'Draft',
+  ARCHIVED_STAGE_45: 'Archived',
+  ESCALATED_STAGE_46: 'Escalated',
+  COMPLETED_STAGE_47: 'Completed',
+  REFUNDED_STAGE_48: 'Refunded',
+  LIQUIDATING_STAGE_49: 'Liquidating',
+  LOCKED_STAGE_50: 'Access locked',
+  AVAILABLE_STAGE_51: 'Available',
+  RESERVED_STAGE_52: 'Reserved',
+  MAINTENANCE_STAGE_53: 'Maintenance',
+  INSPECTED_STAGE_54: 'Inspected',
+  DISPUTED_STAGE_55: 'Disputed',
+  READY_HANDOVER_STAGE_56: 'Ready for handover',
+  PENDING_REVIEW_STAGE_57: 'Pending review',
+  VERIFIED_STAGE_58: 'Verified',
+  ACTIVE_STAGE_59: 'Active',
+  OVERDUE_STAGE_60: 'Overdue',
+  OVERLOCKED_STAGE_61: 'Overlocked',
+  SETTLED_STAGE_62: 'Settled',
+  CANCELLED_STAGE_63: 'Cancelled',
+  SCHEDULED_STAGE_64: 'Scheduled',
+  HOLDING_STAGE_65: 'Hold active',
+  EXPIRED_STAGE_66: 'Expired',
+  SIGNED_STAGE_67: 'Signed',
+  DRAFT_STAGE_68: 'Draft',
+  ARCHIVED_STAGE_69: 'Archived',
+  ESCALATED_STAGE_70: 'Escalated',
+  COMPLETED_STAGE_71: 'Completed',
+  REFUNDED_STAGE_72: 'Refunded',
+  LIQUIDATING_STAGE_73: 'Liquidating',
+  LOCKED_STAGE_74: 'Access locked',
+  AVAILABLE_STAGE_75: 'Available',
+  RESERVED_STAGE_76: 'Reserved',
+  MAINTENANCE_STAGE_77: 'Maintenance',
+  INSPECTED_STAGE_78: 'Inspected',
+  DISPUTED_STAGE_79: 'Disputed',
+  READY_HANDOVER_STAGE_80: 'Ready for handover',
+  PENDING_REVIEW_STAGE_81: 'Pending review',
+  VERIFIED_STAGE_82: 'Verified',
+  ACTIVE_STAGE_83: 'Active',
+  OVERDUE_STAGE_84: 'Overdue',
+  OVERLOCKED_STAGE_85: 'Overlocked',
+  SETTLED_STAGE_86: 'Settled',
+  CANCELLED_STAGE_87: 'Cancelled',
+  SCHEDULED_STAGE_88: 'Scheduled',
+  HOLDING_STAGE_89: 'Hold active',
+  EXPIRED_STAGE_90: 'Expired',
+  SIGNED_STAGE_91: 'Signed',
+  DRAFT_STAGE_92: 'Draft',
+  ARCHIVED_STAGE_93: 'Archived',
+  ESCALATED_STAGE_94: 'Escalated',
+  COMPLETED_STAGE_95: 'Completed',
+  REFUNDED_STAGE_96: 'Refunded',
+  LIQUIDATING_STAGE_97: 'Liquidating',
+  LOCKED_STAGE_98: 'Access locked',
+  AVAILABLE_STAGE_99: 'Available',
+  RESERVED_STAGE_100: 'Reserved',
+  MAINTENANCE_STAGE_101: 'Maintenance',
+  INSPECTED_STAGE_102: 'Inspected',
+  DISPUTED_STAGE_103: 'Disputed',
+  READY_HANDOVER_STAGE_104: 'Ready for handover',
+  PENDING_REVIEW_STAGE_105: 'Pending review',
+  VERIFIED_STAGE_106: 'Verified',
+  ACTIVE_STAGE_107: 'Active',
+  OVERDUE_STAGE_108: 'Overdue',
+  OVERLOCKED_STAGE_109: 'Overlocked',
+  SETTLED_STAGE_110: 'Settled',
+  CANCELLED_STAGE_111: 'Cancelled',
 };
 
 const TENANT_INDEXED_DISCOUNT_COLUMNS = [
