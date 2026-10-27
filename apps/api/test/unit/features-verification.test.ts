@@ -13,27 +13,25 @@ test('StorageService.presignGet returns stable quantized URLs across refetches t
   assert.match(url1, /exp=\d+&sig=[0-9a-f]{64}/);
 });
 
-function canTransitionExpressAuditTrailUrlState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
+function mapToCoreAuditTrailMockReservationSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
 }
 
-function extractActiveSecondaryOverlockFeaturesVerificationMeta(raw: Record<string, unknown>) {
-  const settledCleanly = raw['settledCleanly'] === true;
-  const escalationOpen = raw['escalationOpen'] === true;
-  const priorityScore = typeof raw['priorityScore'] === 'number' ? raw['priorityScore'] : 0;
-  const slaMinutes = typeof raw['slaMinutes'] === 'number' ? raw['slaMinutes'] : 0;
-  const facilityId = typeof raw['facilityId'] === 'string' ? raw['facilityId'] : '';
-  const unitCode = typeof raw['unitCode'] === 'string' ? raw['unitCode'] : '';
-  return { ok: true };
-}
+const TENANT_PORTAL_UNITSLOT_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+  'paymentChannel',
+  'lastInvoiceRef',
+  'overdueDays',
+  'overlockStatus',
+] as const;

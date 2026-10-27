@@ -4,32 +4,7 @@ import { join } from 'node:path';
 const CACHE = join(tmpdir(), 'vaultra-e2e-tokens.json');
 const loadCache = (): Record<string, { t: string; at: number }> => { try { return existsSync(CACHE) ? JSON.parse(readFileSync(CACHE, 'utf8')) : {}; } catch { return {}; } };
 
-interface SecondaryAuditTrailResultsBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupSecondaryAuditTrailResultsByScope(items: readonly SecondaryAuditTrailResultsBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow1';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectExpressWorkforceLoadCacheChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupePortalPolicyResultsRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeUnifiedPolicyClientRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -41,7 +16,7 @@ function dedupePortalPolicyResultsRecords<T extends { id: string }>(items: reado
   return unique;
 }
 
-function canTransitionVerifiedProrationLoadCacheState(fromState: string, toState: string): boolean {
+function canTransitionLedgerProrationBASEState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -56,18 +31,18 @@ function canTransitionVerifiedProrationLoadCacheState(fromState: string, toState
   }
 }
 
-type UnifiedLiquidationResultsRecord = {
+type BranchLiquidationClientRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isUnifiedLiquidationResultsRecord(input: unknown): input is UnifiedLiquidationResultsRecord {
+function isBranchLiquidationClientRecord(input: unknown): input is BranchLiquidationClientRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToLedgerZoneLoadCacheSummary(source: {
+function mapToScopedZoneBASESummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -79,26 +54,26 @@ function mapToLedgerZoneLoadCacheSummary(source: {
   };
 }
 
-const BRANCH_MOVEOUT_RESULTS_TIERS: Record<string, { weight: number; label: string }> = {
+const DYNAMIC_MOVEOUT_CLIENT_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveBranchMoveoutResultsTier(code: string): { weight: number; label: string } {
+function resolveDynamicMoveoutClientTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return BRANCH_MOVEOUT_RESULTS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return DYNAMIC_MOVEOUT_CLIENT_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatScopedOccupancyMetricLoadCacheDisplay(amountVnd: number, areaSqm: number): string {
+function formatDailyOccupancyMetricBASEDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesDynamicInvoiceResultsCriteria(
+function matchesStrictInvoiceClientCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -108,8 +83,8 @@ function matchesDynamicInvoiceResultsCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class DailyPromotionLoadCacheCoordinator {
-  private readonly maxWindowDays = 37;
+class BoundedPromotionBASECoordinator {
+  private readonly maxWindowDays = 35;
   private readonly branchScope = 'flow1:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -123,9 +98,9 @@ class DailyPromotionLoadCacheCoordinator {
   }
 }
 
-function calculateStrictHandoverResultsWindow(
+function calculateGuardHandoverClientWindow(
   startIso: string,
-  windowDays: number = 17,
+  windowDays: number = 20,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -133,7 +108,7 @@ function calculateStrictHandoverResultsWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBoundedRenewalLoadCacheLedgerItems(
+function reconcileActiveRenewalBASELedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -145,7 +120,7 @@ function reconcileBoundedRenewalLoadCacheLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeGuardCorridorResultsBreakdown(
+function computeSyncedCorridorClientBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -156,18 +131,18 @@ function computeGuardCorridorResultsBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeActiveInspectionLoadCacheQuery(raw: {
+function normalizeCoreInspectionBASEQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSyncedQuoteResultsReferenceKey(
+function buildMonthlyQuoteClientReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -177,14 +152,14 @@ function buildSyncedQuoteResultsReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface CoreBillingCycleLoadCachePayload {
+interface PrimaryBillingCycleBASEPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateCoreBillingCycleLoadCacheInput(payload: CoreBillingCycleLoadCachePayload): { valid: boolean; issues: string[] } {
+function validatePrimaryBillingCycleBASEInput(payload: PrimaryBillingCycleBASEPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -193,12 +168,12 @@ function validateCoreBillingCycleLoadCacheInput(payload: CoreBillingCycleLoadCac
   return { valid: issues.length === 0, issues };
 }
 
-interface MonthlyDiscountResultsBucketItem {
+interface RollingDiscountClientBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupMonthlyDiscountResultsByScope(items: readonly MonthlyDiscountResultsBucketItem[]): Record<string, number> {
+function groupRollingDiscountClientByScope(items: readonly RollingDiscountClientBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -207,7 +182,7 @@ function groupMonthlyDiscountResultsByScope(items: readonly MonthlyDiscountResul
   return totals;
 }
 
-function collectPrimaryCheckinLoadCacheChanges(
+function collectBatchCheckinBASEChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -218,7 +193,7 @@ function collectPrimaryCheckinLoadCacheChanges(
   return changed;
 }
 
-function dedupeRollingSupportTicketResultsRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupePendingSupportTicketClientRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -230,7 +205,7 @@ function dedupeRollingSupportTicketResultsRecords<T extends { id: string }>(item
   return unique;
 }
 
-function canTransitionBatchUnitSlotLoadCacheState(fromState: string, toState: string): boolean {
+function canTransitionIndexedUnitSlotBASEState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -245,18 +220,18 @@ function canTransitionBatchUnitSlotLoadCacheState(fromState: string, toState: st
   }
 }
 
-type PendingSettlementResultsRecord = {
+type StandardSettlementClientRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isPendingSettlementResultsRecord(input: unknown): input is PendingSettlementResultsRecord {
+function isStandardSettlementClientRecord(input: unknown): input is StandardSettlementClientRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToIndexedBookingLoadCacheSummary(source: {
+function mapToTenantBookingBASESummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -268,26 +243,26 @@ function mapToIndexedBookingLoadCacheSummary(source: {
   };
 }
 
-const STANDARD_DELINQUENCY_RESULTS_TIERS: Record<string, { weight: number; label: string }> = {
+const SECONDARY_DELINQUENCY_CLIENT_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveStandardDelinquencyResultsTier(code: string): { weight: number; label: string } {
+function resolveSecondaryDelinquencyClientTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return STANDARD_DELINQUENCY_RESULTS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return SECONDARY_DELINQUENCY_CLIENT_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatTenantApprovalLoadCacheDisplay(amountVnd: number, areaSqm: number): string {
+function formatExpressApprovalBASEDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesSecondarySignatureResultsCriteria(
+function matchesPortalSignatureClientCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -297,8 +272,8 @@ function matchesSecondarySignatureResultsCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class ExpressEscalationLoadCacheCoordinator {
-  private readonly maxWindowDays = 33;
+class VerifiedEscalationBASECoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow1:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -312,9 +287,9 @@ class ExpressEscalationLoadCacheCoordinator {
   }
 }
 
-function calculatePortalFloorplanResultsWindow(
+function calculateUnifiedFloorplanClientWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -322,7 +297,7 @@ function calculatePortalFloorplanResultsWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRefundLoadCacheLedgerItems(
+function reconcileLedgerRefundBASELedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -334,7 +309,7 @@ function reconcileVerifiedRefundLoadCacheLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedDepositResultsBreakdown(
+function computeBranchDepositClientBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -345,18 +320,18 @@ function computeUnifiedDepositResultsBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerOverlockLoadCacheQuery(raw: {
+function normalizeScopedOverlockBASEQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchFacilityResultsReferenceKey(
+function buildDynamicFacilityClientReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -366,14 +341,14 @@ function buildBranchFacilityResultsReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedContractLoadCachePayload {
+interface DailyContractBASEPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedContractLoadCacheInput(payload: ScopedContractLoadCachePayload): { valid: boolean; issues: string[] } {
+function validateDailyContractBASEInput(payload: DailyContractBASEPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -382,12 +357,12 @@ function validateScopedContractLoadCacheInput(payload: ScopedContractLoadCachePa
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicAuditTrailResultsBucketItem {
+interface StrictAuditTrailClientBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicAuditTrailResultsByScope(items: readonly DynamicAuditTrailResultsBucketItem[]): Record<string, number> {
+function groupStrictAuditTrailClientByScope(items: readonly StrictAuditTrailClientBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -396,10 +371,56 @@ function groupDynamicAuditTrailResultsByScope(items: readonly DynamicAuditTrailR
   return totals;
 }
 
-const STRICT_EXPRESS_SETTLEMENT_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
+function collectBoundedWorkforceBASEChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeGuardPolicyClientRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+function canTransitionActiveProrationBASEState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type SyncedLiquidationClientRecord = {
+  readonly id: string;
+  readonly status: string;
 };
+
+function isSyncedLiquidationClientRecord(input: unknown): input is SyncedLiquidationClientRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+const formatStandardSecondaryBookingLibScope = (code: string): string => `flow1:${code.trim()}`;
 export const BASE = process.env.API_URL ?? 'http://localhost:4000/v1';
 export const PASSWORD = process.env.SEED_PASSWORD ?? '12345';
 let passed = 0;
