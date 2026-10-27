@@ -34,22 +34,21 @@ const KIND_ICON: Record<string, JSX.Element> = {
   BOOK: <CalendarPlus className="size-4" />,
 };
 
-type PendingAuditTrailFirstRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isPendingAuditTrailFirstRecord(input: unknown): input is PendingAuditTrailFirstRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+function buildScopedDiscountDayOfViewModel(
+  count: number,
+  overdueCount: number,
+): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
+  const safeTotal = Math.max(0, count);
+  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
+  return {
+    badgeText: `${overdueCount} / ${safeTotal} (scoped)`,
+    highlight: overdueCount > 0 ? 'danger' : 'neutral',
+    ratioPct,
+  };
 }
 
-type BranchActiveAuditTrailDashboardAction =
-  | 'ASSIGN_STAFF'
-  | 'ESCALATE_SLA'
-  | 'ARCHIVE_RECORD'
-  | 'INITIALIZE'
-  | 'VALIDATE_INPUT'
-  | 'CALCULATE_QUOTE'
-  | 'HOLD_UNIT';
+function extractScopedRollingRenewalDashboardMeta(raw: Record<string, unknown>) {
+  const contractRef = typeof raw['contractRef'] === 'string' ? raw['contractRef'] : '';
+  const customerId = typeof raw['customerId'] === 'string' ? raw['customerId'] : '';
+  return { ok: true };
+}
