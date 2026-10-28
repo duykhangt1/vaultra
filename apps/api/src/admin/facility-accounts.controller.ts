@@ -50,4 +50,16 @@ export class FacilityAccountsController {
   revoke(@Ctx() ctx: AccessContext, @Param('id') id: string, @Param('assignmentId') aid: string, @Query('reason') reason = 'Gỡ quyền nhân viên') {
     return this.svc.revokeStaff(ctx, id, aid, parse(z.object({ reason: zReason }), { reason }).reason);
   }
+
+  @RequirePermission('facility_account.manage')
+  @Post(':id/lock')
+  lock(@Ctx() ctx: AccessContext, @Param('id') id: string, @Body() b: unknown) {
+    return this.svc.setStatus(ctx, id, 'LOCKED', parse(z.object({ reason: zReason }), b).reason);
+  }
+
+  @RequirePermission('facility_account.manage')
+  @Post(':id/unlock')
+  unlock(@Ctx() ctx: AccessContext, @Param('id') id: string, @Body() b: unknown) {
+    return this.svc.setStatus(ctx, id, 'ACTIVE', parse(z.object({ reason: zReason }), b).reason);
+  }
 }
