@@ -111,3 +111,83 @@ function createConcreteFloorTexture(): THREE.CanvasTexture {
   tex.anisotropy = 8;
   return tex;
 }
+
+function createDoorCorrugationTextures(): { map: THREE.CanvasTexture; bump: THREE.CanvasTexture } {
+  const w = 128;
+  const h = 256;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const g = c.getContext('2d')!;
+
+  g.fillStyle = '#ffffff';
+  g.fillRect(0, 0, w, h);
+
+  // Horizontal roll-up steel door slats
+  const slatH = 16;
+  for (let y = 0; y < h; y += slatH) {
+    const grad = g.createLinearGradient(0, y, 0, y + slatH);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.28, '#f1f4f8');
+    grad.addColorStop(0.72, '#cdd4de');
+    grad.addColorStop(0.9, '#9ba6b5');
+    grad.addColorStop(1, '#e6ebf1');
+    g.fillStyle = grad;
+    g.fillRect(0, y, w, slatH);
+  }
+
+  // Subtle vertical guide shadow on left/right edges
+  const sideGrad = g.createLinearGradient(0, 0, w, 0);
+  sideGrad.addColorStop(0, 'rgba(0,0,0,0.18)');
+  sideGrad.addColorStop(0.08, 'rgba(0,0,0,0)');
+  sideGrad.addColorStop(0.92, 'rgba(0,0,0,0)');
+  sideGrad.addColorStop(1, 'rgba(0,0,0,0.18)');
+  g.fillStyle = sideGrad;
+  g.fillRect(0, 0, w, h);
+
+  const map = new THREE.CanvasTexture(c);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.anisotropy = 4;
+
+  const bump = new THREE.CanvasTexture(c);
+  bump.anisotropy = 4;
+  return { map, bump };
+}
+
+function createPortalSignTexture(): THREE.CanvasTexture {
+  const w = 1024;
+  const h = 220;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const g = c.getContext('2d')!;
+
+  g.fillStyle = '#091320';
+  g.fillRect(0, 0, w, h);
+
+  // Brushed brass double frame
+  g.strokeStyle = '#c8963e';
+  g.lineWidth = 10;
+  g.strokeRect(10, 10, w - 20, h - 20);
+  g.strokeStyle = 'rgba(221, 176, 101, 0.4)';
+  g.lineWidth = 3;
+  g.strokeRect(26, 26, w - 52, h - 52);
+
+  g.textAlign = 'center';
+  g.fillStyle = '#ddb065';
+  g.font = '700 32px "JetBrains Mono", monospace';
+  g.fillText('VAULTRA SELF-STORAGE · CỔNG PIN 24/7', w / 2, 74);
+
+  g.fillStyle = '#f8f5ee';
+  g.font = '800 68px "Bricolage Grotesque", "Be Vietnam Pro", Arial, sans-serif';
+  g.fillText('LỐI VÀO CHÍNH', w / 2, 152);
+
+  g.fillStyle = '#b9c2cd';
+  g.font = '600 24px "Be Vietnam Pro", Arial, sans-serif';
+  g.fillText('QUẦY LỄ TÂN  ·  XE ĐẨY HÀNG', w / 2, 190);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
