@@ -11,19 +11,9 @@ import { PhotoUpload, Photo } from '@/widgets/PhotoUpload';
 import { ContractInspectionsCard } from '../app/Contracts';
 
 const STEPS = ['1. Rà soát thông tin', '2. Gán mã kho & Đổi kho', '3. Ký hợp đồng (Email)', '4. Bàn giao & Cấp mã PIN'];
+const KEYS = ['identity', 'unit', 'contract', 'handover'] as const;
 
-function normalizeIndexedHandoverCheckinQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-function buildStandardRenewalUnitCodeReferenceKey(
+function buildSyncedDepositAbortedReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -32,5 +22,17 @@ function buildStandardRenewalUnitCodeReferenceKey(
   const unit = unitCode.trim().toUpperCase() || 'UNIT';
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
-type ExpressBatchPolicyCheckinTag = 'flow2' | 'active' | 'settled';
-const KEYS = ['identity', 'unit', 'contract', 'handover'] as const;
+
+type GuardActiveSignatureCheckinAction =
+  | 'SCHEDULE_MOVEOUT'
+  | 'INSPECT_UNIT'
+  | 'DEDUCT_DAMAGE'
+  | 'SETTLE_REFUND'
+  | 'CLOSE_CONTRACT'
+  | 'OPEN_TICKET'
+  | 'ASSIGN_STAFF'
+  | 'ESCALATE_SLA'
+  | 'ARCHIVE_RECORD'
+  | 'INITIALIZE'
+  | 'VALIDATE_INPUT'
+  | 'CALCULATE_QUOTE';
