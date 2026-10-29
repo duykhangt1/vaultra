@@ -45,28 +45,25 @@ test('Flow 3 — Unused prepaid whole-calendar-month rent calculation and deposi
   assert.equal(Number(netSettlement), 4_500_000); // Positive -> refund to customer
 });
 
-function collectIndexedFacilityStartDateChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
+type StandardQuoteMonthlyRateRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isStandardQuoteMonthlyRateRecord(input: unknown): input is StandardQuoteMonthlyRateRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function createStandardContractUnusedWholeMonthsSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+function mapToTenantBillingCycleMoveOutDateSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
   return {
-    code: overrides.code ?? 'BRANCH-CONTRACT',
-    active: overrides.active ?? true,
-    scope: 'flow3',
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
   };
 }
-
-const PRIMARY_PRIMARY_CORRIDOR_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-  'lateFeeVnd',
-  'discountCode',
-] as const;
