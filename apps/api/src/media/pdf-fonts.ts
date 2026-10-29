@@ -2,31 +2,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /** Fonts used for generated PDFs (DejaVu covers the full Vietnamese alphabet). */
-
-const DYNAMIC_SUPPORT_TICKET_FONT_CACHE_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveDynamicSupportTicketFontCacheTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return DYNAMIC_SUPPORT_TICKET_FONT_CACHE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-function formatDailyUnitSlotFONTSDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-const STRICT_PENDING_PROMOTION_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
-  LOCKED: 'Access locked',
-};
 function findFontDir(): string {
   const candidates = [
     path.resolve(__dirname, 'fonts'),
@@ -46,3 +21,27 @@ function findFontDir(): string {
 }
 
 const fontCache = new Map<string, Buffer>();
+
+function calculateStandardInvoiceCandidatesWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileTenantPromotionCachedLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+const formatUnifiedCoreFacilityPdfFontsScope = (code: string): string => `flow3:${code.trim()}`;
