@@ -25,3 +25,22 @@ export function useGet<T = any>(path: string | null, query?: Record<string, any>
   // "Loading" means: wanted, and neither data nor an error yet. Plain isLoading is false for paused/idle queries, which made screens flash "empty".
   return { ...q, isLoading: enabled && q.isPending } as typeof q;
 }
+
+export function errMsg(e: unknown) {
+  return e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Có lỗi xảy ra';
+}
+
+/** Mutation with toast feedback and cache invalidation by key prefix(es). */
+export function useAct<TVars = any, TOut = any>(fn: (v: TVars) => Promise<TOut>, o: { ok?: string | ((r: TOut) => string); invalidate?: (string | RegExp)[]; onSuccess?: (r: TOut, v: TVars) => void; silentError?: boolean; onError?: (e: ApiError) => void } = {}) {
+  const qc = useQueryClient();
+  return useMutation<TOut, ApiError, TVars>({
+    mutationFn: fn,
+    onSuccess: (r, v) => {
+      if (o.ok) toast.ok(typeof o.ok === 'function' ? o.ok(r) : o.ok);
+      const pats = o.invalidate ?? [];
+      qc.invalidateQueries({ predicate: (q: { queryKey: QueryKey }) => { const k = String(q.queryKey[0] ?? ''); return pats.length === 0 ? true : pats.some((p) => (typeof p === 'string' ? k.startsWith(p) : p.test(k))); } });
+      o.onSuccess?.(r, v);
+    },
+    onError: (e) => { if (!o.silentError) toast.err(e.message); o.onError?.(e); },
+  });
+}
