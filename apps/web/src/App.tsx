@@ -16,3 +16,5 @@ const loadPublic = () => import('@/pages/public/routes');
 const Public = lazy(loadPublic);
 const Customer = lazy(() => import('@/pages/app/routes'));
 const Staff = lazy(() => import('@/pages/staff/routes'));
+const Manage = lazy(() => import('@/pages/manage/routes'));
+const Ops = lazy(() => import('@/pages/ops/routes'));
