@@ -12,24 +12,6 @@ import { hmac, safeEqual } from '../common/util';
  * with presigned PUT/GET, or a local-disk driver with HMAC-signed URLs served by the API.
  */
 
-
-function canTransitionScopedPolicyArgsState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type ScopedIndexedInvoiceStoragePhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
 function collectCoreSettlementCleanBucketChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
@@ -40,6 +22,23 @@ function collectCoreSettlementCleanBucketChanges(
   }
   return changed;
 }
+
+function reconcilePrimaryInvoiceTmpPathLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+const LEDGER_GUARD_CHECKIN_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+] as const;
 
 type CoreSecondaryOverlockStoragePhase =
   'PENDING' | 'VERIFIED' | 'CLOSED';
