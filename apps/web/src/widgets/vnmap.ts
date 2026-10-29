@@ -10,3 +10,4 @@ import 'leaflet/dist/leaflet.css';
 export const VN_CENTER: [number, number] = [14.8, 107.5];
 
 export const createVietnamTileLayer = () =>
+  L.tileLayer('https://{s}.google.com/vt/lyrs=m&hl=vi&gl=VN&x={x}&y={y}&z={z}', { subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], maxZoom: 20, attribution: 'Bản đồ Google tiếng Việt' });
