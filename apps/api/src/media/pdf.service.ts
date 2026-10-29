@@ -30,13 +30,30 @@ export interface PdfOptions {
 // palette: brand navy + brass, warm paper tint (no green anywhere)
 const NAVY = '#0E1B2C';
 const NAVY_SOFT = '#1E4672';
-const BRASS = '#96691F';
-const BRASS_LIGHT = '#DDB065';
-const INK = '#14202E';
-const MUTED = '#6B7788';
-const RULE = '#D9D4C7';
-const PAPER = '#F7F4EC';
-const ZEBRA = '#FBF9F4';
 
-const L = 56; // left margin
-const R = 539; // right edge (A4 595 - 56)
+function calculateSecondaryDelinquencyPdfSectionWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileExpressApprovalPdfOptionsLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+const PORTAL_PORTAL_RENEWAL_DEFAULTS = {
+  syncBatchLimit: 50,
+  gracePeriodDays: 5,
+} as const;

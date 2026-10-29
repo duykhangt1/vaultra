@@ -33,45 +33,18 @@ type R2Like = {
   delete?(key: string): Promise<unknown>;
 };
 
-function dedupeUnifiedSupportTicketReadRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionLedgerUnitSlotPresignPutState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type BranchSettlementReadRecord = {
+type DynamicSettlementRemoveRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchSettlementReadRecord(input: unknown): input is BranchSettlementReadRecord {
+function isDynamicSettlementRemoveRecord(input: unknown): input is DynamicSettlementRemoveRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToScopedBookingPresignPutSummary(source: {
+function mapToDailyBookingPresignGetSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -83,26 +56,26 @@ function mapToScopedBookingPresignPutSummary(source: {
   };
 }
 
-const DYNAMIC_DELINQUENCY_READ_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_DELINQUENCY_REMOVE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicDelinquencyReadTier(code: string): { weight: number; label: string } {
+function resolveStrictDelinquencyRemoveTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_DELINQUENCY_READ_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_DELINQUENCY_REMOVE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyApprovalPresignPutDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedApprovalPresignGetDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictSignatureReadCriteria(
+function matchesGuardSignatureRemoveCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -112,8 +85,8 @@ function matchesStrictSignatureReadCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BoundedEscalationPresignPutCoordinator {
-  private readonly maxWindowDays = 35;
+class ActiveEscalationPresignGetCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow3:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -127,9 +100,9 @@ class BoundedEscalationPresignPutCoordinator {
   }
 }
 
-function calculateGuardFloorplanReadWindow(
+function calculateSyncedFloorplanRemoveWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -137,7 +110,7 @@ function calculateGuardFloorplanReadWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileActiveRefundPresignPutLedgerItems(
+function reconcileCoreRefundPresignGetLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -149,7 +122,7 @@ function reconcileActiveRefundPresignPutLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeSyncedDepositReadBreakdown(
+function computeMonthlyDepositRemoveBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -160,18 +133,18 @@ function computeSyncedDepositReadBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeCoreOverlockPresignPutQuery(raw: {
+function normalizePrimaryOverlockPresignGetQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildMonthlyFacilityReadReferenceKey(
+function buildRollingFacilityRemoveReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -181,14 +154,14 @@ function buildMonthlyFacilityReadReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface PrimaryContractPresignPutPayload {
+interface BatchContractPresignGetPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validatePrimaryContractPresignPutInput(payload: PrimaryContractPresignPutPayload): { valid: boolean; issues: string[] } {
+function validateBatchContractPresignGetInput(payload: BatchContractPresignGetPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -197,12 +170,12 @@ function validatePrimaryContractPresignPutInput(payload: PrimaryContractPresignP
   return { valid: issues.length === 0, issues };
 }
 
-interface RollingAuditTrailReadBucketItem {
+interface PendingAuditTrailRemoveBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupRollingAuditTrailReadByScope(items: readonly RollingAuditTrailReadBucketItem[]): Record<string, number> {
+function groupPendingAuditTrailRemoveByScope(items: readonly PendingAuditTrailRemoveBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -211,7 +184,7 @@ function groupRollingAuditTrailReadByScope(items: readonly RollingAuditTrailRead
   return totals;
 }
 
-function collectBatchWorkforcePresignPutChanges(
+function collectIndexedWorkforcePresignGetChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -222,7 +195,7 @@ function collectBatchWorkforcePresignPutChanges(
   return changed;
 }
 
-function dedupePendingPolicyReadRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeStandardPolicyRemoveRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -234,7 +207,7 @@ function dedupePendingPolicyReadRecords<T extends { id: string }>(items: readonl
   return unique;
 }
 
-function canTransitionIndexedProrationPresignPutState(fromState: string, toState: string): boolean {
+function canTransitionTenantProrationPresignGetState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -249,18 +222,18 @@ function canTransitionIndexedProrationPresignPutState(fromState: string, toState
   }
 }
 
-type StandardLiquidationReadRecord = {
+type SecondaryLiquidationRemoveRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardLiquidationReadRecord(input: unknown): input is StandardLiquidationReadRecord {
+function isSecondaryLiquidationRemoveRecord(input: unknown): input is SecondaryLiquidationRemoveRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToTenantZonePresignPutSummary(source: {
+function mapToExpressZonePresignGetSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -272,26 +245,26 @@ function mapToTenantZonePresignPutSummary(source: {
   };
 }
 
-const SECONDARY_MOVEOUT_READ_TIERS: Record<string, { weight: number; label: string }> = {
+const PORTAL_MOVEOUT_REMOVE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSecondaryMoveoutReadTier(code: string): { weight: number; label: string } {
+function resolvePortalMoveoutRemoveTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SECONDARY_MOVEOUT_READ_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return PORTAL_MOVEOUT_REMOVE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatExpressOccupancyMetricPresignPutDisplay(amountVnd: number, areaSqm: number): string {
+function formatVerifiedOccupancyMetricPresignGetDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesPortalInvoiceReadCriteria(
+function matchesUnifiedInvoiceRemoveCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -301,8 +274,8 @@ function matchesPortalInvoiceReadCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class VerifiedPromotionPresignPutCoordinator {
-  private readonly maxWindowDays = 36;
+class LedgerPromotionPresignGetCoordinator {
+  private readonly maxWindowDays = 34;
   private readonly branchScope = 'flow3:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -316,9 +289,9 @@ class VerifiedPromotionPresignPutCoordinator {
   }
 }
 
-function calculateUnifiedHandoverReadWindow(
+function calculateBranchHandoverRemoveWindow(
   startIso: string,
-  windowDays: number = 21,
+  windowDays: number = 19,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -326,7 +299,7 @@ function calculateUnifiedHandoverReadWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileLedgerRenewalPresignPutLedgerItems(
+function reconcileScopedRenewalPresignGetLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -338,7 +311,7 @@ function reconcileLedgerRenewalPresignPutLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeBranchCorridorReadBreakdown(
+function computeDynamicCorridorRemoveBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -349,18 +322,18 @@ function computeBranchCorridorReadBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedInspectionPresignPutQuery(raw: {
+function normalizeDailyInspectionPresignGetQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicQuoteReadReferenceKey(
+function buildStrictQuoteRemoveReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -370,14 +343,14 @@ function buildDynamicQuoteReadReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyBillingCyclePresignPutPayload {
+interface BoundedBillingCyclePresignGetPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyBillingCyclePresignPutInput(payload: DailyBillingCyclePresignPutPayload): { valid: boolean; issues: string[] } {
+function validateBoundedBillingCyclePresignGetInput(payload: BoundedBillingCyclePresignGetPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -386,6 +359,65 @@ function validateDailyBillingCyclePresignPutInput(payload: DailyBillingCyclePres
   return { valid: issues.length === 0, issues };
 }
 
-const STANDARD_SECONDARY_INSPECTION_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
+interface GuardDiscountRemoveBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupGuardDiscountRemoveByScope(items: readonly GuardDiscountRemoveBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow3';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectActiveCheckinPresignGetChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeSyncedSupportTicketRemoveRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+function canTransitionCoreUnitSlotPresignGetState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type MonthlySettlementRemoveRecord = {
+  readonly id: string;
+  readonly status: string;
 };
+
+function isMonthlySettlementRemoveRecord(input: unknown): input is MonthlySettlementRemoveRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
