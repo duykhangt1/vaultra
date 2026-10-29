@@ -26,6 +26,28 @@ function extractScopedRollingUnitSlotVnpayMeta(raw: Record<string, unknown>) {
   const areaSqm = typeof raw['areaSqm'] === 'number' ? raw['areaSqm'] : 0;
   return { ok: true };
 }
+
+function canTransitionTenantSupportTicketVnpayControllerState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+interface CoreActiveAuditTrailVnpaySnapshot {
+  readonly verifiedAt: string;
+  readonly effectiveFrom: string;
+  readonly expiresAt: string;
+  readonly currencyCode: string;
+}
 @Controller()
 export class VnpayController {
   constructor(private payments: PaymentService, private prisma: PrismaService) {}
