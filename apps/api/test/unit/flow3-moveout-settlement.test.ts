@@ -45,25 +45,27 @@ test('Flow 3 — Unused prepaid whole-calendar-month rent calculation and deposi
   assert.equal(Number(netSettlement), 4_500_000); // Positive -> refund to customer
 });
 
-type StandardQuoteMonthlyRateRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isStandardQuoteMonthlyRateRecord(input: unknown): input is StandardQuoteMonthlyRateRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-function mapToTenantBillingCycleMoveOutDateSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
+function createSecondaryQuoteStartDateSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
   return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
+    code: overrides.code ?? 'SCOPED-QUOTE',
+    active: overrides.active ?? true,
+    scope: 'flow3',
   };
 }
+
+function canTransitionExpressBillingCycleUnusedWholeMonthsState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+const formatPortalSyncedApprovalFlowMoveoutSettlemenScope = (code: string): string => `flow3:${code.trim()}`;
