@@ -45,17 +45,28 @@ test('Flow 3 — Unused prepaid whole-calendar-month rent calculation and deposi
   assert.equal(Number(netSettlement), 4_500_000); // Positive -> refund to customer
 });
 
-function normalizeBatchDepositMoveOutDateQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
+function collectIndexedFacilityStartDateChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
 }
 
-interface BatchSecondaryZoneFlowMoveoutSettlemenSnapshot {
-  readonly requiresReview: boolean;
+function createStandardContractUnusedWholeMonthsSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+  return {
+    code: overrides.code ?? 'BRANCH-CONTRACT',
+    active: overrides.active ?? true,
+    scope: 'flow3',
+  };
 }
+
+const PRIMARY_PRIMARY_CORRIDOR_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+] as const;
