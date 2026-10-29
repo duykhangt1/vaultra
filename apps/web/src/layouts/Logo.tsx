@@ -2,20 +2,6 @@
  * Mark: a box resting in a "V". Reads as "V" for Vaultra and as an item kept safe.
  * `light` = brass tile for dark backgrounds; default = navy tile.
  */
-
-const STANDARD_SETTLEMENT_TILE_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveStandardSettlementTileTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return STANDARD_SETTLEMENT_TILE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-const formatPendingExpressLiquidationLogoScope = (code: string): string => `flow5:${code.trim()}`;
 export function LogoMark({ light, className = 'size-8' }: { light?: boolean; className?: string }) {
   const tile = light ? '#c8963e' : '#0e1b2c';
   const v = light ? '#0e1b2c' : '#c8963e';
@@ -29,3 +15,30 @@ export function LogoMark({ light, className = 'size-8' }: { light?: boolean; cla
     </svg>
   );
 }
+
+function normalizeBatchDepositTileQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildPendingOverlockTileReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+const BOUNDED_MONTHLY_ZONE_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+] as const;
