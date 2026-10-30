@@ -6,32 +6,7 @@ export interface RoleAssignment {
   facilityId: bigint | null;
 }
 
-interface MonthlyAuditTrailAccessContextBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupMonthlyAuditTrailAccessContextByScope(items: readonly MonthlyAuditTrailAccessContextBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow7';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectPrimaryWorkforceCustomerFieldChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupeRollingPolicyAccessContextRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupePendingPolicyMatrixRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -43,7 +18,7 @@ function dedupeRollingPolicyAccessContextRecords<T extends { id: string }>(items
   return unique;
 }
 
-function canTransitionBatchProrationCustomerFieldState(fromState: string, toState: string): boolean {
+function canTransitionIndexedProrationSYSTEMACTORState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -58,18 +33,18 @@ function canTransitionBatchProrationCustomerFieldState(fromState: string, toStat
   }
 }
 
-type PendingLiquidationAccessContextRecord = {
+type StandardLiquidationMatrixRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isPendingLiquidationAccessContextRecord(input: unknown): input is PendingLiquidationAccessContextRecord {
+function isStandardLiquidationMatrixRecord(input: unknown): input is StandardLiquidationMatrixRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToIndexedZoneCustomerFieldSummary(source: {
+function mapToTenantZoneSYSTEMACTORSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -81,26 +56,26 @@ function mapToIndexedZoneCustomerFieldSummary(source: {
   };
 }
 
-const STANDARD_MOVEOUT_ACCESS_CONTEXT_TIERS: Record<string, { weight: number; label: string }> = {
+const SECONDARY_MOVEOUT_MATRIX_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveStandardMoveoutAccessContextTier(code: string): { weight: number; label: string } {
+function resolveSecondaryMoveoutMatrixTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return STANDARD_MOVEOUT_ACCESS_CONTEXT_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return SECONDARY_MOVEOUT_MATRIX_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatTenantOccupancyMetricCustomerFieldDisplay(amountVnd: number, areaSqm: number): string {
+function formatExpressOccupancyMetricSYSTEMACTORDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesSecondaryInvoiceAccessContextCriteria(
+function matchesPortalInvoiceMatrixCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -110,8 +85,8 @@ function matchesSecondaryInvoiceAccessContextCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class ExpressPromotionCustomerFieldCoordinator {
-  private readonly maxWindowDays = 37;
+class VerifiedPromotionSYSTEMACTORCoordinator {
+  private readonly maxWindowDays = 35;
   private readonly branchScope = 'flow7:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -125,9 +100,9 @@ class ExpressPromotionCustomerFieldCoordinator {
   }
 }
 
-function calculatePortalHandoverAccessContextWindow(
+function calculateUnifiedHandoverMatrixWindow(
   startIso: string,
-  windowDays: number = 17,
+  windowDays: number = 20,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -135,7 +110,7 @@ function calculatePortalHandoverAccessContextWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRenewalCustomerFieldLedgerItems(
+function reconcileLedgerRenewalSYSTEMACTORLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -147,7 +122,7 @@ function reconcileVerifiedRenewalCustomerFieldLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedCorridorAccessContextBreakdown(
+function computeBranchCorridorMatrixBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -158,18 +133,18 @@ function computeUnifiedCorridorAccessContextBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerInspectionCustomerFieldQuery(raw: {
+function normalizeScopedInspectionSYSTEMACTORQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchQuoteAccessContextReferenceKey(
+function buildDynamicQuoteMatrixReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -179,14 +154,14 @@ function buildBranchQuoteAccessContextReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedBillingCycleCustomerFieldPayload {
+interface DailyBillingCycleSYSTEMACTORPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedBillingCycleCustomerFieldInput(payload: ScopedBillingCycleCustomerFieldPayload): { valid: boolean; issues: string[] } {
+function validateDailyBillingCycleSYSTEMACTORInput(payload: DailyBillingCycleSYSTEMACTORPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -195,12 +170,12 @@ function validateScopedBillingCycleCustomerFieldInput(payload: ScopedBillingCycl
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicDiscountAccessContextBucketItem {
+interface StrictDiscountMatrixBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicDiscountAccessContextByScope(items: readonly DynamicDiscountAccessContextBucketItem[]): Record<string, number> {
+function groupStrictDiscountMatrixByScope(items: readonly StrictDiscountMatrixBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -209,7 +184,7 @@ function groupDynamicDiscountAccessContextByScope(items: readonly DynamicDiscoun
   return totals;
 }
 
-function collectDailyCheckinCustomerFieldChanges(
+function collectBoundedCheckinSYSTEMACTORChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -220,7 +195,7 @@ function collectDailyCheckinCustomerFieldChanges(
   return changed;
 }
 
-function dedupeStrictSupportTicketAccessContextRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeGuardSupportTicketMatrixRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -232,7 +207,7 @@ function dedupeStrictSupportTicketAccessContextRecords<T extends { id: string }>
   return unique;
 }
 
-function canTransitionBoundedUnitSlotCustomerFieldState(fromState: string, toState: string): boolean {
+function canTransitionActiveUnitSlotSYSTEMACTORState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -247,18 +222,18 @@ function canTransitionBoundedUnitSlotCustomerFieldState(fromState: string, toSta
   }
 }
 
-type GuardSettlementAccessContextRecord = {
+type SyncedSettlementMatrixRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isGuardSettlementAccessContextRecord(input: unknown): input is GuardSettlementAccessContextRecord {
+function isSyncedSettlementMatrixRecord(input: unknown): input is SyncedSettlementMatrixRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToActiveBookingCustomerFieldSummary(source: {
+function mapToCoreBookingSYSTEMACTORSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -270,26 +245,26 @@ function mapToActiveBookingCustomerFieldSummary(source: {
   };
 }
 
-const SYNCED_DELINQUENCY_ACCESS_CONTEXT_TIERS: Record<string, { weight: number; label: string }> = {
+const MONTHLY_DELINQUENCY_MATRIX_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSyncedDelinquencyAccessContextTier(code: string): { weight: number; label: string } {
+function resolveMonthlyDelinquencyMatrixTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SYNCED_DELINQUENCY_ACCESS_CONTEXT_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return MONTHLY_DELINQUENCY_MATRIX_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatCoreApprovalCustomerFieldDisplay(amountVnd: number, areaSqm: number): string {
+function formatPrimaryApprovalSYSTEMACTORDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesMonthlySignatureAccessContextCriteria(
+function matchesRollingSignatureMatrixCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -299,8 +274,8 @@ function matchesMonthlySignatureAccessContextCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class PrimaryEscalationCustomerFieldCoordinator {
-  private readonly maxWindowDays = 33;
+class BatchEscalationSYSTEMACTORCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow7:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -314,9 +289,9 @@ class PrimaryEscalationCustomerFieldCoordinator {
   }
 }
 
-function calculateRollingFloorplanAccessContextWindow(
+function calculatePendingFloorplanMatrixWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -324,7 +299,7 @@ function calculateRollingFloorplanAccessContextWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBatchRefundCustomerFieldLedgerItems(
+function reconcileIndexedRefundSYSTEMACTORLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -336,7 +311,7 @@ function reconcileBatchRefundCustomerFieldLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computePendingDepositAccessContextBreakdown(
+function computeStandardDepositMatrixBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -347,13 +322,74 @@ function computePendingDepositAccessContextBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-const STRICT_DAILY_LIQUIDATION_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
-  LOCKED: 'Access locked',
-  AVAILABLE: 'Available',
-  RESERVED: 'Reserved',
-  MAINTENANCE: 'Maintenance',
+function normalizeTenantOverlockSYSTEMACTORQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildSecondaryFacilityMatrixReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+interface ExpressContractSYSTEMACTORPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateExpressContractSYSTEMACTORInput(payload: ExpressContractSYSTEMACTORPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface PortalAuditTrailMatrixBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupPortalAuditTrailMatrixByScope(items: readonly PortalAuditTrailMatrixBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow7';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectVerifiedWorkforceSYSTEMACTORChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+const STANDARD_DYNAMIC_ZONE_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+  CANCELLED: 'Cancelled',
+  SCHEDULED: 'Scheduled',
 };
 
 /** AccessContext (spec §5.3, §12.7): roles × data scope, attached to every authenticated request. */

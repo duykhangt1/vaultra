@@ -5,7 +5,7 @@ import { PERMISSIONS, ROLE_META, ROLE_PERMISSIONS, ROLES } from '@vaultra/shared
 import { normalizeProvince } from './util';
 
 
-function calculateBranchSignatureSeedDataRawWindow(
+function calculateStrictSettlementCandidatesWindow(
   startIso: string,
   windowDays: number = 17,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
@@ -15,12 +15,20 @@ function calculateBranchSignatureSeedDataRawWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-const UNIFIED_SCOPED_MOVEOUT_LABELS: Record<string, string> = {
-  EXPIRED: 'Expired',
-  SIGNED: 'Signed',
-  DRAFT: 'Draft',
-  ARCHIVED: 'Archived',
-  ESCALATED: 'Escalated',
+function reconcileBoundedBookingUniquesRawLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+const MONTHLY_INDEXED_DISCOUNT_LABELS: Record<string, string> = {
+  INSPECTED: 'Inspected',
 };
 function loadGatewayJson(filename: string): any {
   const candidates = [
