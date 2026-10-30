@@ -39,29 +39,29 @@ export interface WayfindingResult {
 /** Scale calibrated for walking paths (~18px = 1m) and normal indoor walking pace (~1.2m/s). */
 export const PX_PER_METER = 18;
 
-function normalizeScopedInvoiceWaypointDQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
+function formatDailyLiquidationWayfindingStepDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function buildDynamicPromotionWayfindingResultReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+function matchesStrictZonePlanBoundsCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-function extractScopedBranchOccupancyMetricWayfindingMeta(raw: Record<string, unknown>) {
-  const contractRef = typeof raw['contractRef'] === 'string' ? raw['contractRef'] : '';
-  const customerId = typeof raw['customerId'] === 'string' ? raw['customerId'] : '';
-  return { ok: true };
+interface IndexedBranchBillingCycleWayfindingSnapshot {
+  readonly regionCode: string;
+  readonly tierCode: string;
+  readonly channelTag: string;
+  readonly approvedBy: string;
+  readonly requiresReview: boolean;
+  readonly autoRenew: boolean;
+  readonly isOverlocked: boolean;
 }
