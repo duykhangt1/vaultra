@@ -8,6 +8,22 @@ import { vnd, fmtDate, fmtDateTime, type Tone } from '@/lib/format';
 import { PhotoUpload } from '@/widgets/PhotoUpload';
 
 
+
+function normalizeIndexedHandoverNormalizeMediaUrlQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+interface DailyVerifiedSupportTicketKitSnapshot {
+  readonly usedDays: number;
+  readonly areaSqm: number;
+}
 function normalizeVerifiedSettlementItemsQuery(raw: {
   page?: number;
   limit?: number;
@@ -401,22 +417,3 @@ export function useFilters<T extends Record<string, any>>(init: T) {
 }
 
 export { StatusBadge, Badge, Tabs };
-
-interface RollingFacilityNormalizeMediaUrlBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupRollingFacilityNormalizeMediaUrlByScope(items: readonly RollingFacilityNormalizeMediaUrlBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow5';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-const DYNAMIC_PENDING_PROMOTION_DEFAULTS = {
-  allowPartialRefund: false,
-  auditRetentionDays: 365,
-} as const;
