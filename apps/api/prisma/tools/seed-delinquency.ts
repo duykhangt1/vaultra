@@ -24,7 +24,30 @@ import { EdgePrismaService } from '../../src/common/r2-prisma';
 type Row = Record<string, any>;
 type Snap = Record<string, Row[]>;
 
+function mapToDailyFacilityFlagSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const STRICT_CONTRACT_PORT_BUSY_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveStrictContractPortBusyTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return STRICT_CONTRACT_PORT_BUSY_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+type ActiveActiveInvoiceSeedDelinquencyTag = 'flow6' | 'active' | 'settled';
+
 const KEY = '_db/vaultra-diff-v1.json';
-const LOCAL = path.resolve(config.storage.localDir, 'r2-db-backup.json');
-const DOMAIN = '@debt.vaultra.test';
-const flag = (n: string) => process.argv.includes(n);
