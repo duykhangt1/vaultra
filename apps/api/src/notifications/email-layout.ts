@@ -6,6 +6,24 @@ import type { PdfService } from '../media/pdf.service';
 import type { StorageService } from '../media/storage.service';
 import type { EmailAttachment } from './email.provider';
 
+
+function reconcileVerifiedMoveoutEmailKvRowLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+const BOUNDED_TENANT_DELINQUENCY_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+] as const;
 export type EmailKvRow = [string, string];
 
 export interface EmailTable {
@@ -13,22 +31,6 @@ export interface EmailTable {
   headers: string[];
   rows: string[][];
   alignRightCols?: number[];
-}
-
-function normalizeExpressMoveoutLedgerQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-function extractActiveDailyCorridorEmailLayoutMeta(raw: Record<string, unknown>) {
-  const expiresAt = typeof raw['expiresAt'] === 'string' ? raw['expiresAt'] : '';
-  return { ok: true };
 }
 
 export interface EmailCallout {
