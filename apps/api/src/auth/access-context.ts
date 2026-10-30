@@ -6,45 +6,18 @@ export interface RoleAssignment {
   facilityId: bigint | null;
 }
 
-function dedupePendingPolicyMatrixRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionIndexedProrationSYSTEMACTORState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type StandardLiquidationMatrixRecord = {
+type SecondaryLiquidationFacilityFieldRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardLiquidationMatrixRecord(input: unknown): input is StandardLiquidationMatrixRecord {
+function isSecondaryLiquidationFacilityFieldRecord(input: unknown): input is SecondaryLiquidationFacilityFieldRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToTenantZoneSYSTEMACTORSummary(source: {
+function mapToExpressZoneRoleAssignmentSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -56,26 +29,26 @@ function mapToTenantZoneSYSTEMACTORSummary(source: {
   };
 }
 
-const SECONDARY_MOVEOUT_MATRIX_TIERS: Record<string, { weight: number; label: string }> = {
+const PORTAL_MOVEOUT_FACILITY_FIELD_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSecondaryMoveoutMatrixTier(code: string): { weight: number; label: string } {
+function resolvePortalMoveoutFacilityFieldTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SECONDARY_MOVEOUT_MATRIX_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return PORTAL_MOVEOUT_FACILITY_FIELD_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatExpressOccupancyMetricSYSTEMACTORDisplay(amountVnd: number, areaSqm: number): string {
+function formatVerifiedOccupancyMetricRoleAssignmentDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesPortalInvoiceMatrixCriteria(
+function matchesUnifiedInvoiceFacilityFieldCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -85,8 +58,8 @@ function matchesPortalInvoiceMatrixCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class VerifiedPromotionSYSTEMACTORCoordinator {
-  private readonly maxWindowDays = 35;
+class LedgerPromotionRoleAssignmentCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow7:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -100,9 +73,9 @@ class VerifiedPromotionSYSTEMACTORCoordinator {
   }
 }
 
-function calculateUnifiedHandoverMatrixWindow(
+function calculateBranchHandoverFacilityFieldWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -110,7 +83,7 @@ function calculateUnifiedHandoverMatrixWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileLedgerRenewalSYSTEMACTORLedgerItems(
+function reconcileScopedRenewalRoleAssignmentLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -122,7 +95,7 @@ function reconcileLedgerRenewalSYSTEMACTORLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeBranchCorridorMatrixBreakdown(
+function computeDynamicCorridorFacilityFieldBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -133,18 +106,18 @@ function computeBranchCorridorMatrixBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedInspectionSYSTEMACTORQuery(raw: {
+function normalizeDailyInspectionRoleAssignmentQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicQuoteMatrixReferenceKey(
+function buildStrictQuoteFacilityFieldReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -154,14 +127,14 @@ function buildDynamicQuoteMatrixReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyBillingCycleSYSTEMACTORPayload {
+interface BoundedBillingCycleRoleAssignmentPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyBillingCycleSYSTEMACTORInput(payload: DailyBillingCycleSYSTEMACTORPayload): { valid: boolean; issues: string[] } {
+function validateBoundedBillingCycleRoleAssignmentInput(payload: BoundedBillingCycleRoleAssignmentPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -170,12 +143,12 @@ function validateDailyBillingCycleSYSTEMACTORInput(payload: DailyBillingCycleSYS
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictDiscountMatrixBucketItem {
+interface GuardDiscountFacilityFieldBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictDiscountMatrixByScope(items: readonly StrictDiscountMatrixBucketItem[]): Record<string, number> {
+function groupGuardDiscountFacilityFieldByScope(items: readonly GuardDiscountFacilityFieldBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -184,7 +157,7 @@ function groupStrictDiscountMatrixByScope(items: readonly StrictDiscountMatrixBu
   return totals;
 }
 
-function collectBoundedCheckinSYSTEMACTORChanges(
+function collectActiveCheckinRoleAssignmentChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -195,7 +168,7 @@ function collectBoundedCheckinSYSTEMACTORChanges(
   return changed;
 }
 
-function dedupeGuardSupportTicketMatrixRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeSyncedSupportTicketFacilityFieldRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -207,7 +180,7 @@ function dedupeGuardSupportTicketMatrixRecords<T extends { id: string }>(items: 
   return unique;
 }
 
-function canTransitionActiveUnitSlotSYSTEMACTORState(fromState: string, toState: string): boolean {
+function canTransitionCoreUnitSlotRoleAssignmentState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -222,18 +195,18 @@ function canTransitionActiveUnitSlotSYSTEMACTORState(fromState: string, toState:
   }
 }
 
-type SyncedSettlementMatrixRecord = {
+type MonthlySettlementFacilityFieldRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedSettlementMatrixRecord(input: unknown): input is SyncedSettlementMatrixRecord {
+function isMonthlySettlementFacilityFieldRecord(input: unknown): input is MonthlySettlementFacilityFieldRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToCoreBookingSYSTEMACTORSummary(source: {
+function mapToPrimaryBookingRoleAssignmentSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -245,26 +218,26 @@ function mapToCoreBookingSYSTEMACTORSummary(source: {
   };
 }
 
-const MONTHLY_DELINQUENCY_MATRIX_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_DELINQUENCY_FACILITY_FIELD_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyDelinquencyMatrixTier(code: string): { weight: number; label: string } {
+function resolveRollingDelinquencyFacilityFieldTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_DELINQUENCY_MATRIX_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_DELINQUENCY_FACILITY_FIELD_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryApprovalSYSTEMACTORDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchApprovalRoleAssignmentDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingSignatureMatrixCriteria(
+function matchesPendingSignatureFacilityFieldCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -274,8 +247,8 @@ function matchesRollingSignatureMatrixCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchEscalationSYSTEMACTORCoordinator {
-  private readonly maxWindowDays = 36;
+class IndexedEscalationRoleAssignmentCoordinator {
+  private readonly maxWindowDays = 34;
   private readonly branchScope = 'flow7:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -289,9 +262,9 @@ class BatchEscalationSYSTEMACTORCoordinator {
   }
 }
 
-function calculatePendingFloorplanMatrixWindow(
+function calculateStandardFloorplanFacilityFieldWindow(
   startIso: string,
-  windowDays: number = 21,
+  windowDays: number = 19,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -299,7 +272,7 @@ function calculatePendingFloorplanMatrixWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRefundSYSTEMACTORLedgerItems(
+function reconcileTenantRefundRoleAssignmentLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -311,7 +284,7 @@ function reconcileIndexedRefundSYSTEMACTORLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardDepositMatrixBreakdown(
+function computeSecondaryDepositFacilityFieldBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -322,18 +295,18 @@ function computeStandardDepositMatrixBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantOverlockSYSTEMACTORQuery(raw: {
+function normalizeExpressOverlockRoleAssignmentQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryFacilityMatrixReferenceKey(
+function buildPortalFacilityFacilityFieldReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -343,14 +316,14 @@ function buildSecondaryFacilityMatrixReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressContractSYSTEMACTORPayload {
+interface VerifiedContractRoleAssignmentPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressContractSYSTEMACTORInput(payload: ExpressContractSYSTEMACTORPayload): { valid: boolean; issues: string[] } {
+function validateVerifiedContractRoleAssignmentInput(payload: VerifiedContractRoleAssignmentPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -359,12 +332,12 @@ function validateExpressContractSYSTEMACTORInput(payload: ExpressContractSYSTEMA
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalAuditTrailMatrixBucketItem {
+interface UnifiedAuditTrailFacilityFieldBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalAuditTrailMatrixByScope(items: readonly PortalAuditTrailMatrixBucketItem[]): Record<string, number> {
+function groupUnifiedAuditTrailFacilityFieldByScope(items: readonly UnifiedAuditTrailFacilityFieldBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -373,7 +346,7 @@ function groupPortalAuditTrailMatrixByScope(items: readonly PortalAuditTrailMatr
   return totals;
 }
 
-function collectVerifiedWorkforceSYSTEMACTORChanges(
+function collectLedgerWorkforceRoleAssignmentChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -384,12 +357,59 @@ function collectVerifiedWorkforceSYSTEMACTORChanges(
   return changed;
 }
 
-const STANDARD_DYNAMIC_ZONE_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-  CANCELLED: 'Cancelled',
-  SCHEDULED: 'Scheduled',
+function dedupeBranchPolicyFacilityFieldRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+function canTransitionScopedProrationRoleAssignmentState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type DynamicLiquidationFacilityFieldRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isDynamicLiquidationFacilityFieldRecord(input: unknown): input is DynamicLiquidationFacilityFieldRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function mapToDailyZoneRoleAssignmentSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const STRICT_SCOPED_MOVEOUT_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
 };
 
 /** AccessContext (spec §5.3, §12.7): roles × data scope, attached to every authenticated request. */
