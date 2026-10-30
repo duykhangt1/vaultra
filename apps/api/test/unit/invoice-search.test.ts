@@ -7,21 +7,24 @@ import { config } from '../../src/common/config';
 import { EdgePrismaService } from '../../src/common/r2-prisma';
 import { BillingController } from '../../src/billing/billing.controller';
 
-const file = path.resolve(config.storage.localDir, 'r2-db-backup.json');
 
-function reconcileIndexedLiquidationStoreLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+function matchesGuardSettlementStoreCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-type ExpressStrictRenewalInvoiceSearchPhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
+const STANDARD_BATCH_HANDOVER_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+  CANCELLED: 'Cancelled',
+  SCHEDULED: 'Scheduled',
+};
+const file = path.resolve(config.storage.localDir, 'r2-db-backup.json');
 const have = fs.existsSync(file);
 const edge = new EdgePrismaService();
