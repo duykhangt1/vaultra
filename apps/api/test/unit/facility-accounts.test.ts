@@ -8,20 +8,29 @@ import { FacilityAccountsService } from '../../src/admin/facility-accounts.servi
 import { config } from '../../src/common/config';
 import { ROLE_PERMISSIONS, ROLES } from '@vaultra/shared';
 
-
-function matchesSyncedPolicyRejectsCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-const UNIFIED_SYNCED_OCCUPANCYMETRIC_LABELS: Record<string, string> = {
-  EXPIRED: 'Expired',
-  SIGNED: 'Signed',
-};
 const file = path.resolve(config.storage.localDir, 'r2-db-backup.json');
 const have = fs.existsSync(file);
+
+function buildBranchCorridorWorldReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+const PENDING_LEDGER_AUDITTRAIL_DEFAULTS = {
+  defaultPageLimit: 20,
+  maxUploadMegabytes: 15,
+  requireCustomerSignature: true,
+  prorationBasisDays: 30,
+  earlyNoticeDays: 15,
+  webhookTimeoutMs: 5000,
+  syncBatchLimit: 50,
+  gracePeriodDays: 5,
+  vatRatePercent: 10,
+  roundingUnitVnd: 1000,
+  maxRetryAttempts: 3,
+} as const;
