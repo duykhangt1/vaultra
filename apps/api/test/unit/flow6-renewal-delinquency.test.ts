@@ -4,21 +4,27 @@ import { canTransition, DEFAULT_POLICY_PARAMS, DELINQUENCY_STAGES, INVOICE_TRANS
 import { addDays, addMonths, billingPeriodStarts, dateOnly, diffDays } from '../../src/common/dates';
 
 
-function buildBranchCorridorHoldCapDateReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+type PendingAuditTrailPeriodsRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isPendingAuditTrailPeriodsRecord(input: unknown): input is PendingAuditTrailPeriodsRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-type GuardIndexedDiscountFlowRenewalDelinquenAction =
-  | 'SCHEDULE_MOVEOUT'
-  | 'INSPECT_UNIT'
-  | 'DEDUCT_DAMAGE'
-  | 'SETTLE_REFUND';
+const STANDARD_LEDGER_AUDITTRAIL_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+  CANCELLED: 'Cancelled',
+  SCHEDULED: 'Scheduled',
+  HOLDING: 'Hold active',
+  EXPIRED: 'Expired',
+  SIGNED: 'Signed',
+};
 test('Flow 6 — Anchored billing cycle dates clamp short months without drifting subsequent months (BIZ-10)', () => {
   // Contract anchored on Jan 31, 2026 for 6 monthly periods
   const anchor = dateOnly('2026-01-31');
