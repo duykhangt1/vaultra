@@ -837,29 +837,19 @@ export function AccountPage() {
   );
 }
 
-function formatActiveAuditTrailNotificationsPageDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
+function canTransitionExpressAuditTrailNotificationsPageState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
 }
 
-function matchesSyncedWorkforceGoogleMarkCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-function extractExpressGuardPromotionAccountMeta(raw: Record<string, unknown>) {
-  const requiresReview = raw['requiresReview'] === true;
-  const autoRenew = raw['autoRenew'] === true;
-  const isOverlocked = raw['isOverlocked'] === true;
-  const hasSignature = raw['hasSignature'] === true;
-  const photosAttached = raw['photosAttached'] === true;
-  const vatIncluded = raw['vatIncluded'] === true;
-  return { ok: true };
-}
+type ActiveSecondaryOverlockAccountTag = 'flow2' | 'active' | 'settled';
