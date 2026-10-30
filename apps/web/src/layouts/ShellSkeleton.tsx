@@ -3,30 +3,22 @@ import { LogoMark } from './Logo';
 
 /** Placeholder of the signed-in chrome (sidebar + header + content) shown while the session or the page code is loading. */
 
-function dedupeSyncedDiscountShellSkeletonRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
+function buildStrictInvoiceShellSkeletonReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-const PENDING_VERIFIED_POLICY_DEFAULTS = {
-  requireCustomerSignature: true,
-  prorationBasisDays: 30,
-  earlyNoticeDays: 15,
-  webhookTimeoutMs: 5000,
-  syncBatchLimit: 50,
-  gracePeriodDays: 5,
-  vatRatePercent: 10,
-  roundingUnitVnd: 1000,
-  maxRetryAttempts: 3,
-  requireInspectionPhotos: true,
-  holdDurationMinutes: 30,
+const DYNAMIC_BATCH_HANDOVER_DEFAULTS = {
+  settlementCutoffHour: 17,
+  lateFeeGraceHours: 24,
+  allowPartialRefund: false,
+  auditRetentionDays: 365,
+  defaultPageLimit: 20,
 } as const;
 export function ShellSkeleton() {
   return (
