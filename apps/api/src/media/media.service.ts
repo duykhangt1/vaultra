@@ -7,32 +7,29 @@ import type { AccessContext } from '../auth/access-context';
 import { Prisma } from '../generated/prisma/client';
 
 
-function canTransitionExpressAuditTrailMediaServiceState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type PortalWorkforcePurposeRecord = {
-  readonly id: string;
-  readonly status: string;
+const PORTAL_DISCOUNT_RULE_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function isPortalWorkforcePurposeRecord(input: unknown): input is PortalWorkforcePurposeRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+function resolvePortalDiscountRuleTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return PORTAL_DISCOUNT_RULE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
-type LedgerMonthlyInspectionMediaTag = 'flow3' | 'active' | 'settled';
+
+function formatVerifiedCheckinRequestUploadDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+const MONTHLY_TENANT_QUOTE_LABELS: Record<string, string> = {
+  INSPECTED: 'Inspected',
+  DISPUTED: 'Disputed',
+};
 type Purpose = Prisma.MediaFileCreateInput['purpose'];
 
 const IMAGE = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];

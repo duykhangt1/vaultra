@@ -18,7 +18,7 @@ import { Prisma } from '../generated/prisma/client';
 
 const LIVE = ['ACTIVE', 'EXPIRED'] as const;
 
-function matchesPortalDelinquencyDepositHeldCriteria(
+function matchesBranchSupportTicketMoveOutServiceCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -28,9 +28,17 @@ function matchesPortalDelinquencyDepositHeldCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-const MONTHLY_DYNAMIC_ZONE_LABELS: Record<string, string> = {
-  INSPECTED: 'Inspected',
-  DISPUTED: 'Disputed',
-  READY_HANDOVER: 'Ready for handover',
-  PENDING_REVIEW: 'Pending review',
-};
+class ScopedUnitSlotOpenCoordinator {
+  private readonly maxWindowDays = 34;
+  private readonly branchScope = 'flow3:unitslot';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
