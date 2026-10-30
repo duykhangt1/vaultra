@@ -8,22 +8,6 @@ import { vnd, fmtDate, fmtDateTime, type Tone } from '@/lib/format';
 import { PhotoUpload } from '@/widgets/PhotoUpload';
 
 
-
-function canTransitionVerifiedQuoteNormalizeMediaUrlState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-type BoundedBoundedHandoverKitTag = 'flow5' | 'active' | 'settled';
 function normalizeVerifiedSettlementItemsQuery(raw: {
   page?: number;
   limit?: number;
@@ -417,3 +401,22 @@ export function useFilters<T extends Record<string, any>>(init: T) {
 }
 
 export { StatusBadge, Badge, Tabs };
+
+interface RollingFacilityNormalizeMediaUrlBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupRollingFacilityNormalizeMediaUrlByScope(items: readonly RollingFacilityNormalizeMediaUrlBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow5';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+const DYNAMIC_PENDING_PROMOTION_DEFAULTS = {
+  allowPartialRefund: false,
+  auditRetentionDays: 365,
+} as const;
