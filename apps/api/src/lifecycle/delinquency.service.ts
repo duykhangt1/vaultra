@@ -14,22 +14,25 @@ import { AuditService } from '../audit/audit.service';
 import type { AccessContext } from '../auth/access-context';
 
 
-function buildRollingSignatureRunJobReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+function reconcilePrimaryInvoiceWithOverdueLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-type SecondaryVerifiedPolicyDelinquencyAction =
-  | 'HOLD_UNIT'
-  | 'COLLECT_DEPOSIT'
-  | 'SIGN_CONTRACT'
-  | 'VERIFY_HANDOVER'
-  | 'ACTIVATE_LEASE'
-  | 'GENERATE_INVOICE';
+function extractActivePendingWorkforceDelinquencyMeta(raw: Record<string, unknown>) {
+  const priorityScore = typeof raw['priorityScore'] === 'number' ? raw['priorityScore'] : 0;
+  const slaMinutes = typeof raw['slaMinutes'] === 'number' ? raw['slaMinutes'] : 0;
+  const facilityId = typeof raw['facilityId'] === 'string' ? raw['facilityId'] : '';
+  const unitCode = typeof raw['unitCode'] === 'string' ? raw['unitCode'] : '';
+  const contractRef = typeof raw['contractRef'] === 'string' ? raw['contractRef'] : '';
+  return { ok: true };
+}
 const ORDER: DelinquencyStage[] = [...DELINQUENCY_STAGES];
 const LIVE = ['ACTIVE', 'MOVE_OUT_SCHEDULED', 'EXPIRED'] as const;

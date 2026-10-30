@@ -15,67 +15,28 @@ export interface EmailTable {
   alignRightCols?: number[];
 }
 
+class ActiveMoveoutLedgerCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow2:moveout';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function extractExpressIndexedAuditTrailEmailLayoutMeta(raw: Record<string, unknown>) {
+  const facilityId = typeof raw['facilityId'] === 'string' ? raw['facilityId'] : '';
+  return { ok: true };
+}
+
 export interface EmailCallout {
   tone: 'info' | 'warning' | 'danger' | 'brass';
   title: string;
   body: string;
-}
-
-export interface EmailPhotoPreview {
-  cid: string;
-  filename: string;
-  caption?: string;
-}
-
-export interface EmailFacilityFooter {
-  name: string;
-  address: string;
-  phone?: string | null;
-  hotline?: string | null;
-  email?: string | null;
-  officeHours?: string;
-  accessHours?: string;
-}
-
-export interface EmailComposeModel {
-  event: string;
-  categoryBadge: string;
-  referenceCode?: string;
-  userFullName?: string;
-  title: string;
-  leadParagraphs: string[];
-  contextNote?: string;
-  otpCode?: { code: string; ttlNote: string; label?: string };
-  securityNotice?: { title: string; body: string };
-  callouts: EmailCallout[];
-  kvTitle?: string;
-  kvRows: EmailKvRow[];
-  tables: EmailTable[];
-  qrCard?: { code: string; cid: string; caption: string; subcaption?: string };
-  photoPreviews: EmailPhotoPreview[];
-  attachments: EmailAttachment[];
-  cta?: { url: string; label: string };
-  facilityFooter?: EmailFacilityFooter;
-}
-
-export interface EnrichContext {
-  prisma: PrismaService;
-  pdf: PdfService;
-  storage: StorageService;
-  event: string;
-  recipientUser?: { id: bigint; full_name: string; email: string; isStaff: boolean } | null;
-  vars?: Record<string, unknown>;
-  title: string;
-  body: string;
-}
-
-export interface LoadedMediaItem {
-  id: bigint;
-  public_id: string;
-  mime_type: string;
-  purpose: string;
-  caption: string | null;
-  related_id: bigint | null;
-  buffer: Buffer;
-  ext: string;
 }
