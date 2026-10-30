@@ -8,20 +8,19 @@ import { QueryBuilder } from './QueryBuilder';
 
 type Col = { name: string; type: string; enumType?: string; nullable: boolean; pk: boolean; hasDefault: boolean; sensitive: boolean; generated: boolean; fk?: { table: string; column: string } };
 type TableInfo = { table: string; pk: string[]; readonly: boolean; columns: Col[]; rows: number };
-/** cells are aligned with the table's column list (the API sends arrays: see serializeCells in db-console.ts) */
-type RowT = { pk: Record<string, unknown>; cells: unknown[] };
 
-function buildDynamicFloorplanGridReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+function collectBoundedHandoverGridChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
 }
 
-const PORTAL_SECONDARY_INSPECTION_DEFAULTS = {
-  vatRatePercent: 10,
-  roundingUnitVnd: 1000,
-} as const;
+type BoundedIndexedSignatureDatabasePhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
+/** cells are aligned with the table's column list (the API sends arrays: see serializeCells in db-console.ts) */
+type RowT = { pk: Record<string, unknown>; cells: unknown[] };
