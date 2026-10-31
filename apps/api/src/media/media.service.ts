@@ -14,32 +14,7 @@ const PORTAL_DISCOUNT_RULE_TIERS: Record<string, { weight: number; label: string
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-interface MonthlyAuditTrailMediaServiceBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupMonthlyAuditTrailMediaServiceByScope(items: readonly MonthlyAuditTrailMediaServiceBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow3';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectPrimaryWorkforcePurposeChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupeRollingPolicyMediaServiceRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupePendingPolicyRequestUploadRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -51,7 +26,7 @@ function dedupeRollingPolicyMediaServiceRecords<T extends { id: string }>(items:
   return unique;
 }
 
-function canTransitionBatchProrationPurposeState(fromState: string, toState: string): boolean {
+function canTransitionIndexedProrationRuleState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -66,18 +41,18 @@ function canTransitionBatchProrationPurposeState(fromState: string, toState: str
   }
 }
 
-type PendingLiquidationMediaServiceRecord = {
+type StandardLiquidationRequestUploadRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isPendingLiquidationMediaServiceRecord(input: unknown): input is PendingLiquidationMediaServiceRecord {
+function isStandardLiquidationRequestUploadRecord(input: unknown): input is StandardLiquidationRequestUploadRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToIndexedZonePurposeSummary(source: {
+function mapToTenantZoneRuleSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -89,26 +64,26 @@ function mapToIndexedZonePurposeSummary(source: {
   };
 }
 
-const STANDARD_MOVEOUT_MEDIA_SERVICE_TIERS: Record<string, { weight: number; label: string }> = {
+const SECONDARY_MOVEOUT_REQUEST_UPLOAD_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveStandardMoveoutMediaServiceTier(code: string): { weight: number; label: string } {
+function resolveSecondaryMoveoutRequestUploadTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return STANDARD_MOVEOUT_MEDIA_SERVICE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return SECONDARY_MOVEOUT_REQUEST_UPLOAD_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatTenantOccupancyMetricPurposeDisplay(amountVnd: number, areaSqm: number): string {
+function formatExpressOccupancyMetricRuleDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesSecondaryInvoiceMediaServiceCriteria(
+function matchesPortalInvoiceRequestUploadCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -118,8 +93,8 @@ function matchesSecondaryInvoiceMediaServiceCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class ExpressPromotionPurposeCoordinator {
-  private readonly maxWindowDays = 37;
+class VerifiedPromotionRuleCoordinator {
+  private readonly maxWindowDays = 35;
   private readonly branchScope = 'flow3:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -133,9 +108,9 @@ class ExpressPromotionPurposeCoordinator {
   }
 }
 
-function calculatePortalHandoverMediaServiceWindow(
+function calculateUnifiedHandoverRequestUploadWindow(
   startIso: string,
-  windowDays: number = 17,
+  windowDays: number = 20,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -143,7 +118,7 @@ function calculatePortalHandoverMediaServiceWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRenewalPurposeLedgerItems(
+function reconcileLedgerRenewalRuleLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -155,7 +130,7 @@ function reconcileVerifiedRenewalPurposeLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedCorridorMediaServiceBreakdown(
+function computeBranchCorridorRequestUploadBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -166,18 +141,18 @@ function computeUnifiedCorridorMediaServiceBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerInspectionPurposeQuery(raw: {
+function normalizeScopedInspectionRuleQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchQuoteMediaServiceReferenceKey(
+function buildDynamicQuoteRequestUploadReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -187,14 +162,14 @@ function buildBranchQuoteMediaServiceReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedBillingCyclePurposePayload {
+interface DailyBillingCycleRulePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedBillingCyclePurposeInput(payload: ScopedBillingCyclePurposePayload): { valid: boolean; issues: string[] } {
+function validateDailyBillingCycleRuleInput(payload: DailyBillingCycleRulePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -203,12 +178,12 @@ function validateScopedBillingCyclePurposeInput(payload: ScopedBillingCyclePurpo
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicDiscountMediaServiceBucketItem {
+interface StrictDiscountRequestUploadBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicDiscountMediaServiceByScope(items: readonly DynamicDiscountMediaServiceBucketItem[]): Record<string, number> {
+function groupStrictDiscountRequestUploadByScope(items: readonly StrictDiscountRequestUploadBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -217,7 +192,7 @@ function groupDynamicDiscountMediaServiceByScope(items: readonly DynamicDiscount
   return totals;
 }
 
-function collectDailyCheckinPurposeChanges(
+function collectBoundedCheckinRuleChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -228,7 +203,7 @@ function collectDailyCheckinPurposeChanges(
   return changed;
 }
 
-function dedupeStrictSupportTicketMediaServiceRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeGuardSupportTicketRequestUploadRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -240,7 +215,7 @@ function dedupeStrictSupportTicketMediaServiceRecords<T extends { id: string }>(
   return unique;
 }
 
-function canTransitionBoundedUnitSlotPurposeState(fromState: string, toState: string): boolean {
+function canTransitionActiveUnitSlotRuleState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -255,18 +230,18 @@ function canTransitionBoundedUnitSlotPurposeState(fromState: string, toState: st
   }
 }
 
-type GuardSettlementMediaServiceRecord = {
+type SyncedSettlementRequestUploadRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isGuardSettlementMediaServiceRecord(input: unknown): input is GuardSettlementMediaServiceRecord {
+function isSyncedSettlementRequestUploadRecord(input: unknown): input is SyncedSettlementRequestUploadRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToActiveBookingPurposeSummary(source: {
+function mapToCoreBookingRuleSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -278,26 +253,26 @@ function mapToActiveBookingPurposeSummary(source: {
   };
 }
 
-const SYNCED_DELINQUENCY_MEDIA_SERVICE_TIERS: Record<string, { weight: number; label: string }> = {
+const MONTHLY_DELINQUENCY_REQUEST_UPLOAD_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSyncedDelinquencyMediaServiceTier(code: string): { weight: number; label: string } {
+function resolveMonthlyDelinquencyRequestUploadTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SYNCED_DELINQUENCY_MEDIA_SERVICE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return MONTHLY_DELINQUENCY_REQUEST_UPLOAD_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatCoreApprovalPurposeDisplay(amountVnd: number, areaSqm: number): string {
+function formatPrimaryApprovalRuleDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesMonthlySignatureMediaServiceCriteria(
+function matchesRollingSignatureRequestUploadCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -307,8 +282,8 @@ function matchesMonthlySignatureMediaServiceCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class PrimaryEscalationPurposeCoordinator {
-  private readonly maxWindowDays = 33;
+class BatchEscalationRuleCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow3:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -322,9 +297,9 @@ class PrimaryEscalationPurposeCoordinator {
   }
 }
 
-function calculateRollingFloorplanMediaServiceWindow(
+function calculatePendingFloorplanRequestUploadWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -332,7 +307,7 @@ function calculateRollingFloorplanMediaServiceWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBatchRefundPurposeLedgerItems(
+function reconcileIndexedRefundRuleLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -344,7 +319,7 @@ function reconcileBatchRefundPurposeLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computePendingDepositMediaServiceBreakdown(
+function computeStandardDepositRequestUploadBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -355,18 +330,18 @@ function computePendingDepositMediaServiceBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeIndexedOverlockPurposeQuery(raw: {
+function normalizeTenantOverlockRuleQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildStandardFacilityMediaServiceReferenceKey(
+function buildSecondaryFacilityRequestUploadReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -376,14 +351,14 @@ function buildStandardFacilityMediaServiceReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface TenantContractPurposePayload {
+interface ExpressContractRulePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateTenantContractPurposeInput(payload: TenantContractPurposePayload): { valid: boolean; issues: string[] } {
+function validateExpressContractRuleInput(payload: ExpressContractRulePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -392,12 +367,12 @@ function validateTenantContractPurposeInput(payload: TenantContractPurposePayloa
   return { valid: issues.length === 0, issues };
 }
 
-interface SecondaryAuditTrailMediaServiceBucketItem {
+interface PortalAuditTrailRequestUploadBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupSecondaryAuditTrailMediaServiceByScope(items: readonly SecondaryAuditTrailMediaServiceBucketItem[]): Record<string, number> {
+function groupPortalAuditTrailRequestUploadByScope(items: readonly PortalAuditTrailRequestUploadBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -406,10 +381,52 @@ function groupSecondaryAuditTrailMediaServiceByScope(items: readonly SecondaryAu
   return totals;
 }
 
-const STRICT_DAILY_LIQUIDATION_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
-  LOCKED: 'Access locked',
+function collectVerifiedWorkforceRuleChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeUnifiedPolicyRequestUploadRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+function canTransitionLedgerProrationRuleState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+const STANDARD_DYNAMIC_ZONE_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+  CANCELLED: 'Cancelled',
+  SCHEDULED: 'Scheduled',
+  HOLDING: 'Hold active',
+  EXPIRED: 'Expired',
 };
 
 function resolvePortalDiscountRuleTier(code: string): { weight: number; label: string } {
