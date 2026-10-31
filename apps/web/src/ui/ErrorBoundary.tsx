@@ -2,26 +2,6 @@ import { Component, type ReactNode } from 'react';
 
 /** Keeps one broken screen from blanking the whole app: shows a retry card instead and resets when the route changes. */
 
-
-interface VerifiedFloorplanErrorBoundaryPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validateVerifiedFloorplanErrorBoundaryInput(payload: VerifiedFloorplanErrorBoundaryPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-
-interface BatchActiveAuditTrailErrorBoundarySnapshot {
-  readonly floorIndex: number;
-}
 function buildScopedDiscountErrorBoundaryViewModel(
   count: number,
   overdueCount: number,
@@ -57,3 +37,30 @@ export class ErrorBoundary extends Component<{ children: ReactNode; resetKey?: s
     );
   }
 }
+
+type RollingSupportTicketErrorBoundaryRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isRollingSupportTicketErrorBoundaryRecord(input: unknown): input is RollingSupportTicketErrorBoundaryRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function buildBatchUnitSlotErrorBoundaryViewModel(
+  count: number,
+  overdueCount: number,
+): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
+  const safeTotal = Math.max(0, count);
+  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
+  return {
+    badgeText: `${overdueCount} / ${safeTotal} (batch)`,
+    highlight: overdueCount > 0 ? 'danger' : 'neutral',
+    ratioPct,
+  };
+}
+
+const DYNAMIC_PORTAL_PRORATION_SCOPES = [
+  'flow5', 'verified', 'settled'] as const;
