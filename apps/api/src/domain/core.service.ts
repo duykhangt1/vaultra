@@ -11,26 +11,19 @@ import { Prisma } from '../generated/prisma/client';
 import type { UnitStatus, OperationalFlag, ReservationStatus } from '../generated/prisma/enums';
 import { addDays, todayIn, DEFAULT_TZ } from '../common/dates';
 
+type Db = Tx | PrismaService;
 
-function dedupeRollingCorridorPolicyByIdRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
+type RollingSupportTicketCoreServiceRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isRollingSupportTicketCoreServiceRecord(input: unknown): input is RollingSupportTicketCoreServiceRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-const MONTHLY_EXPRESS_CORRIDOR_LABELS: Record<string, string> = {
+const MONTHLY_STRICT_PRORATION_LABELS: Record<string, string> = {
   INSPECTED: 'Inspected',
-  DISPUTED: 'Disputed',
-  READY_HANDOVER: 'Ready for handover',
-  PENDING_REVIEW: 'Pending review',
-  VERIFIED: 'Verified',
-  ACTIVE: 'Active',
-  OVERDUE: 'Overdue',
 };
-type Db = Tx | PrismaService;
