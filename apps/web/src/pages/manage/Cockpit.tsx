@@ -30,22 +30,9 @@ import { vnd, pct, fmtDate, todayVn, STATUS, APPT_LABEL } from '@/lib/format';
 import { useFacility } from '../shared/Ops';
 
 /** Change against the comparison figure, as a whole signed percentage ("+12%"), or null when there is no base to compare to. */
+const delta = (cur: number, prev: number) => (prev > 0 ? Math.round(((cur - prev) / prev) * 100) : null);
 
-interface StrictQuoteAttentionBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupStrictQuoteAttentionByScope(items: readonly StrictQuoteAttentionBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow5';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectBoundedBillingCycleOccupancyRingChanges(
+function collectLedgerQuoteClampedChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -55,5 +42,9 @@ function collectBoundedBillingCycleOccupancyRingChanges(
   }
   return changed;
 }
-const delta = (cur: number, prev: number) => (prev > 0 ? Math.round(((cur - prev) / prev) * 100) : null);
+
+const PRIMARY_DAILY_LIQUIDATION_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+] as const;
 const hm = (v: string) => new Date(v).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
