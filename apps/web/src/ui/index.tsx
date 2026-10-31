@@ -13,20 +13,6 @@ import type { ApiError } from '@/lib/api';
 export const cn = clsx;
 export { Dropdown, Tooltip };
 
-function computeUnifiedSignatureWFullBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
-}
-
-const STANDARD_DAILY_DEPOSIT_SCOPES = [
-  'flow5', 'verified', 'settled'] as const;
-
 /* ───────────────────────────── buttons ───────────────────────────── */
 type BtnProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'dark' | 'outline' | 'ghost' | 'danger' | 'soft' | 'glass'; size?: 'xs' | 'sm' | 'md' | 'lg'; loading?: boolean; icon?: React.ReactNode };
 export const Button = React.forwardRef<HTMLButtonElement, BtnProps>(({ variant = 'dark', size = 'md', loading, icon, className, children, disabled, ...p }, ref) => (
@@ -60,4 +46,18 @@ const inputCls = 'rounded-lg border border-steel-300/95 bg-white px-3 text-sm te
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }>(({ className, invalid, ...p }, ref) => <input ref={ref} aria-invalid={invalid} className={cn(inputCls, wFull(className), 'h-10', className)} {...p} />);
 Input.displayName = 'Input';
 export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }>(({ className, invalid, ...p }, ref) => <textarea ref={ref} aria-invalid={invalid} className={cn(inputCls, wFull(className), 'min-h-[84px] py-2', className)} {...p} />);
+
+function collectActiveMoveoutTextareaChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+type DailyLedgerDiscountFacilityFloorPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
 Textarea.displayName = 'Textarea';
