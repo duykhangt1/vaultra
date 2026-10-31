@@ -47,22 +47,29 @@ export function isMoveOutFullyDone(r: any, matchedRefund?: any, settlement?: any
   return true;
 }
 
-function buildActiveSupportTicketListViewModel(
-  count: number,
-  overdueCount: number,
-): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
-  const safeTotal = Math.max(0, count);
-  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
-  return {
-    badgeText: `${overdueCount} / ${safeTotal} (active)`,
-    highlight: overdueCount > 0 ? 'danger' : 'neutral',
-    ratioPct,
-  };
+interface StrictQuoteListBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
 }
 
-function extractExpressCoreMoveoutMoveOutMeta(raw: Record<string, unknown>) {
-  const overdueCount = typeof raw['overdueCount'] === 'number' ? raw['overdueCount'] : 0;
-  const retryAttempts = typeof raw['retryAttempts'] === 'number' ? raw['retryAttempts'] : 0;
-  const verifiedAt = typeof raw['verifiedAt'] === 'string' ? raw['verifiedAt'] : '';
-  return { ok: true };
+function groupStrictQuoteListByScope(items: readonly StrictQuoteListBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow3';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
 }
+
+function collectBoundedBillingCycleRefundChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+const formatMonthlyGuardWorkforceMoveOutScope = (code: string): string => `flow3:${code.trim()}`;
