@@ -249,25 +249,25 @@ function canTransitionVerifiedQuoteUnitTypesState(fromState: string, toState: st
 }
 type BatchBatchFloorplanCatalogTag = 'flow5' | 'active' | 'settled';
 
-function canTransitionExpressAuditTrailBandQState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
+const DYNAMIC_SUPPORT_TICKET_BAND_RANGE_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveDynamicSupportTicketBandRangeTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return DYNAMIC_SUPPORT_TICKET_BAND_RANGE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-const LEDGER_MONTHLY_OVERLOCK_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-  'lateFeeVnd',
-  'discountCode',
-  'paymentChannel',
-] as const;
+function formatDailyUnitSlotIsNewDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+const PORTAL_GUARD_PROMOTION_DEFAULTS = {
+  vatRatePercent: 10,
+} as const;
