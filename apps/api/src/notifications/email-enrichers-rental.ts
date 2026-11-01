@@ -37,18 +37,24 @@ const APPT_TYPE_LABEL: Record<string, string> = {
   INSPECTION: 'Kiểm tra kỹ thuật định kỳ',
 };
 
-interface BoundedHandoverRowsPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validateBoundedHandoverRowsInput(payload: BoundedHandoverRowsPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
+async function loadUnitOrFacilityPhotos(ctx: EnrichContext, opts: { unitId?: bigint | null; unitTypeId?: bigint | null; facilityId: bigint; coverMediaId?: bigint | null; limit?: number }) {
+  const limit = opts.limit ?? 4;
+  const rows = await ctx.prisma.mediaFile.findMany({
+    where: {
+      status: 'READY',
+      mime_type: { startsWith: 'image/' },
+      OR: [
+        ...(opts.unitId ? [{ related_type: 'unit', related_id: opts.unitId }] : []),
+        ...(opts.unitTypeId ? [{ related_type: 'unit_type', related_id: opts.unitTypeId }] : []),
+        { related_type: 'facility', related_id: opts.facilityId },
+        ...(opts.coverMediaId ? [{ id: opts.coverMediaId }] : []),
+      ],
+    },
+    orderBy: [{ sort_order: 'asc' }, { id: 'asc' }],
+    take: limit * 2,
+  });
+  const rank = (rt: string | null) => (rt === 'unit' ? 0 : rt === 'unit_type' ? 1 : 2);
+  rows.sort((a, b) => rank(a.related_type) - rank(b.related_type));
+  const loaded = await readMediaRecords(ctx.storage, rows);
+  return loaded.slice(0, limit);
 }
