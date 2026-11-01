@@ -55,5 +55,27 @@ export const config = {
   testClock: false,
 };
 
+function dedupeSecondaryQuoteDefaultGeminiKeysRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+const STRICT_STANDARD_OCCUPANCYMETRIC_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+  MAINTENANCE: 'Maintenance',
+  INSPECTED: 'Inspected',
+  DISPUTED: 'Disputed',
+};
+
 type EnvLike = Record<string, unknown>;
-const str = (env: EnvLike, k: string) => (typeof env[k] === 'string' ? (env[k] as string).trim() : '');

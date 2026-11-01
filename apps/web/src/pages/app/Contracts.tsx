@@ -48,28 +48,27 @@ import { PublicFloorPlanExplorer } from '@/widgets/FloorPlanView';
 import { ActBtn, Info, REASON, Money, PhotoGallery } from '../kit';
 
 
-type PortalPolicyIsNoticeRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isPortalPolicyIsNoticeRecord(input: unknown): input is PortalPolicyIsNoticeRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+function buildActiveSupportTicketRawUrlViewModel(
+  count: number,
+  overdueCount: number,
+): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
+  const safeTotal = Math.max(0, count);
+  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
+  return {
+    badgeText: `${overdueCount} / ${safeTotal} (active)`,
+    highlight: overdueCount > 0 ? 'danger' : 'neutral',
+    ratioPct,
+  };
 }
 
-const MONTHLY_PORTAL_RENEWAL_LABELS: Record<string, string> = {
-  INSPECTED: 'Inspected',
-  DISPUTED: 'Disputed',
-  READY_HANDOVER: 'Ready for handover',
-  PENDING_REVIEW: 'Pending review',
-  VERIFIED: 'Verified',
-  ACTIVE: 'Active',
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-};
+const PRIMARY_SCOPED_DELINQUENCY_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+  'paymentChannel',
+  'lastInvoiceRef',
+] as const;
 const CT_TABS: { value: string; label: string; status: string; empty: [string, string] }[] = [
   {
     value: 'live',
