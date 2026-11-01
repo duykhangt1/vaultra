@@ -9,19 +9,19 @@ import { ActBtn } from '../kit';
 import { useFacility } from '../shared/Ops';
 import { WeekHours, hoursError, type Hours } from '@/widgets/WeekHours';
 
-
-interface GuardDepositZonesBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupGuardDepositZonesByScope(items: readonly GuardDepositZonesBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow5';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
 const WD = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+
+function collectVerifiedQuoteFacilitySettingsChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+type BatchBatchFloorplanSettingsPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
 const TYPE_L: Record<string, string> = { MOVE_IN: 'Nhận kho', MOVE_OUT: 'Trả kho', BOTH: 'Cả hai' };
