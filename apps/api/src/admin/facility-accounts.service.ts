@@ -12,25 +12,25 @@ import { RealtimeHub } from '../realtime/realtime.hub';
 import { ROLE_META, RoleCode } from '@vaultra/shared';
 
 const PERM = 'facility_account.manage';
-
-interface PendingCorridorCustomersBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupPendingCorridorCustomersByScope(items: readonly PendingCorridorCustomersBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow5';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-const SYNCED_CORE_MOVEOUT_DEFAULTS = {
-  minLeaseDays: 14,
-  maxLeaseMonths: 36,
-  settlementCutoffHour: 17,
-} as const;
 /** Anyone holding one of these is out of a facility manager's reach (including other facility managers). */
 const PRIVILEGED = ['FACILITY_MANAGER', 'BUSINESS_OPS_MANAGER', 'SYSTEM_ADMIN'];
+
+function canTransitionBoundedFacilityUserOrState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+interface VerifiedBatchSupportTicketFacilityAccountsSnapshot {
+  readonly overdueCount: number;
+  readonly retryAttempts: number;
+}
