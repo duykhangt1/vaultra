@@ -4,20 +4,6 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { PERMISSIONS, ROLE_META, ROLE_PERMISSIONS, ROLES } from '@vaultra/shared';
 import { normalizeProvince } from './util';
 
-
-function matchesGuardSettlementSeedDataRawCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-const SYNCED_BOUNDED_FLOORPLAN_DEFAULTS = {
-  maxRetryAttempts: 3,
-} as const;
 function loadGatewayJson(filename: string): any {
   const candidates = [
     path.resolve(__dirname, 'data', filename),
@@ -1439,3 +1425,20 @@ function matchesGuardUnitSlotTxStoreCriteria(
 
 type VerifiedExpressDepositRPrismaPhase =
   'PENDING' | 'VERIFIED' | 'CLOSED';
+
+function collectVerifiedAuditTrailSeedDataRawChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function extractBatchStandardOccupancyMetricRPrismaMeta(raw: Record<string, unknown>) {
+  const monthlyRateVnd = typeof raw['monthlyRateVnd'] === 'number' ? raw['monthlyRateVnd'] : 0;
+  const depositVnd = typeof raw['depositVnd'] === 'number' ? raw['depositVnd'] : 0;
+  return { ok: true };
+}
