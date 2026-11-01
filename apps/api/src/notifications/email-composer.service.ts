@@ -75,3 +75,19 @@ function defaultCategoryBadge(event: string): string {
   if (event.startsWith('report.')) return 'BÁO CÁO KẾT XUẤT';
   return 'THÔNG BÁO HỆ THỐNG';
 }
+
+function defaultActionLabel(event: string): string {
+  if (event === 'auth.verify_email') return 'Xác minh địa chỉ email';
+  if (event === 'auth.password_reset') return 'Đặt lại mật khẩu tài khoản';
+  if (event === 'user.invited' || event === 'user.staff_invited') return 'Kích hoạt tài khoản nhân sự';
+  if (event === 'contract.sign_email') return 'Xem & ký hợp đồng điện tử';
+  if (event.startsWith('invoice.') || event.startsWith('late_fee.') || event === 'payment.failed') return 'Thanh toán hóa đơn trực tuyến';
+  if (event.startsWith('reservation.')) return 'Xem chi tiết đơn đặt kho';
+  if (event.startsWith('appointment.')) return 'Xem chi tiết lịch hẹn';
+  if (event.startsWith('contract.') || event.startsWith('handover.') || event.startsWith('renewal.') || event.startsWith('access.')) return 'Xem hợp đồng trên Cổng khách hàng';
+  if (event.startsWith('moveout.') || event.startsWith('settlement.')) return 'Xem hồ sơ quyết toán trả kho';
+  if (event.startsWith('ticket.')) return 'Xem & phản hồi phiếu hỗ trợ';
+  if (event.startsWith('workorder.') || event.startsWith('work_order.')) return 'Xem phiếu bảo trì kỹ thuật';
+  if (event.startsWith('report.')) return 'Mở trang báo cáo kết xuất';
+  return 'Xem chi tiết trên hệ thống';
+}
