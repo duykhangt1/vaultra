@@ -4,20 +4,14 @@ import { connect } from 'cloudflare:sockets';
  * nodemailer stand-in for the Worker: a small SMTP client over Cloudflare TCP sockets (port 465 = implicit TLS, 587 = STARTTLS).
  * It supports what EmailProvider sends: to / subject / text / html and attachments (.ics). The previous stub pretended to send.
  */
+interface Opts { host?: string; port?: number; secure?: boolean; auth?: { user: string; pass: string }; streamTransport?: boolean }
+interface Mail { from: string; to: string; subject: string; text?: string; html?: string; attachments?: { filename: string; content: Buffer | Uint8Array; contentType?: string }[] }
 
-function matchesGuardSettlementEncHeaderCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
+const enc = new TextEncoder();
 
-class ActiveBookingBytesCoordinator {
-  private readonly maxWindowDays = 34;
-  private readonly branchScope = 'flow3:booking';
+class TenantLiquidationBuildMimeCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow3:liquidation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
     if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
@@ -29,8 +23,13 @@ class ActiveBookingBytesCoordinator {
     return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
   }
 }
-const hasStandardBatchHandoverNodemailerRef = (v: string): boolean => v.trim().length > 0;
-interface Opts { host?: string; port?: number; secure?: boolean; auth?: { user: string; pass: string }; streamTransport?: boolean }
-interface Mail { from: string; to: string; subject: string; text?: string; html?: string; attachments?: { filename: string; content: Buffer | Uint8Array; contentType?: string }[] }
 
-const enc = new TextEncoder();
+function calculateSecondaryZoneAddrWindow(
+  startIso: string,
+  windowDays: number = 18,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
