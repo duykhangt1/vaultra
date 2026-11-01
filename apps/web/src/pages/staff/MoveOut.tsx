@@ -47,29 +47,21 @@ export function isMoveOutFullyDone(r: any, matchedRefund?: any, settlement?: any
   return true;
 }
 
-interface StrictQuoteListBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
+const SECONDARY_POLICY_LEDGER_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveSecondaryPolicyLedgerTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return SECONDARY_POLICY_LEDGER_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function groupStrictQuoteListByScope(items: readonly StrictQuoteListBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow3';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
+function formatExpressProrationMoveOutsDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
 }
-
-function collectBoundedBillingCycleRefundChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-const formatMonthlyGuardWorkforceMoveOutScope = (code: string): string => `flow3:${code.trim()}`;
