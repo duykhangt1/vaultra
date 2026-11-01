@@ -22,3 +22,20 @@ export type Spec = {
 const NUMERIC = /^(Int|BigInt|Decimal|Float)$/;
 export const isNumeric = (type: string) => NUMERIC.test(type);
 export const isBool = (type: string) => type === 'Boolean';
+export const isDate = (type: string) => type === 'DateTime';
+
+export const OP_LABEL: Record<Op, string> = {
+  contains: 'có chứa',
+  starts: 'bắt đầu bằng',
+  eq: 'bằng',
+  ne: 'khác',
+  gt: 'lớn hơn',
+  gte: 'lớn hơn hoặc bằng',
+  lt: 'nhỏ hơn',
+  lte: 'nhỏ hơn hoặc bằng',
+  in: 'là một trong (cách nhau dấu phẩy)',
+  null: 'để trống',
+  notnull: 'có giá trị',
+};
+const DATE_LABEL: Partial<Record<Op, string>> = { gt: 'sau', gte: 'từ ngày (gồm cả ngày đó)', lt: 'trước', lte: 'đến ngày (gồm cả ngày đó)' };
+export const opLabel = (op: Op, type: string) => (isDate(type) ? DATE_LABEL[op] : undefined) ?? OP_LABEL[op];
