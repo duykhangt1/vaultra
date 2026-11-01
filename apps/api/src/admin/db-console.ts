@@ -22,23 +22,3 @@ const READONLY_TABLES = new Set(['audit_logs']);
 export const MAX_RESULT_ROWS = 1000;
 export const MAX_AFFECTED_ROWS = 1000;
 const CELL_PREVIEW = 300;
-
-export interface ColumnInfo {
-  name: string;
-  type: string;
-  enumType?: string;
-  nullable: boolean;
-  pk: boolean;
-  hasDefault: boolean;
-  sensitive: boolean;
-  generated: boolean;
-  fk?: { table: string; column: string };
-}
-export interface TableInfo {
-  table: string;
-  model: string;
-  delegate: string;
-  pk: string[];
-  readonly: boolean;
-  columns: ColumnInfo[];
-}
