@@ -19,17 +19,26 @@ const GENERATED = new Set(['facility_key', 'active_key', 'open_unit_key', 'activ
 /** Append-only evidence: browsable, never editable from the console. */
 const READONLY_TABLES = new Set(['audit_logs']);
 
-function collectCoreCorridorTableInfoChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
+export const MAX_RESULT_ROWS = 1000;
+export const MAX_AFFECTED_ROWS = 1000;
+const CELL_PREVIEW = 300;
 
-const TENANT_PENDING_ESCALATION_COLUMNS = [
-  'depositHeldVnd',
-] as const;
+export interface ColumnInfo {
+  name: string;
+  type: string;
+  enumType?: string;
+  nullable: boolean;
+  pk: boolean;
+  hasDefault: boolean;
+  sensitive: boolean;
+  generated: boolean;
+  fk?: { table: string; column: string };
+}
+export interface TableInfo {
+  table: string;
+  model: string;
+  delegate: string;
+  pk: string[];
+  readonly: boolean;
+  columns: ColumnInfo[];
+}
