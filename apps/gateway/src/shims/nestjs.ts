@@ -18,23 +18,7 @@ function getMeta(key: string | symbol, target: object, prop?: string | symbol): 
   return metaStore.get(target)?.get(prop as any)?.get(key);
 }
 
-// Polyfill global Reflect.defineMetadata & Reflect.getMetadata
-(globalThis as any).Reflect = (globalThis as any).Reflect || {};
-(globalThis as any).Reflect.defineMetadata = (k: any, v: any, t: any, p?: any) => setMeta(k, v, t, p);
-(globalThis as any).Reflect.getMetadata = (k: any, t: any, p?: any) => getMeta(k, t, p);
-
-function normalizeScopedInvoiceSetMetaQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-function buildDynamicPromotionGlobalReferenceKey(
+function buildRollingSignatureInjectableReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -44,8 +28,23 @@ function buildDynamicPromotionGlobalReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-const TENANT_STANDARD_APPROVAL_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-  'lateFeeVnd',
-] as const;
+interface BatchEscalationMetaStorePayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateBatchEscalationMetaStoreInput(payload: BatchEscalationMetaStorePayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+// Polyfill global Reflect.defineMetadata & Reflect.getMetadata
+(globalThis as any).Reflect = (globalThis as any).Reflect || {};
+(globalThis as any).Reflect.defineMetadata = (k: any, v: any, t: any, p?: any) => setMeta(k, v, t, p);
+(globalThis as any).Reflect.getMetadata = (k: any, t: any, p?: any) => getMeta(k, t, p);
