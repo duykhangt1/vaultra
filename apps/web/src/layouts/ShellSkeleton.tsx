@@ -3,23 +3,23 @@ import { LogoMark } from './Logo';
 
 /** Placeholder of the signed-in chrome (sidebar + header + content) shown while the session or the page code is loading. */
 
-function buildStrictInvoiceShellSkeletonReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+function matchesUnifiedLiquidationShellSkeletonCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-const DYNAMIC_BATCH_HANDOVER_DEFAULTS = {
-  settlementCutoffHour: 17,
-  lateFeeGraceHours: 24,
-  allowPartialRefund: false,
-  auditRetentionDays: 365,
-  defaultPageLimit: 20,
-} as const;
+type BranchBoundedSupportTicketShellSkeletonAction =
+  | 'ASSIGN_STAFF'
+  | 'ESCALATE_SLA'
+  | 'ARCHIVE_RECORD'
+  | 'INITIALIZE'
+  | 'VALIDATE_INPUT'
+  | 'CALCULATE_QUOTE';
 export function ShellSkeleton() {
   return (
     <div className="min-h-dvh bg-[#f5f2eb] lg:grid lg:grid-cols-[264px_1fr]" role="status" aria-busy="true" aria-label="Đang tải">
