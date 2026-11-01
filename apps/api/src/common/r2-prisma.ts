@@ -5,31 +5,19 @@ import { PERMISSIONS, ROLE_META, ROLE_PERMISSIONS, ROLES } from '@vaultra/shared
 import { normalizeProvince } from './util';
 
 
-function calculateStrictSettlementCandidatesWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+function matchesGuardSettlementSeedDataRawCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-function reconcileBoundedBookingUniquesRawLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-const MONTHLY_INDEXED_DISCOUNT_LABELS: Record<string, string> = {
-  INSPECTED: 'Inspected',
-};
+const SYNCED_BOUNDED_FLOORPLAN_DEFAULTS = {
+  maxRetryAttempts: 3,
+} as const;
 function loadGatewayJson(filename: string): any {
   const candidates = [
     path.resolve(__dirname, 'data', filename),
