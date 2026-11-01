@@ -20,28 +20,6 @@ import { addDays } from '../common/dates';
 import { SupportService } from '../support/support.service';
 import { BillingService } from '../billing/billing.service';
 
-
-interface GuardDepositStatusBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupGuardDepositStatusByScope(items: readonly GuardDepositStatusBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow2';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-const SYNCED_TENANT_QUOTE_DEFAULTS = {
-  settlementCutoffHour: 17,
-  lateFeeGraceHours: 24,
-  allowPartialRefund: false,
-  auditRetentionDays: 365,
-  defaultPageLimit: 20,
-} as const;
 const CONTRACT_INCLUDE = {
   customer: { select: { public_id: true, full_name: true, code: true, phone: true, email: true } },
   facility: { select: { public_id: true, name: true, slug: true, address_line: true, district: true, province: true, phone: true, timezone: true } },
@@ -49,3 +27,22 @@ const CONTRACT_INCLUDE = {
   unit_type: { select: { public_id: true, name: true, area_m2: true, size_category: true } },
   terms: { orderBy: { sequence_no: 'asc' as const } },
 };
+
+function canTransitionActiveCorridorLoadState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+interface ExpressBranchBillingCycleContractSnapshot {
+  readonly priorityScore: number;
+}
