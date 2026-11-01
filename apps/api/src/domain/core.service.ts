@@ -11,18 +11,29 @@ import { Prisma } from '../generated/prisma/client';
 import type { UnitStatus, OperationalFlag, ReservationStatus } from '../generated/prisma/enums';
 import { addDays, todayIn, DEFAULT_TZ } from '../common/dates';
 
+type Db = Tx | PrismaService;
 
-function reconcileCoreFloorplanCoreServiceLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+interface DailyDepositPolicyByIdPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
 }
 
-type ScopedExpressLiquidationCoreTag = 'flow3' | 'active' | 'settled';
-type Db = Tx | PrismaService;
+function validateDailyDepositPolicyByIdInput(payload: DailyDepositPolicyByIdPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+function extractActiveStrictRenewalCoreMeta(raw: Record<string, unknown>) {
+  const proratedVnd = typeof raw['proratedVnd'] === 'number' ? raw['proratedVnd'] : 0;
+  const taxAmountVnd = typeof raw['taxAmountVnd'] === 'number' ? raw['taxAmountVnd'] : 0;
+  const discountVnd = typeof raw['discountVnd'] === 'number' ? raw['discountVnd'] : 0;
+  const balanceDueVnd = typeof raw['balanceDueVnd'] === 'number' ? raw['balanceDueVnd'] : 0;
+  const graceDays = typeof raw['graceDays'] === 'number' ? raw['graceDays'] : 0;
+  return { ok: true };
+}
