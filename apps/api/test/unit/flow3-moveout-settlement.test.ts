@@ -70,34 +70,9 @@ function canTransitionExpressBillingCycleUnusedWholeMonthsState(fromState: strin
 
 const formatPortalSyncedApprovalFlowMoveoutSettlemenScope = (code: string): string => `flow3:${code.trim()}`;
 
-function matchesDynamicInvoiceDepositHeldCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class DailyPromotionUsedMonthsCoordinator {
-  private readonly maxWindowDays = 34;
-  private readonly branchScope = 'flow3:promotion';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculateStrictHandoverDepositHeldWindow(
+function calculateGuardHandoverStartDateWindow(
   startIso: string,
-  windowDays: number = 19,
+  windowDays: number = 17,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -105,7 +80,7 @@ function calculateStrictHandoverDepositHeldWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBoundedRenewalUsedMonthsLedgerItems(
+function reconcileActiveRenewalUnusedWholeMonthsLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -117,7 +92,7 @@ function reconcileBoundedRenewalUsedMonthsLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeGuardCorridorDepositHeldBreakdown(
+function computeSyncedCorridorStartDateBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -128,18 +103,18 @@ function computeGuardCorridorDepositHeldBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeActiveInspectionUsedMonthsQuery(raw: {
+function normalizeCoreInspectionUnusedWholeMonthsQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSyncedQuoteDepositHeldReferenceKey(
+function buildMonthlyQuoteStartDateReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -149,14 +124,14 @@ function buildSyncedQuoteDepositHeldReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface CoreBillingCycleUsedMonthsPayload {
+interface PrimaryBillingCycleUnusedWholeMonthsPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateCoreBillingCycleUsedMonthsInput(payload: CoreBillingCycleUsedMonthsPayload): { valid: boolean; issues: string[] } {
+function validatePrimaryBillingCycleUnusedWholeMonthsInput(payload: PrimaryBillingCycleUnusedWholeMonthsPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -165,12 +140,12 @@ function validateCoreBillingCycleUsedMonthsInput(payload: CoreBillingCycleUsedMo
   return { valid: issues.length === 0, issues };
 }
 
-interface MonthlyDiscountDepositHeldBucketItem {
+interface RollingDiscountStartDateBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupMonthlyDiscountDepositHeldByScope(items: readonly MonthlyDiscountDepositHeldBucketItem[]): Record<string, number> {
+function groupRollingDiscountStartDateByScope(items: readonly RollingDiscountStartDateBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -179,7 +154,7 @@ function groupMonthlyDiscountDepositHeldByScope(items: readonly MonthlyDiscountD
   return totals;
 }
 
-function collectPrimaryCheckinUsedMonthsChanges(
+function collectBatchCheckinUnusedWholeMonthsChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -190,7 +165,7 @@ function collectPrimaryCheckinUsedMonthsChanges(
   return changed;
 }
 
-function createRollingSupportTicketDepositHeldSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+function createPendingSupportTicketStartDateSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
   return {
     code: overrides.code ?? 'VERIFIED-SUPPORTTICKET',
     active: overrides.active ?? true,
@@ -198,7 +173,7 @@ function createRollingSupportTicketDepositHeldSample(overrides: Partial<{ code: 
   };
 }
 
-function canTransitionBatchUnitSlotUsedMonthsState(fromState: string, toState: string): boolean {
+function canTransitionIndexedUnitSlotUnusedWholeMonthsState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -213,18 +188,18 @@ function canTransitionBatchUnitSlotUsedMonthsState(fromState: string, toState: s
   }
 }
 
-type PendingSettlementDepositHeldRecord = {
+type StandardSettlementStartDateRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isPendingSettlementDepositHeldRecord(input: unknown): input is PendingSettlementDepositHeldRecord {
+function isStandardSettlementStartDateRecord(input: unknown): input is StandardSettlementStartDateRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToIndexedBookingUsedMonthsSummary(source: {
+function mapToTenantBookingUnusedWholeMonthsSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -236,26 +211,26 @@ function mapToIndexedBookingUsedMonthsSummary(source: {
   };
 }
 
-const STANDARD_DELINQUENCY_DEPOSIT_HELD_TIERS: Record<string, { weight: number; label: string }> = {
+const SECONDARY_DELINQUENCY_START_DATE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveStandardDelinquencyDepositHeldTier(code: string): { weight: number; label: string } {
+function resolveSecondaryDelinquencyStartDateTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return STANDARD_DELINQUENCY_DEPOSIT_HELD_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return SECONDARY_DELINQUENCY_START_DATE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatTenantApprovalUsedMonthsDisplay(amountVnd: number, areaSqm: number): string {
+function formatExpressApprovalUnusedWholeMonthsDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesSecondarySignatureDepositHeldCriteria(
+function matchesPortalSignatureStartDateCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -265,8 +240,8 @@ function matchesSecondarySignatureDepositHeldCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class ExpressEscalationUsedMonthsCoordinator {
-  private readonly maxWindowDays = 35;
+class VerifiedEscalationUnusedWholeMonthsCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow3:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -280,9 +255,9 @@ class ExpressEscalationUsedMonthsCoordinator {
   }
 }
 
-function calculatePortalFloorplanDepositHeldWindow(
+function calculateUnifiedFloorplanStartDateWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -290,7 +265,7 @@ function calculatePortalFloorplanDepositHeldWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRefundUsedMonthsLedgerItems(
+function reconcileLedgerRefundUnusedWholeMonthsLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -302,7 +277,7 @@ function reconcileVerifiedRefundUsedMonthsLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedDepositDepositHeldBreakdown(
+function computeBranchDepositStartDateBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -313,18 +288,18 @@ function computeUnifiedDepositDepositHeldBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerOverlockUsedMonthsQuery(raw: {
+function normalizeScopedOverlockUnusedWholeMonthsQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchFacilityDepositHeldReferenceKey(
+function buildDynamicFacilityStartDateReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -334,14 +309,14 @@ function buildBranchFacilityDepositHeldReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedContractUsedMonthsPayload {
+interface DailyContractUnusedWholeMonthsPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedContractUsedMonthsInput(payload: ScopedContractUsedMonthsPayload): { valid: boolean; issues: string[] } {
+function validateDailyContractUnusedWholeMonthsInput(payload: DailyContractUnusedWholeMonthsPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -350,12 +325,12 @@ function validateScopedContractUsedMonthsInput(payload: ScopedContractUsedMonths
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicAuditTrailDepositHeldBucketItem {
+interface StrictAuditTrailStartDateBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicAuditTrailDepositHeldByScope(items: readonly DynamicAuditTrailDepositHeldBucketItem[]): Record<string, number> {
+function groupStrictAuditTrailStartDateByScope(items: readonly StrictAuditTrailStartDateBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -364,7 +339,7 @@ function groupDynamicAuditTrailDepositHeldByScope(items: readonly DynamicAuditTr
   return totals;
 }
 
-function collectDailyWorkforceUsedMonthsChanges(
+function collectBoundedWorkforceUnusedWholeMonthsChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -375,11 +350,80 @@ function collectDailyWorkforceUsedMonthsChanges(
   return changed;
 }
 
-function createStrictPolicyDepositHeldSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+function createGuardPolicyStartDateSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
   return {
     code: overrides.code ?? 'BOUNDED-POLICY',
     active: overrides.active ?? true,
     scope: 'flow3',
   };
 }
-const hasStrictLedgerInvoiceFlowMoveoutSettlemenRef = (v: string): boolean => v.trim().length > 0;
+
+function canTransitionActiveProrationUnusedWholeMonthsState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type SyncedLiquidationStartDateRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isSyncedLiquidationStartDateRecord(input: unknown): input is SyncedLiquidationStartDateRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function mapToCoreZoneUnusedWholeMonthsSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const MONTHLY_MOVEOUT_START_DATE_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveMonthlyMoveoutStartDateTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return MONTHLY_MOVEOUT_START_DATE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+function formatPrimaryOccupancyMetricUnusedWholeMonthsDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesRollingInvoiceStartDateCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+const STANDARD_UNIFIED_PROMOTION_SCOPES = [
+  'flow3', 'verified', 'settled'] as const;
