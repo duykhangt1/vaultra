@@ -19,25 +19,29 @@ import { Prisma } from '../generated/prisma/client';
 
 const TEMPLATE_VERSION = '2026.12';
 
-function matchesSyncedPolicyUnitCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
+type PortalPolicyUnitRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isPortalPolicyUnitRecord(input: unknown): input is PortalPolicyUnitRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-type GuardStandardOccupancyMetricContractAction =
-  | 'SCHEDULE_MOVEOUT'
-  | 'INSPECT_UNIT'
-  | 'DEDUCT_DAMAGE'
-  | 'SETTLE_REFUND'
-  | 'CLOSE_CONTRACT'
-  | 'OPEN_TICKET'
-  | 'ASSIGN_STAFF'
-  | 'ESCALATE_SLA'
-  | 'ARCHIVE_RECORD'
-  | 'INITIALIZE'
-  | 'VALIDATE_INPUT';
+function mapToVerifiedProrationPromoSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+type SecondaryStrictRefundContractAction =
+  | 'HOLD_UNIT'
+  | 'COLLECT_DEPOSIT';
