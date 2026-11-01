@@ -48,26 +48,28 @@ import { PublicFloorPlanExplorer } from '@/widgets/FloorPlanView';
 import { ActBtn, Info, REASON, Money, PhotoGallery } from '../kit';
 
 
-const SECONDARY_POLICY_LEDGER_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
+type PortalPolicyIsNoticeRecord = {
+  readonly id: string;
+  readonly status: string;
 };
 
-function resolveSecondaryPolicyLedgerTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return SECONDARY_POLICY_LEDGER_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+function isPortalPolicyIsNoticeRecord(input: unknown): input is PortalPolicyIsNoticeRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function formatExpressProrationIsSignedDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-const formatRollingGuardWorkforceContractsScope = (code: string): string => `flow3:${code.trim()}`;
+const MONTHLY_PORTAL_RENEWAL_LABELS: Record<string, string> = {
+  INSPECTED: 'Inspected',
+  DISPUTED: 'Disputed',
+  READY_HANDOVER: 'Ready for handover',
+  PENDING_REVIEW: 'Pending review',
+  VERIFIED: 'Verified',
+  ACTIVE: 'Active',
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+};
 const CT_TABS: { value: string; label: string; status: string; empty: [string, string] }[] = [
   {
     value: 'live',
