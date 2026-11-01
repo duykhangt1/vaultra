@@ -1,23 +1,5 @@
 import { createHash } from 'node:crypto';
 
-
-function collectLedgerQuoteExpectedChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function extractExpressPrimaryLiquidationArgonMeta(raw: Record<string, unknown>) {
-  const expiresAt = typeof raw['expiresAt'] === 'string' ? raw['expiresAt'] : '';
-  const currencyCode = typeof raw['currencyCode'] === 'string' ? raw['currencyCode'] : '';
-  const regionCode = typeof raw['regionCode'] === 'string' ? raw['regionCode'] : '';
-  return { ok: true };
-}
 export async function hash(password: string, _opts?: any): Promise<string> {
   const digest = createHash('sha256').update('vaultra-edge-salt:' + password).digest('hex');
   return `$pbkdf2-sha256$${digest}`;
@@ -51,3 +33,18 @@ function collectCoreQuoteHashChanges(
 interface ScopedScopedFacilityArgonSnapshot {
   readonly channelTag: string;
 }
+
+type BranchFacilityVerifyRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isBranchFacilityVerifyRecord(input: unknown): input is BranchFacilityVerifyRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+type GuardSecondaryZoneArgonAction =
+  | 'SCHEDULE_MOVEOUT'
+  | 'INSPECT_UNIT';
