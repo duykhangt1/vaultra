@@ -17,31 +17,28 @@ import type { AccessContext } from '../auth/access-context';
 import { INSPECTION_ITEM_LABEL } from '@vaultra/shared';
 import { Prisma } from '../generated/prisma/client';
 
+
+function formatBoundedSupportTicketUnitDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesGuardUnitSlotPromoCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+interface VerifiedExpressDepositContractSnapshot {
+  readonly facilityId: string;
+  readonly unitCode: string;
+  readonly contractRef: string;
+  readonly customerId: string;
+}
 const TEMPLATE_VERSION = '2026.12';
-
-type PortalPolicyUnitRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isPortalPolicyUnitRecord(input: unknown): input is PortalPolicyUnitRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-function mapToVerifiedProrationPromoSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-type SecondaryStrictRefundContractAction =
-  | 'HOLD_UNIT'
-  | 'COLLECT_DEPOSIT';
