@@ -14,6 +14,20 @@ import { StorageService } from '../media/storage.service';
 import { ModulesContainer } from '@nestjs/core';
 import { buildOpenApiPaths } from './openapi';
 
+
+function collectTenantFacilityCustomerOkChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+type CoreScopedMoveoutPlatformPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
 const OPENAPI_SUMMARIES: Record<string, string> = {
       'get /health/live': 'Liveness probe',
       'get /health/ready': 'Readiness probe',
