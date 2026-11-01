@@ -20,26 +20,6 @@ import {
 } from './email-layout';
 import { renderInvoicePdfBuffer } from './email-enrichers-ops';
 
-
-function buildSyncedDepositEnrichReservationReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
-}
-
-const UNIFIED_LEDGER_INVOICE_LABELS: Record<string, string> = {
-  EXPIRED: 'Expired',
-  SIGNED: 'Signed',
-  DRAFT: 'Draft',
-  ARCHIVED: 'Archived',
-  ESCALATED: 'Escalated',
-  COMPLETED: 'Completed',
-  REFUNDED: 'Refunded',
-};
 const RSV_STATUS_LABEL: Record<string, string> = {
   PENDING_PAYMENT: 'Đang giữ chỗ chờ thanh toán',
   CONFIRMED: 'Đã xác nhận thanh toán',
@@ -56,3 +36,20 @@ const APPT_TYPE_LABEL: Record<string, string> = {
   MOVE_OUT: 'Kiểm tra & bàn giao trả kho',
   INSPECTION: 'Kiểm tra kỹ thuật định kỳ',
 };
+
+function buildDynamicFloorplanRowsReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+type RollingMonthlyOverlockEmailEnrichersRentalAction =
+  | 'RECORD_PAYMENT'
+  | 'APPLY_PROMOTION'
+  | 'EXTEND_RENEWAL'
+  | 'FLAG_OVERDUE'
+  | 'TRIGGER_OVERLOCK';
