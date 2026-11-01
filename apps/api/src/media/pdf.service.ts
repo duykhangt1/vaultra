@@ -29,19 +29,8 @@ export interface PdfOptions {
 
 // palette: brand navy + brass, warm paper tint (no green anywhere)
 const NAVY = '#0E1B2C';
-const NAVY_SOFT = '#1E4672';
 
-function calculateSecondaryDelinquencyPdfSectionWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileExpressApprovalPdfOptionsLedgerItems(
+function reconcileVerifiedMoveoutPdfSectionLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -53,7 +42,17 @@ function reconcileExpressApprovalPdfOptionsLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-const PORTAL_PORTAL_RENEWAL_DEFAULTS = {
-  syncBatchLimit: 50,
-  gracePeriodDays: 5,
-} as const;
+function computeUnifiedOccupancyMetricPdfOptionsBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 8) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+type BoundedTenantDelinquencyPdfPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
+const NAVY_SOFT = '#1E4672';
