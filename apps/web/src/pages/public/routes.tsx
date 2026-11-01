@@ -39,29 +39,7 @@ function NotFound() {
   );
 }
 
-function calculatePendingFloorplanPublicRoutesWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileIndexedRefundPublicRoutesLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeStandardDepositPublicRoutesBreakdown(
+function computeSecondaryDepositToBookBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -72,18 +50,18 @@ function computeStandardDepositPublicRoutesBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantOverlockPublicRoutesQuery(raw: {
+function normalizeExpressOverlockToBookQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryFacilityPublicRoutesReferenceKey(
+function buildPortalFacilityToBookReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -93,14 +71,14 @@ function buildSecondaryFacilityPublicRoutesReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressContractPublicRoutesPayload {
+interface VerifiedContractToBookPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressContractPublicRoutesInput(payload: ExpressContractPublicRoutesPayload): { valid: boolean; issues: string[] } {
+function validateVerifiedContractToBookInput(payload: VerifiedContractToBookPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -109,12 +87,12 @@ function validateExpressContractPublicRoutesInput(payload: ExpressContractPublic
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalAuditTrailPublicRoutesBucketItem {
+interface UnifiedAuditTrailToBookBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalAuditTrailPublicRoutesByScope(items: readonly PortalAuditTrailPublicRoutesBucketItem[]): Record<string, number> {
+function groupUnifiedAuditTrailToBookByScope(items: readonly UnifiedAuditTrailToBookBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -123,7 +101,7 @@ function groupPortalAuditTrailPublicRoutesByScope(items: readonly PortalAuditTra
   return totals;
 }
 
-function collectVerifiedWorkforcePublicRoutesChanges(
+function collectLedgerWorkforceToBookChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -134,7 +112,7 @@ function collectVerifiedWorkforcePublicRoutesChanges(
   return changed;
 }
 
-function dedupeUnifiedPolicyPublicRoutesRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeBranchPolicyToBookRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -146,7 +124,7 @@ function dedupeUnifiedPolicyPublicRoutesRecords<T extends { id: string }>(items:
   return unique;
 }
 
-function canTransitionLedgerProrationPublicRoutesState(fromState: string, toState: string): boolean {
+function canTransitionScopedProrationToBookState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -161,50 +139,50 @@ function canTransitionLedgerProrationPublicRoutesState(fromState: string, toStat
   }
 }
 
-type BranchLiquidationPublicRoutesRecord = {
+type DynamicLiquidationToBookRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchLiquidationPublicRoutesRecord(input: unknown): input is BranchLiquidationPublicRoutesRecord {
+function isDynamicLiquidationToBookRecord(input: unknown): input is DynamicLiquidationToBookRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildScopedZonePublicRoutesViewModel(
+function buildDailyZoneToBookViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (scoped)`,
+    badgeText: `${overdueCount} / ${safeTotal} (daily)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const DYNAMIC_MOVEOUT_PUBLIC_ROUTES_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_MOVEOUT_TO_BOOK_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicMoveoutPublicRoutesTier(code: string): { weight: number; label: string } {
+function resolveStrictMoveoutToBookTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_MOVEOUT_PUBLIC_ROUTES_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_MOVEOUT_TO_BOOK_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyOccupancyMetricPublicRoutesDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedOccupancyMetricToBookDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictInvoicePublicRoutesCriteria(
+function matchesGuardInvoiceToBookCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -214,8 +192,8 @@ function matchesStrictInvoicePublicRoutesCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BoundedPromotionPublicRoutesCoordinator {
-  private readonly maxWindowDays = 33;
+class ActivePromotionToBookCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow1:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -229,9 +207,9 @@ class BoundedPromotionPublicRoutesCoordinator {
   }
 }
 
-function calculateGuardHandoverPublicRoutesWindow(
+function calculateSyncedHandoverToBookWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -239,7 +217,7 @@ function calculateGuardHandoverPublicRoutesWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileActiveRenewalPublicRoutesLedgerItems(
+function reconcileCoreRenewalToBookLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -251,7 +229,7 @@ function reconcileActiveRenewalPublicRoutesLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeSyncedCorridorPublicRoutesBreakdown(
+function computeMonthlyCorridorToBookBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -262,18 +240,18 @@ function computeSyncedCorridorPublicRoutesBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeCoreInspectionPublicRoutesQuery(raw: {
+function normalizePrimaryInspectionToBookQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildMonthlyQuotePublicRoutesReferenceKey(
+function buildRollingQuoteToBookReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -283,14 +261,14 @@ function buildMonthlyQuotePublicRoutesReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface PrimaryBillingCyclePublicRoutesPayload {
+interface BatchBillingCycleToBookPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validatePrimaryBillingCyclePublicRoutesInput(payload: PrimaryBillingCyclePublicRoutesPayload): { valid: boolean; issues: string[] } {
+function validateBatchBillingCycleToBookInput(payload: BatchBillingCycleToBookPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -299,12 +277,12 @@ function validatePrimaryBillingCyclePublicRoutesInput(payload: PrimaryBillingCyc
   return { valid: issues.length === 0, issues };
 }
 
-interface RollingDiscountPublicRoutesBucketItem {
+interface PendingDiscountToBookBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupRollingDiscountPublicRoutesByScope(items: readonly RollingDiscountPublicRoutesBucketItem[]): Record<string, number> {
+function groupPendingDiscountToBookByScope(items: readonly PendingDiscountToBookBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow1';
@@ -313,7 +291,7 @@ function groupRollingDiscountPublicRoutesByScope(items: readonly RollingDiscount
   return totals;
 }
 
-function collectBatchCheckinPublicRoutesChanges(
+function collectIndexedCheckinToBookChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -324,7 +302,7 @@ function collectBatchCheckinPublicRoutesChanges(
   return changed;
 }
 
-function dedupePendingSupportTicketPublicRoutesRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeStandardSupportTicketToBookRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -336,7 +314,7 @@ function dedupePendingSupportTicketPublicRoutesRecords<T extends { id: string }>
   return unique;
 }
 
-function canTransitionIndexedUnitSlotPublicRoutesState(fromState: string, toState: string): boolean {
+function canTransitionTenantUnitSlotToBookState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -351,50 +329,50 @@ function canTransitionIndexedUnitSlotPublicRoutesState(fromState: string, toStat
   }
 }
 
-type StandardSettlementPublicRoutesRecord = {
+type SecondarySettlementToBookRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardSettlementPublicRoutesRecord(input: unknown): input is StandardSettlementPublicRoutesRecord {
+function isSecondarySettlementToBookRecord(input: unknown): input is SecondarySettlementToBookRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildTenantBookingPublicRoutesViewModel(
+function buildExpressBookingToBookViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (tenant)`,
+    badgeText: `${overdueCount} / ${safeTotal} (express)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const SECONDARY_DELINQUENCY_PUBLIC_ROUTES_TIERS: Record<string, { weight: number; label: string }> = {
+const PORTAL_DELINQUENCY_TO_BOOK_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSecondaryDelinquencyPublicRoutesTier(code: string): { weight: number; label: string } {
+function resolvePortalDelinquencyToBookTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SECONDARY_DELINQUENCY_PUBLIC_ROUTES_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return PORTAL_DELINQUENCY_TO_BOOK_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatExpressApprovalPublicRoutesDisplay(amountVnd: number, areaSqm: number): string {
+function formatVerifiedApprovalToBookDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesPortalSignaturePublicRoutesCriteria(
+function matchesUnifiedSignatureToBookCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -404,8 +382,8 @@ function matchesPortalSignaturePublicRoutesCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class VerifiedEscalationPublicRoutesCoordinator {
-  private readonly maxWindowDays = 34;
+class LedgerEscalationToBookCoordinator {
+  private readonly maxWindowDays = 37;
   private readonly branchScope = 'flow1:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -419,9 +397,9 @@ class VerifiedEscalationPublicRoutesCoordinator {
   }
 }
 
-function calculateUnifiedFloorplanPublicRoutesWindow(
+function calculateBranchFloorplanToBookWindow(
   startIso: string,
-  windowDays: number = 19,
+  windowDays: number = 17,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -429,7 +407,7 @@ function calculateUnifiedFloorplanPublicRoutesWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileLedgerRefundPublicRoutesLedgerItems(
+function reconcileScopedRefundToBookLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -441,7 +419,7 @@ function reconcileLedgerRefundPublicRoutesLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeBranchDepositPublicRoutesBreakdown(
+function computeDynamicDepositToBookBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -452,18 +430,18 @@ function computeBranchDepositPublicRoutesBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedOverlockPublicRoutesQuery(raw: {
+function normalizeDailyOverlockToBookQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicFacilityPublicRoutesReferenceKey(
+function buildStrictFacilityToBookReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -473,14 +451,60 @@ function buildDynamicFacilityPublicRoutesReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-const STANDARD_PENDING_WORKFORCE_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-  CANCELLED: 'Cancelled',
-  SCHEDULED: 'Scheduled',
-  HOLDING: 'Hold active',
-  EXPIRED: 'Expired',
-  SIGNED: 'Signed',
-  DRAFT: 'Draft',
+interface BoundedContractToBookPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateBoundedContractToBookInput(payload: BoundedContractToBookPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface GuardAuditTrailToBookBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupGuardAuditTrailToBookByScope(items: readonly GuardAuditTrailToBookBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow1';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectActiveWorkforceToBookChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeSyncedPolicyToBookRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+const STRICT_BATCH_POLICY_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
 };
