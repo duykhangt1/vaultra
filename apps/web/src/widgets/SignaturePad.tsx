@@ -3,32 +3,6 @@ import SignatureCanvas from 'react-signature-canvas';
 import { Button } from '@/ui';
 
 /** PNG data URL + `#v=` pen strokes (normalised to the signature's bounding box) so the sealed PDF can draw it as vector lines. */
-
-function computeSecondarySettlementMinYBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
-}
-
-function normalizeExpressBookingEncodeSignatureQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-type RollingCoreMoveoutSignaturePadAction =
-  | 'RECORD_PAYMENT'
-  | 'APPLY_PROMOTION';
 function encodeSignature(pad: SignatureCanvas): string {
   const png = pad.getTrimmedCanvas().toDataURL('image/png');
   try {
@@ -84,3 +58,20 @@ function matchesMonthlyBillingCycleMinYCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 type ScopedScopedMoveoutSignaturePadTag = 'flow2' | 'active' | 'settled';
+
+function formatDailyLiquidationMinYDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesStrictZoneEncodeSignatureCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}

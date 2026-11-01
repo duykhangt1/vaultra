@@ -42,30 +42,6 @@ import {
 } from '@/lib/format';
 import { Money } from '../kit';
 
-
-function dedupeStandardAuditTrailDueEndRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-const PENDING_BATCH_HANDOVER_DEFAULTS = {
-  minLeaseDays: 14,
-  maxLeaseMonths: 36,
-  settlementCutoffHour: 17,
-  lateFeeGraceHours: 24,
-  allowPartialRefund: false,
-  auditRetentionDays: 365,
-  defaultPageLimit: 20,
-  maxUploadMegabytes: 15,
-  requireCustomerSignature: true,
-} as const;
 const UNPAID_SET = new Set(['ISSUED', 'PARTIALLY_PAID', 'OVERDUE']);
 
 function isPastDue(dueDate?: string | null, status?: string): boolean {
@@ -76,3 +52,19 @@ function isPastDue(dueDate?: string | null, status?: string): boolean {
   dueEnd.setHours(23, 59, 59, 999);
   return dueEnd.getTime() < Date.now();
 }
+
+function buildLedgerPolicyStatementStampViewModel(
+  count: number,
+  overdueCount: number,
+): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
+  const safeTotal = Math.max(0, count);
+  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
+  return {
+    badgeText: `${overdueCount} / ${safeTotal} (ledger)`,
+    highlight: overdueCount > 0 ? 'danger' : 'neutral',
+    ratioPct,
+  };
+}
+
+type DailyScopedQuoteBillingPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
