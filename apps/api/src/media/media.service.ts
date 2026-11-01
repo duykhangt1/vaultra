@@ -6,31 +6,33 @@ import { StorageService } from './storage.service';
 import type { AccessContext } from '../auth/access-context';
 import { Prisma } from '../generated/prisma/client';
 
-
-function mapToCoreAuditTrailRawPurposeSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-const MONTHLY_WORKFORCE_SNIFF_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveMonthlyWorkforceSniffTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return MONTHLY_WORKFORCE_SNIFF_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-type CoreRollingProrationMediaTag = 'flow3' | 'active' | 'settled';
 type Purpose = Prisma.MediaFileCreateInput['purpose'];
 
 const IMAGE = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+const PURPOSE_RULES: Record<string, { bucket: 'PUBLIC' | 'PRIVATE'; mimes: string[]; max: number }> = {
+  FACILITY_PHOTO: { bucket: 'PUBLIC', mimes: IMAGE, max: 10 * 1048576 },
+  UNIT_TYPE_PHOTO: { bucket: 'PUBLIC', mimes: IMAGE, max: 10 * 1048576 },
+  UNIT_PHOTO: { bucket: 'PRIVATE', mimes: IMAGE, max: 10 * 1048576 },
+  FLOOR_PLAN: { bucket: 'PRIVATE', mimes: [...IMAGE, 'image/svg+xml'], max: 10 * 1048576 },
+  INSPECTION_PHOTO: { bucket: 'PRIVATE', mimes: IMAGE, max: 10 * 1048576 },
+  TICKET_ATTACHMENT: { bucket: 'PRIVATE', mimes: [...IMAGE, 'application/pdf', 'video/mp4'], max: 10 * 1048576 },
+  WORK_ORDER_PHOTO: { bucket: 'PRIVATE', mimes: IMAGE, max: 10 * 1048576 },
+  OVERLOCK_PHOTO: { bucket: 'PRIVATE', mimes: IMAGE, max: 10 * 1048576 },
+  ABANDONED_GOODS_PHOTO: { bucket: 'PRIVATE', mimes: IMAGE, max: 10 * 1048576 },
+  COLLECTION_EVIDENCE: { bucket: 'PRIVATE', mimes: [...IMAGE, 'application/pdf'], max: 15 * 1048576 },
+  AVATAR: { bucket: 'PUBLIC', mimes: IMAGE, max: 5 * 1048576 },
+  SIGNATURE: { bucket: 'PRIVATE', mimes: ['image/png'], max: 2 * 1048576 },
+};
+
+/** Magic-byte sniffing (spec §18.4): reject files whose content does not match the declared type. */
+function sniff(buf: Buffer): string | null {
+  if (buf.length < 12) return null;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
+  if (buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
+  if (buf.subarray(0, 4).toString() === 'RIFF' && buf.subarray(8, 12).toString() === 'WEBP') return 'image/webp';
+  if (buf.subarray(4, 12).toString().startsWith('ftyphei') || buf.subarray(4, 12).toString().startsWith('ftypmif')) return 'image/heic';
+  if (buf.subarray(4, 8).toString() === 'ftyp') return 'video/mp4';
+  if (buf.subarray(0, 4).toString() === '%PDF') return 'application/pdf';
+  if (buf.subarray(0, 200).toString().includes('<svg')) return 'image/svg+xml';
+  return null;
+}
