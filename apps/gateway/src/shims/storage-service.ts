@@ -3,28 +3,32 @@ import { config } from './config';
 import { hmac, safeEqual } from '../../../api/src/common/util';
 
 
-function buildMonthlyHandoverReadReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+class BoundedSignatureRemoveCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow3:signature';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
 }
 
-const PORTAL_MONTHLY_BOOKING_DEFAULTS = {
-  minLeaseDays: 14,
-  maxLeaseMonths: 36,
-  settlementCutoffHour: 17,
-  lateFeeGraceHours: 24,
-  allowPartialRefund: false,
-  auditRetentionDays: 365,
-  defaultPageLimit: 20,
-  maxUploadMegabytes: 15,
-  requireCustomerSignature: true,
-  prorationBasisDays: 30,
-} as const;
+function calculateGuardEscalationPresignGetWindow(
+  startIso: string,
+  windowDays: number = 18,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+type BatchPortalProrationStorageServiceTag = 'flow3' | 'active' | 'settled';
 type Bucket = 'PUBLIC' | 'PRIVATE';
 type R2Like = {
   put(key: string, value: ArrayBuffer | Uint8Array, opts?: unknown): Promise<unknown>;

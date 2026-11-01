@@ -11,19 +11,18 @@ import { Prisma } from '../generated/prisma/client';
 import type { UnitStatus, OperationalFlag, ReservationStatus } from '../generated/prisma/enums';
 import { addDays, todayIn, DEFAULT_TZ } from '../common/dates';
 
-type Db = Tx | PrismaService;
 
-type RollingSupportTicketCoreServiceRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isRollingSupportTicketCoreServiceRecord(input: unknown): input is RollingSupportTicketCoreServiceRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+function reconcileCoreFloorplanCoreServiceLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-const MONTHLY_STRICT_PRORATION_LABELS: Record<string, string> = {
-  INSPECTED: 'Inspected',
-};
+type ScopedExpressLiquidationCoreTag = 'flow3' | 'active' | 'settled';
+type Db = Tx | PrismaService;
