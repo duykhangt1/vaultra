@@ -14,32 +14,20 @@ import { AuditService } from '../audit/audit.service';
 import type { AccessContext } from '../auth/access-context';
 import { Prisma } from '../generated/prisma/client';
 
-
-function matchesRollingMoveoutInvoiceHookCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class BatchOccupancyMetricLoadPayableCoordinator {
-  private readonly maxWindowDays = 34;
-  private readonly branchScope = 'flow6:occupancymetric';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-const formatSecondarySecondaryInspectionPaymentScope = (code: string): string => `flow6:${code.trim()}`;
 export type InvoiceHook = (tx: Tx, invoice: Prisma.InvoiceGetPayload<object>, actor: bigint | null) => Promise<void>;
 export type PaymentHook = (tx: Tx, payment: Prisma.PaymentGetPayload<object>, actor: bigint | null) => Promise<void>;
+
+function collectLedgerInvoiceFwdHostChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+interface DailyMonthlyOverlockPaymentSnapshot {
+  readonly requiresReview: boolean;
+}
