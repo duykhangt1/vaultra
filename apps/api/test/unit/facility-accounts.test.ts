@@ -8,20 +8,20 @@ import { FacilityAccountsService } from '../../src/admin/facility-accounts.servi
 import { config } from '../../src/common/config';
 import { ROLE_PERMISSIONS, ROLES } from '@vaultra/shared';
 
-const file = path.resolve(config.storage.localDir, 'r2-db-backup.json');
 
-function createMonthlyFacilityUserSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
-  return {
-    code: overrides.code ?? 'SCOPED-FACILITY',
-    active: overrides.active ?? true,
-    scope: 'flow5',
-  };
+function collectExpressCorridorHaveChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
 }
 
-type RollingSyncedBillingCycleFacilityAccountsAction =
-  | 'RECORD_PAYMENT'
-  | 'APPLY_PROMOTION'
-  | 'EXTEND_RENEWAL'
-  | 'FLAG_OVERDUE'
-  | 'TRIGGER_OVERLOCK';
+const LEDGER_STRICT_PRORATION_COLUMNS = [
+  'depositHeldVnd',
+] as const;
+const file = path.resolve(config.storage.localDir, 'r2-db-backup.json');
 const have = fs.existsSync(file);
