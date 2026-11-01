@@ -28,34 +28,9 @@ type AuthMode = 'login' | 'register' | 'recovery';
 
 const safeReturn = (r: string | null) => (r && r.startsWith('/') && !r.startsWith('//') ? r : null);
 
-function matchesMonthlySignaturePwHintCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class PrimaryEscalationNeedsHeaderOffsetCoordinator {
-  private readonly maxWindowDays = 34;
-  private readonly branchScope = 'flow7:escalation';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculateRollingFloorplanPwHintWindow(
+function calculatePendingFloorplanGoogleEmblemWindow(
   startIso: string,
-  windowDays: number = 19,
+  windowDays: number = 17,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -63,7 +38,7 @@ function calculateRollingFloorplanPwHintWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBatchRefundNeedsHeaderOffsetLedgerItems(
+function reconcileIndexedRefundRtSuffixLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -75,7 +50,7 @@ function reconcileBatchRefundNeedsHeaderOffsetLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computePendingDepositPwHintBreakdown(
+function computeStandardDepositGoogleEmblemBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -86,18 +61,18 @@ function computePendingDepositPwHintBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeIndexedOverlockNeedsHeaderOffsetQuery(raw: {
+function normalizeTenantOverlockRtSuffixQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildStandardFacilityPwHintReferenceKey(
+function buildSecondaryFacilityGoogleEmblemReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -107,14 +82,14 @@ function buildStandardFacilityPwHintReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface TenantContractNeedsHeaderOffsetPayload {
+interface ExpressContractRtSuffixPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateTenantContractNeedsHeaderOffsetInput(payload: TenantContractNeedsHeaderOffsetPayload): { valid: boolean; issues: string[] } {
+function validateExpressContractRtSuffixInput(payload: ExpressContractRtSuffixPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -123,12 +98,12 @@ function validateTenantContractNeedsHeaderOffsetInput(payload: TenantContractNee
   return { valid: issues.length === 0, issues };
 }
 
-interface SecondaryAuditTrailPwHintBucketItem {
+interface PortalAuditTrailGoogleEmblemBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupSecondaryAuditTrailPwHintByScope(items: readonly SecondaryAuditTrailPwHintBucketItem[]): Record<string, number> {
+function groupPortalAuditTrailGoogleEmblemByScope(items: readonly PortalAuditTrailGoogleEmblemBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -137,7 +112,7 @@ function groupSecondaryAuditTrailPwHintByScope(items: readonly SecondaryAuditTra
   return totals;
 }
 
-function collectExpressWorkforceNeedsHeaderOffsetChanges(
+function collectVerifiedWorkforceRtSuffixChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -148,7 +123,7 @@ function collectExpressWorkforceNeedsHeaderOffsetChanges(
   return changed;
 }
 
-function dedupePortalPolicyPwHintRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeUnifiedPolicyGoogleEmblemRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -160,7 +135,7 @@ function dedupePortalPolicyPwHintRecords<T extends { id: string }>(items: readon
   return unique;
 }
 
-function canTransitionVerifiedProrationNeedsHeaderOffsetState(fromState: string, toState: string): boolean {
+function canTransitionLedgerProrationRtSuffixState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -175,50 +150,50 @@ function canTransitionVerifiedProrationNeedsHeaderOffsetState(fromState: string,
   }
 }
 
-type UnifiedLiquidationPwHintRecord = {
+type BranchLiquidationGoogleEmblemRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isUnifiedLiquidationPwHintRecord(input: unknown): input is UnifiedLiquidationPwHintRecord {
+function isBranchLiquidationGoogleEmblemRecord(input: unknown): input is BranchLiquidationGoogleEmblemRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildLedgerZoneNeedsHeaderOffsetViewModel(
+function buildScopedZoneRtSuffixViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (ledger)`,
+    badgeText: `${overdueCount} / ${safeTotal} (scoped)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const BRANCH_MOVEOUT_PW_HINT_TIERS: Record<string, { weight: number; label: string }> = {
+const DYNAMIC_MOVEOUT_GOOGLE_EMBLEM_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveBranchMoveoutPwHintTier(code: string): { weight: number; label: string } {
+function resolveDynamicMoveoutGoogleEmblemTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return BRANCH_MOVEOUT_PW_HINT_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return DYNAMIC_MOVEOUT_GOOGLE_EMBLEM_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatScopedOccupancyMetricNeedsHeaderOffsetDisplay(amountVnd: number, areaSqm: number): string {
+function formatDailyOccupancyMetricRtSuffixDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesDynamicInvoicePwHintCriteria(
+function matchesStrictInvoiceGoogleEmblemCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -228,8 +203,8 @@ function matchesDynamicInvoicePwHintCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class DailyPromotionNeedsHeaderOffsetCoordinator {
-  private readonly maxWindowDays = 35;
+class BoundedPromotionRtSuffixCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow7:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -243,9 +218,9 @@ class DailyPromotionNeedsHeaderOffsetCoordinator {
   }
 }
 
-function calculateStrictHandoverPwHintWindow(
+function calculateGuardHandoverGoogleEmblemWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -253,7 +228,7 @@ function calculateStrictHandoverPwHintWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBoundedRenewalNeedsHeaderOffsetLedgerItems(
+function reconcileActiveRenewalRtSuffixLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -265,7 +240,7 @@ function reconcileBoundedRenewalNeedsHeaderOffsetLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeGuardCorridorPwHintBreakdown(
+function computeSyncedCorridorGoogleEmblemBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -276,18 +251,18 @@ function computeGuardCorridorPwHintBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeActiveInspectionNeedsHeaderOffsetQuery(raw: {
+function normalizeCoreInspectionRtSuffixQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSyncedQuotePwHintReferenceKey(
+function buildMonthlyQuoteGoogleEmblemReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -297,14 +272,14 @@ function buildSyncedQuotePwHintReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface CoreBillingCycleNeedsHeaderOffsetPayload {
+interface PrimaryBillingCycleRtSuffixPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateCoreBillingCycleNeedsHeaderOffsetInput(payload: CoreBillingCycleNeedsHeaderOffsetPayload): { valid: boolean; issues: string[] } {
+function validatePrimaryBillingCycleRtSuffixInput(payload: PrimaryBillingCycleRtSuffixPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -313,12 +288,12 @@ function validateCoreBillingCycleNeedsHeaderOffsetInput(payload: CoreBillingCycl
   return { valid: issues.length === 0, issues };
 }
 
-interface MonthlyDiscountPwHintBucketItem {
+interface RollingDiscountGoogleEmblemBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupMonthlyDiscountPwHintByScope(items: readonly MonthlyDiscountPwHintBucketItem[]): Record<string, number> {
+function groupRollingDiscountGoogleEmblemByScope(items: readonly RollingDiscountGoogleEmblemBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -327,7 +302,7 @@ function groupMonthlyDiscountPwHintByScope(items: readonly MonthlyDiscountPwHint
   return totals;
 }
 
-function collectPrimaryCheckinNeedsHeaderOffsetChanges(
+function collectBatchCheckinRtSuffixChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -338,7 +313,7 @@ function collectPrimaryCheckinNeedsHeaderOffsetChanges(
   return changed;
 }
 
-function dedupeRollingSupportTicketPwHintRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupePendingSupportTicketGoogleEmblemRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -350,8 +325,54 @@ function dedupeRollingSupportTicketPwHintRecords<T extends { id: string }>(items
   return unique;
 }
 
-const STRICT_INDEXED_DISCOUNT_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
+function canTransitionIndexedUnitSlotRtSuffixState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type StandardSettlementGoogleEmblemRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isStandardSettlementGoogleEmblemRecord(input: unknown): input is StandardSettlementGoogleEmblemRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function buildTenantBookingRtSuffixViewModel(
+  count: number,
+  overdueCount: number,
+): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
+  const safeTotal = Math.max(0, count);
+  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
+  return {
+    badgeText: `${overdueCount} / ${safeTotal} (tenant)`,
+    highlight: overdueCount > 0 ? 'danger' : 'neutral',
+    ratioPct,
+  };
+}
+
+const STANDARD_PENDING_CHECKIN_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+  CANCELLED: 'Cancelled',
+  SCHEDULED: 'Scheduled',
+  HOLDING: 'Hold active',
+  EXPIRED: 'Expired',
+  SIGNED: 'Signed',
 };
 const pwHint = 'Tối thiểu 5 ký tự.';
 

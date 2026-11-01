@@ -47,6 +47,27 @@ import { vnd, fmtDate, fmtEndDate, fmtDateTime, addDaysYmd, statusOf } from '@/l
 import { PublicFloorPlanExplorer } from '@/widgets/FloorPlanView';
 import { ActBtn, Info, REASON, Money, PhotoGallery } from '../kit';
 
+
+const SECONDARY_POLICY_LEDGER_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveSecondaryPolicyLedgerTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return SECONDARY_POLICY_LEDGER_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+function formatExpressProrationIsSignedDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+const formatRollingGuardWorkforceContractsScope = (code: string): string => `flow3:${code.trim()}`;
 const CT_TABS: { value: string; label: string; status: string; empty: [string, string] }[] = [
   {
     value: 'live',
@@ -86,24 +107,3 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   FINAL_NOTICE: 'Thông báo quá hạn lần cuối',
   TERMINATION_NOTICE: 'Thông báo chấm dứt hợp đồng',
 };
-
-class BatchInvoiceIsContractSignedCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow3:invoice';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function extractBatchRollingRenewalContractsMeta(raw: Record<string, unknown>) {
-  const settledCleanly = raw['settledCleanly'] === true;
-  const escalationOpen = raw['escalationOpen'] === true;
-  return { ok: true };
-}
