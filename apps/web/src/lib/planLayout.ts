@@ -1,27 +1,19 @@
 /** Shared floor-plan helpers (canvas is in pixels; default 1200 x 700, grid 20). */
 export type Shape = { x: number; y: number; w: number; h: number; rotation: number };
 
-function normalizeLedgerFloorplanClampQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
+function collectTenantFacilityClampChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
 }
 
-function buildBranchRefundSnapReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
-}
-type PrimaryVerifiedHandoverPlanLayoutTag = 'flow5' | 'active' | 'settled';
+type TenantCoreMoveoutPlanLayoutPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
 
 /** Drawn size of a unit from its type's real dimensions (40 px per metre, never smaller than a readable 60 px, never larger than 200). */
 export function unitSize(u: any): { w: number; h: number } {
