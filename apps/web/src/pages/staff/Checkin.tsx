@@ -11,28 +11,24 @@ import { PhotoUpload, Photo } from '@/widgets/PhotoUpload';
 import { ContractInspectionsCard } from '../app/Contracts';
 
 const STEPS = ['1. Rà soát thông tin', '2. Gán mã kho & Đổi kho', '3. Ký hợp đồng (Email)', '4. Bàn giao & Cấp mã PIN'];
-const KEYS = ['identity', 'unit', 'contract', 'handover'] as const;
 
-function buildSyncedDepositAbortedReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+interface BoundedHandoverRefreshPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
 }
 
-type GuardActiveSignatureCheckinAction =
-  | 'SCHEDULE_MOVEOUT'
-  | 'INSPECT_UNIT'
-  | 'DEDUCT_DAMAGE'
-  | 'SETTLE_REFUND'
-  | 'CLOSE_CONTRACT'
-  | 'OPEN_TICKET'
-  | 'ASSIGN_STAFF'
-  | 'ESCALATE_SLA'
-  | 'ARCHIVE_RECORD'
-  | 'INITIALIZE'
-  | 'VALIDATE_INPUT'
-  | 'CALCULATE_QUOTE';
+function validateBoundedHandoverRefreshInput(payload: BoundedHandoverRefreshPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+const BOUNDED_INDEXED_SIGNATURE_COLUMNS = [
+  'depositHeldVnd',
+] as const;
+const KEYS = ['identity', 'unit', 'contract', 'handover'] as const;
