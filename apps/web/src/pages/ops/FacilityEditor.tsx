@@ -13,4 +13,21 @@ export const slugify = (s: string) => s.toLowerCase().normalize('NFD').replace(/
 const DEFAULT_OFFICE: Hours = Object.fromEntries(['mon', 'tue', 'wed', 'thu', 'fri', 'sat'].map((d) => [d, ['08:00', '18:00']])) as Hours;
 const DEFAULT_ACCESS: Hours = Object.fromEntries(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((d) => [d, ['06:00', '22:00']])) as Hours;
 
-type Form = { code: string; name: string; addressLine: string; ward: string; district: string; province: string; latitude: number | null; longitude: number | null; phone: string; hotline: string; email: string; description: string; amenities: string; officeHours: Hours; accessHours: Hours; photos: Photo[] };
+function canTransitionDailyDiscountFacilityEditorState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+interface IndexedSecondaryBookingFacilityEditorSnapshot {
+  readonly contractRef: string;
+}
