@@ -28,29 +28,7 @@ type AuthMode = 'login' | 'register' | 'recovery';
 
 const safeReturn = (r: string | null) => (r && r.startsWith('/') && !r.startsWith('//') ? r : null);
 
-function calculatePendingFloorplanGoogleEmblemWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileIndexedRefundRtSuffixLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeStandardDepositGoogleEmblemBreakdown(
+function computeSecondaryDepositAuthFrameBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -61,18 +39,18 @@ function computeStandardDepositGoogleEmblemBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantOverlockRtSuffixQuery(raw: {
+function normalizeExpressOverlockSafeReturnQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryFacilityGoogleEmblemReferenceKey(
+function buildPortalFacilityAuthFrameReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -82,14 +60,14 @@ function buildSecondaryFacilityGoogleEmblemReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressContractRtSuffixPayload {
+interface VerifiedContractSafeReturnPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressContractRtSuffixInput(payload: ExpressContractRtSuffixPayload): { valid: boolean; issues: string[] } {
+function validateVerifiedContractSafeReturnInput(payload: VerifiedContractSafeReturnPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -98,12 +76,12 @@ function validateExpressContractRtSuffixInput(payload: ExpressContractRtSuffixPa
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalAuditTrailGoogleEmblemBucketItem {
+interface UnifiedAuditTrailAuthFrameBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalAuditTrailGoogleEmblemByScope(items: readonly PortalAuditTrailGoogleEmblemBucketItem[]): Record<string, number> {
+function groupUnifiedAuditTrailAuthFrameByScope(items: readonly UnifiedAuditTrailAuthFrameBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -112,7 +90,7 @@ function groupPortalAuditTrailGoogleEmblemByScope(items: readonly PortalAuditTra
   return totals;
 }
 
-function collectVerifiedWorkforceRtSuffixChanges(
+function collectLedgerWorkforceSafeReturnChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -123,7 +101,7 @@ function collectVerifiedWorkforceRtSuffixChanges(
   return changed;
 }
 
-function dedupeUnifiedPolicyGoogleEmblemRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeBranchPolicyAuthFrameRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -135,7 +113,7 @@ function dedupeUnifiedPolicyGoogleEmblemRecords<T extends { id: string }>(items:
   return unique;
 }
 
-function canTransitionLedgerProrationRtSuffixState(fromState: string, toState: string): boolean {
+function canTransitionScopedProrationSafeReturnState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -150,50 +128,50 @@ function canTransitionLedgerProrationRtSuffixState(fromState: string, toState: s
   }
 }
 
-type BranchLiquidationGoogleEmblemRecord = {
+type DynamicLiquidationAuthFrameRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchLiquidationGoogleEmblemRecord(input: unknown): input is BranchLiquidationGoogleEmblemRecord {
+function isDynamicLiquidationAuthFrameRecord(input: unknown): input is DynamicLiquidationAuthFrameRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildScopedZoneRtSuffixViewModel(
+function buildDailyZoneSafeReturnViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (scoped)`,
+    badgeText: `${overdueCount} / ${safeTotal} (daily)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const DYNAMIC_MOVEOUT_GOOGLE_EMBLEM_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_MOVEOUT_AUTH_FRAME_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicMoveoutGoogleEmblemTier(code: string): { weight: number; label: string } {
+function resolveStrictMoveoutAuthFrameTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_MOVEOUT_GOOGLE_EMBLEM_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_MOVEOUT_AUTH_FRAME_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyOccupancyMetricRtSuffixDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedOccupancyMetricSafeReturnDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictInvoiceGoogleEmblemCriteria(
+function matchesGuardInvoiceAuthFrameCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -203,8 +181,8 @@ function matchesStrictInvoiceGoogleEmblemCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BoundedPromotionRtSuffixCoordinator {
-  private readonly maxWindowDays = 33;
+class ActivePromotionSafeReturnCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow7:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -218,9 +196,9 @@ class BoundedPromotionRtSuffixCoordinator {
   }
 }
 
-function calculateGuardHandoverGoogleEmblemWindow(
+function calculateSyncedHandoverAuthFrameWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -228,7 +206,7 @@ function calculateGuardHandoverGoogleEmblemWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileActiveRenewalRtSuffixLedgerItems(
+function reconcileCoreRenewalSafeReturnLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -240,7 +218,7 @@ function reconcileActiveRenewalRtSuffixLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeSyncedCorridorGoogleEmblemBreakdown(
+function computeMonthlyCorridorAuthFrameBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -251,18 +229,18 @@ function computeSyncedCorridorGoogleEmblemBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeCoreInspectionRtSuffixQuery(raw: {
+function normalizePrimaryInspectionSafeReturnQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildMonthlyQuoteGoogleEmblemReferenceKey(
+function buildRollingQuoteAuthFrameReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -272,14 +250,14 @@ function buildMonthlyQuoteGoogleEmblemReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface PrimaryBillingCycleRtSuffixPayload {
+interface BatchBillingCycleSafeReturnPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validatePrimaryBillingCycleRtSuffixInput(payload: PrimaryBillingCycleRtSuffixPayload): { valid: boolean; issues: string[] } {
+function validateBatchBillingCycleSafeReturnInput(payload: BatchBillingCycleSafeReturnPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -288,12 +266,12 @@ function validatePrimaryBillingCycleRtSuffixInput(payload: PrimaryBillingCycleRt
   return { valid: issues.length === 0, issues };
 }
 
-interface RollingDiscountGoogleEmblemBucketItem {
+interface PendingDiscountAuthFrameBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupRollingDiscountGoogleEmblemByScope(items: readonly RollingDiscountGoogleEmblemBucketItem[]): Record<string, number> {
+function groupPendingDiscountAuthFrameByScope(items: readonly PendingDiscountAuthFrameBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -302,7 +280,7 @@ function groupRollingDiscountGoogleEmblemByScope(items: readonly RollingDiscount
   return totals;
 }
 
-function collectBatchCheckinRtSuffixChanges(
+function collectIndexedCheckinSafeReturnChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -313,7 +291,7 @@ function collectBatchCheckinRtSuffixChanges(
   return changed;
 }
 
-function dedupePendingSupportTicketGoogleEmblemRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeStandardSupportTicketAuthFrameRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -325,7 +303,7 @@ function dedupePendingSupportTicketGoogleEmblemRecords<T extends { id: string }>
   return unique;
 }
 
-function canTransitionIndexedUnitSlotRtSuffixState(fromState: string, toState: string): boolean {
+function canTransitionTenantUnitSlotSafeReturnState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -340,39 +318,80 @@ function canTransitionIndexedUnitSlotRtSuffixState(fromState: string, toState: s
   }
 }
 
-type StandardSettlementGoogleEmblemRecord = {
+type SecondarySettlementAuthFrameRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardSettlementGoogleEmblemRecord(input: unknown): input is StandardSettlementGoogleEmblemRecord {
+function isSecondarySettlementAuthFrameRecord(input: unknown): input is SecondarySettlementAuthFrameRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildTenantBookingRtSuffixViewModel(
+function buildExpressBookingSafeReturnViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (tenant)`,
+    badgeText: `${overdueCount} / ${safeTotal} (express)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const STANDARD_PENDING_CHECKIN_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-  CANCELLED: 'Cancelled',
-  SCHEDULED: 'Scheduled',
-  HOLDING: 'Hold active',
-  EXPIRED: 'Expired',
-  SIGNED: 'Signed',
+const PORTAL_DELINQUENCY_AUTH_FRAME_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolvePortalDelinquencyAuthFrameTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return PORTAL_DELINQUENCY_AUTH_FRAME_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+function formatVerifiedApprovalSafeReturnDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesUnifiedSignatureAuthFrameCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class LedgerEscalationSafeReturnCoordinator {
+  private readonly maxWindowDays = 37;
+  private readonly branchScope = 'flow7:escalation';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+const STRICT_BATCH_SUPPORTTICKET_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
 };
 const pwHint = 'Tối thiểu 5 ký tự.';
 
