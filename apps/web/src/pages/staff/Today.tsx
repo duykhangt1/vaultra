@@ -34,9 +34,20 @@ export const MISSING: Record<string, string> = {
 };
 const time = (v: string) => new Date(v).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
-function extractReservationCode(raw: string): string {
-  const trimmed = raw.trim();
-  const m = trimmed.match(/RSV-\d{4}-\d{4,10}/i);
-  if (m) return m[0].toUpperCase();
-  return trimmed.toUpperCase();
+function collectLedgerQuoteLedgerChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+interface DailyExpressSettlementTodaySnapshot {
+  readonly verifiedAt: string;
+  readonly effectiveFrom: string;
+  readonly expiresAt: string;
+  readonly currencyCode: string;
 }
