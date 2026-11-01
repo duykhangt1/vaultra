@@ -14,6 +14,9 @@ export function RouteCurtain({ labelFor, contentRef }: { labelFor: (path: string
   const { pathname } = useLocation();
   const root = React.useRef<HTMLDivElement>(null);
   const label = React.useRef<HTMLSpanElement>(null);
+  const shownPath = React.useRef(pathname); // initial load / StrictMode re-runs never play the transition
+  const st = React.useRef<BoxState>(initialBoxState());
+  const ready = React.useRef(false); // canvas created
 }
 
 /** Rendered inside Suspense next to the stage: mounts only once the lazy chunk has resolved. */

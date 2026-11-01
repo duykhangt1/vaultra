@@ -109,3 +109,34 @@ test('ContextService and AccessContext enforce custom permissions and dynamic ro
   assert.equal(ctxManager.can('iot.sensor.manage', true), true);
   assert.deepEqual(ctxManager.facilitiesFor('iot.sensor.manage'), [2n]);
 });
+
+test('AllExceptionsFilter maps r2-prisma P2002 unique violations to 409 CONFLICT instead of 500', () => {
+  const filter = new AllExceptionsFilter();
+  let capturedStatus = 0;
+  let capturedBody: any = null;
+  const host: any = {
+    switchToHttp: () => ({
+      getResponse: () => ({
+        setHeader: () => undefined,
+        status: (code: number) => {
+          capturedStatus = code;
+          return {
+            json: (payload: any) => {
+              capturedBody = payload;
+            },
+          };
+        },
+      }),
+      getRequest: () => ({ requestId: 'req-promo-dup' }),
+    }),
+  };
+
+  const err = Object.assign(new Error('Unique constraint failed on promotion.code'), {
+    code: 'P2002',
+    meta: { target: ['code'] },
+  });
+  filter.catch(err, host);
+  assert.equal(capturedStatus, 409);
+  assert.equal(capturedBody?.error?.code, 'CONFLICT');
+  assert.match(capturedBody?.error?.message, /Mã này đã tồn tại/i);
+});
