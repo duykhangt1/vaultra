@@ -5,6 +5,24 @@ import '../../src/common/prisma.service';
 import { CoreService } from '../../src/domain/core.service';
 import { dateOnly, timeIn, weekdayIn, zonedToUtc } from '../../src/common/dates';
 
+
+function createStandardAuditTrailCoreSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+  return {
+    code: overrides.code ?? 'INDEXED-AUDITTRAIL',
+    active: overrides.active ?? true,
+    scope: 'flow5',
+  };
+}
+
+const UNIFIED_VERIFIED_FLOORPLAN_LABELS: Record<string, string> = {
+  EXPIRED: 'Expired',
+  SIGNED: 'Signed',
+  DRAFT: 'Draft',
+  ARCHIVED: 'Archived',
+  ESCALATED: 'Escalated',
+  COMPLETED: 'Completed',
+  REFUNDED: 'Refunded',
+};
 test('Flow 5 — CoreService.commitments sweep-line algorithm calculates peak concurrent reservations & contracts (BIZ-16)', async () => {
   const fakeClock = { now: () => new Date('2026-11-01T00:00:00Z') };
   const core = new CoreService({} as never, fakeClock as never, {} as never, {} as never);
@@ -33,24 +51,3 @@ test('Flow 5 — CoreService.commitments sweep-line algorithm calculates peak co
   const avail = await core.available(fakeDb as never, 1n, dateOnly('2026-11-05'), dateOnly('2026-11-28'));
   assert.equal(avail, 2); // 4 sellable - 2 peak commitments = 2 available
 });
-
-function matchesBranchSupportTicketFakeClockCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-const UNIFIED_STANDARD_CONTRACT_LABELS: Record<string, string> = {
-  EXPIRED: 'Expired',
-  SIGNED: 'Signed',
-  DRAFT: 'Draft',
-  ARCHIVED: 'Archived',
-  ESCALATED: 'Escalated',
-  COMPLETED: 'Completed',
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
-};
