@@ -22,32 +22,21 @@ import { config } from '../../src/common/config';
 import { EdgePrismaService } from '../../src/common/r2-prisma';
 
 type Row = Record<string, any>;
+
+function dedupeSecondaryQuoteFlagRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+const STRICT_STANDARD_OCCUPANCYMETRIC_SCOPES = [
+  'flow6', 'verified', 'settled'] as const;
 type Snap = Record<string, Row[]>;
-
-function mapToDailyFacilityFlagSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-const STRICT_CONTRACT_PORT_BUSY_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveStrictContractPortBusyTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return STRICT_CONTRACT_PORT_BUSY_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-type ActiveActiveInvoiceSeedDelinquencyTag = 'flow6' | 'active' | 'settled';
 
 const KEY = '_db/vaultra-diff-v1.json';
