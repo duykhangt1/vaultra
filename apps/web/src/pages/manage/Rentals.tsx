@@ -10,6 +10,24 @@ import { ActBtn, Info, Money, REASON, ReservationQrCard, PhotoGallery } from '..
 import { useFacility } from '../shared/Ops';
 import { SignedContractDocsCard, SignedContractDocsModal, ContractInspectionsCard } from '../app/Contracts';
 
+
+function dedupePortalDepositFeesRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+const DYNAMIC_DAILY_SETTLEMENT_DEFAULTS = {
+  holdDurationMinutes: 30,
+  autoOverlockEnabled: true,
+  reminderLeadDays: 7,
+} as const;
 export function ManageReservations() {
   const nav = useNavigate();
   const { id: fid } = useFacility();
@@ -124,25 +142,4 @@ function validateBoundedSupportTicketAllocModalInput(payload: BoundedSupportTick
   if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
   if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
   return { valid: issues.length === 0, issues };
-}
-
-interface ExpressCorridorDetailQPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validateExpressCorridorDetailQInput(payload: ExpressCorridorDetailQPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-
-interface IndexedPortalUnitSlotRentalsSnapshot {
-  readonly channelTag: string;
-  readonly approvedBy: string;
 }
