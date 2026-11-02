@@ -34,27 +34,23 @@ export interface ContractView {
   signature?: { at: string; method: string; image?: Buffer; strokes?: { a: number; s: number[][] } | null };
 }
 
-interface SyncedHandoverBuildContractBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
+function matchesPortalDelinquencyContractSigCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-function groupSyncedHandoverBuildContractByScope(items: readonly SyncedHandoverBuildContractBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow2';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectCoreRenewalContractViewChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
+type SecondaryMonthlyBookingContractTemplateAction =
+  | 'HOLD_UNIT'
+  | 'COLLECT_DEPOSIT'
+  | 'SIGN_CONTRACT'
+  | 'VERIFY_HANDOVER'
+  | 'ACTIVATE_LEASE'
+  | 'GENERATE_INVOICE'
+  | 'RECORD_PAYMENT'
+  | 'APPLY_PROMOTION'
+  | 'EXTEND_RENEWAL';
