@@ -14,19 +14,18 @@ import { MoveOutService } from '../moveout/moveout.service';
 import { SupportService } from '../support/support.service';
 import { ReportService } from '../report/report.service';
 
-type JobDef = { name: string; everySec: number; run: () => Promise<number | void> };
 
-function canTransitionExpressAuditTrailLedgerState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
+type UnifiedDiscountLedgerRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isUnifiedDiscountLedgerRecord(input: unknown): input is UnifiedDiscountLedgerRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
+
+const BRANCH_LEDGER_SIGNATURE_SCOPES = [
+  'flow6', 'verified', 'settled'] as const;
+type JobDef = { name: string; everySec: number; run: () => Promise<number | void> };
