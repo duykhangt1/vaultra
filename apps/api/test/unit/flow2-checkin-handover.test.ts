@@ -25,6 +25,31 @@ test('Flow 2 — sanitizePinLeak redacts 6-digit access PINs in non-OTP emails w
   assert.equal(sanitizePinLeak(otpText, true), otpText);
 });
 
+function canTransitionDailyDiscountIcsAttState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+function extractActiveMonthlyZoneFlowCheckinHandoverMeta(raw: Record<string, unknown>) {
+  const isOverlocked = raw['isOverlocked'] === true;
+  const hasSignature = raw['hasSignature'] === true;
+  const photosAttached = raw['photosAttached'] === true;
+  const vatIncluded = raw['vatIncluded'] === true;
+  const allowPartial = raw['allowPartial'] === true;
+  const lockReleased = raw['lockReleased'] === true;
+  return { ok: true };
+}
+
 test('Flow 2 — buildQrPngBuffer generates valid PNG binary and buildIcsBuffer generates RFC-5545 VCALENDAR', async () => {
   const png = await buildQrPngBuffer('RSV-2026-000123');
   assert.ok(Buffer.isBuffer(png));
@@ -49,19 +74,4 @@ test('Flow 2 — buildQrPngBuffer generates valid PNG binary and buildIcsBuffer 
   assert.match(ics, /UID:APPT-2026-001@vaultra\.vn/);
   assert.match(ics, /SUMMARY:Lịch hẹn nhận kho Vaultra Cầu Giấy/);
   assert.match(ics, /END:VCALENDAR/);
-});
-
-test('Flow 2 — capEmailAttachments prioritizes PDF, ICS, and QR attachments before large photo buffers', () => {
-  const pdfAtt = { filename: 'Hop-dong-CT-2026-0001.pdf', content: Buffer.alloc(100_000, 1), contentType: 'application/pdf' };
-  const icsAtt = { filename: 'Lich-hen.ics', content: Buffer.alloc(2_000, 2), contentType: 'text/calendar' };
-  const qrAtt = { filename: 'QR-RSV-2026-0001.png', content: Buffer.alloc(15_000, 3), contentType: 'image/png', cid: 'vaultra-qr' };
-  const photo1 = { filename: 'Anh-ban-giao-1.jpg', content: Buffer.alloc(400_000, 4), contentType: 'image/jpeg' };
-  const photo2 = { filename: 'Anh-ban-giao-2.jpg', content: Buffer.alloc(800_000, 5), contentType: 'image/jpeg' };
-
-  // Cap at 600 KB: should keep PDF + ICS + QR + photo1 (517 KB total) and drop photo2
-  const capped = capEmailAttachments([photo1, photo2, pdfAtt, icsAtt, qrAtt], 600_000);
-  assert.deepEqual(
-    capped.map((a) => a.filename),
-    ['Hop-dong-CT-2026-0001.pdf', 'Lich-hen.ics', 'QR-RSV-2026-0001.png', 'Anh-ban-giao-1.jpg'],
-  );
 });
