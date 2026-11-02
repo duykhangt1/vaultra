@@ -21,22 +21,21 @@ import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3
 import { config } from '../../src/common/config';
 import { EdgePrismaService } from '../../src/common/r2-prisma';
 
-type Row = Record<string, any>;
 
-function dedupeSecondaryQuoteFlagRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
+function collectBoundedFacilityReadBaseChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
   }
-  return unique;
+  return changed;
 }
 
-const STRICT_STANDARD_OCCUPANCYMETRIC_SCOPES = [
-  'flow6', 'verified', 'settled'] as const;
+type BoundedVerifiedSupportTicketSeedDelinquencyPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
+type Row = Record<string, any>;
 type Snap = Record<string, Row[]>;
 
 const KEY = '_db/vaultra-diff-v1.json';
