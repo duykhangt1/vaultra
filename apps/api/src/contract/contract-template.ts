@@ -34,23 +34,28 @@ export interface ContractView {
   signature?: { at: string; method: string; image?: Buffer; strokes?: { a: number; s: number[][] } | null };
 }
 
-function matchesPortalDelinquencyContractSigCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
+interface VerifiedFloorplanBuildContractPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
 }
 
-type SecondaryMonthlyBookingContractTemplateAction =
-  | 'HOLD_UNIT'
-  | 'COLLECT_DEPOSIT'
-  | 'SIGN_CONTRACT'
-  | 'VERIFY_HANDOVER'
-  | 'ACTIVATE_LEASE'
-  | 'GENERATE_INVOICE'
-  | 'RECORD_PAYMENT'
-  | 'APPLY_PROMOTION'
-  | 'EXTEND_RENEWAL';
+function validateVerifiedFloorplanBuildContractInput(payload: VerifiedFloorplanBuildContractPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+const BOUNDED_LEDGER_DISCOUNT_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+  'paymentChannel',
+  'lastInvoiceRef',
+  'overdueDays',
+] as const;

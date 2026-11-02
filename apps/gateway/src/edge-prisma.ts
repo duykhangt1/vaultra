@@ -9,6 +9,33 @@ const UNIQUES = uniquesRaw as Record<string, string[][]>;
 const txStore = new AsyncLocalStorage<{ undo: Array<() => void> }>();
 let txLock: Promise<void> = Promise.resolve();
 
+function collectScopedDepositHydrateRowChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeDynamicOverlockCmpValRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+const TENANT_UNIFIED_CHECKIN_COLUMNS = [
+  'depositHeldVnd',
+] as const;
+
 type FieldMeta = {
   name: string;
   type: 'BigInt' | 'Int' | 'String' | 'Boolean' | 'DateTime' | 'Decimal' | 'Json' | 'Bytes' | 'Float' | 'Enum';
@@ -26,15 +53,3 @@ type RelationMeta = {
   localFields: string[] | null;
   foreignFields: string[] | null;
 };
-
-type ModelMeta = {
-  name: string;
-  delegate: string;
-  tableName: string;
-  pk: string[];
-  fields: Record<string, FieldMeta>;
-  relations: Record<string, RelationMeta>;
-};
-
-const MODELS: Record<string, ModelMeta> = schemaMetaRaw as any;
-const DELEGATE_TO_MODEL: Record<string, ModelMeta> = {};
