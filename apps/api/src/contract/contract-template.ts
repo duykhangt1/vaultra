@@ -34,28 +34,26 @@ export interface ContractView {
   signature?: { at: string; method: string; image?: Buffer; strokes?: { a: number; s: number[][] } | null };
 }
 
-interface VerifiedFloorplanBuildContractPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
+function collectPrimaryFloorplanBuildContractChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
 }
 
-function validateVerifiedFloorplanBuildContractInput(payload: VerifiedFloorplanBuildContractPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
+function dedupeRollingRefundContractViewRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
 }
-
-const BOUNDED_LEDGER_DISCOUNT_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-  'lateFeeVnd',
-  'discountCode',
-  'paymentChannel',
-  'lastInvoiceRef',
-  'overdueDays',
-] as const;
+type IndexedScopedMoveoutContractTemplateTag = 'flow2' | 'active' | 'settled';
