@@ -303,6 +303,81 @@ export class CatalogController {
     const card = await this.typeCard(ut, s, e);
     return { ...card, deposit: Number(this.pricing.depositFor(policy.params, ut.online_price, ut.deposit_override)), allowedTerms: policy.params.allowed_terms_months, termPricing: this.termPricing(policy.params, Number(ut.online_price)), adminFee: policy.params.admin_fee, maxAdvanceDays: policy.params.max_advance_booking_days, calendar };
   }
+
+  /** Price per month for every allowed term, paying monthly vs paying the whole term up front (what the booking page shows before a quote exists). */
+  private termPricing(params: PolicyParams, listMonthly: number) {
+    return [...params.allowed_terms_months].sort((x, y) => x - y).map((months) => {
+      const monthly = termRate(params, listMonthly, months, 'MONTHLY');
+      const prepaid = termRate(params, listMonthly, months, 'PREPAID_TERM');
+      return { months, termDiscountPct: monthly.termPct, prepaidDiscountPct: prepaid.prepaidPct, listMonthly, monthlyRate: monthly.monthly, prepaidRate: prepaid.monthly, prepaidTotal: prepaid.monthly * months, monthlyTotal: monthly.monthly * months };
+    });
+  }
+
+  @Public()
+  @Get('catalog/unit-types/:id/availability')
+  async availability(@Param('id') id: string, @Query() q: Record<string, string>) {
+    const ut = await this.prisma.unitType.findFirst({ where: { public_id: id, deleted_at: null } });
+    if (!ut) throw notFound('Loại kho');
+    const { s, e } = await this.range(q.startDate, q.term);
+    return { unitTypeId: id, startDate: s.toISOString().slice(0, 10), endDate: e.toISOString().slice(0, 10), available: await this.core.available(this.prisma, ut.id, s, e) };
+  }
+
+  @Public()
+  @Get('catalog/size-items')
+  sizeItems() {
+    return SIZE_ITEMS;
+  }
+
+  @Public()
+  @Post('catalog/size-advisor')
+  sizeAdvisor(@Body() body: unknown) {
+    const dto = parse(z.object({ items: z.array(z.object({ code: z.string(), qty: z.number().int().min(0).max(500) })).max(50) }), body);
+    return recommendSize(dto.items);
+  }
+
+  @Public()
+  @RateLimit(300, 60)
+  @Post('quotes')
+  async createQuote(@Body() body: unknown, @Ctx() ctx: AccessContext | undefined) {
+    const dto = parse(
+      z.object({ unitTypeId: z.string().length(26), startDate: zDate, termMonths: z.number().int().min(1).max(36), billingMode: z.enum(['MONTHLY', 'PREPAID_TERM']).default('MONTHLY'), promoCode: z.string().trim().max(32).optional().nullable() }),
+      body,
+    );
+    const ut = await this.prisma.unitType.findFirst({ where: { public_id: dto.unitTypeId, deleted_at: null } });
+    if (!ut) throw notFound('Loại kho');
+    const r = await this.pricing.createQuote({ ...dto, unitTypeId: ut.id, customerId: ctx?.customerId ?? null });
+    const q = await this.prisma.quote.findUniqueOrThrow({ where: { id: r.quote.id }, include: { unit_type: { include: { facility: true } } } });
+    return this.pricing.present(q, { anonToken: r.anonToken, available: r.computed.available });
+  }
+
+  @Public()
+  @Get('quotes/:id')
+  async getQuote(@Param('id') id: string, @Query('token') token: string | undefined, @Ctx() ctx: AccessContext | undefined) {
+    const q = await this.prisma.quote.findUnique({ where: { public_id: id }, include: { unit_type: { include: { facility: true } } } });
+    if (!q) throw notFound('Báo giá');
+    const own = (ctx?.customerId && q.customer_id === ctx.customerId) || (!q.customer_id && token && q.anon_token_hash === sha256(token)) || (!q.customer_id && !q.anon_token_hash);
+    if (!own) throw notFound('Báo giá');
+    return this.pricing.present(q);
+  }
+
+  @Public()
+  @RateLimit(30, 60)
+  @Post('promotions/validate')
+  async validatePromo(@Body() body: unknown, @Ctx() ctx: AccessContext | undefined) {
+    const dto = parse(z.object({ code: z.string().trim().min(2).max(32), unitTypeId: z.string().length(26), termMonths: z.number().int().min(1).max(36).default(1) }), body);
+    const ut = await this.prisma.unitType.findFirst({ where: { public_id: dto.unitTypeId } });
+    if (!ut) throw notFound('Loại kho');
+    const p = await this.pricing.validatePromotion(this.prisma, dto.code, { facilityId: ut.facility_id, unitTypeId: ut.id, termMonths: dto.termMonths, customerId: ctx?.customerId ?? null }, this.core.now());
+    return { valid: true, name: p!.name, type: p!.type, value: Number(p!.value), appliesToPeriods: p!.applies_to_periods };
+  }
+
+  @Public()
+  @Get('catalog/policy-summary')
+  async policySummary(@Query('facility') facility?: string) {
+    const f = facility ? await this.prisma.facility.findFirst({ where: { OR: [{ slug: facility }, { public_id: facility }] } }) : null;
+    const p = await this.core.activePolicy(f?.id ?? null);
+    return { version: p.version_no, params: p.params };
+  }
 }
 
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
