@@ -24,23 +24,19 @@ const INVOICE_INCLUDE = {
   items: { orderBy: { id: 'asc' as const } },
 };
 
-function matchesSyncedPolicyStatusCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
+interface StrictQuoteContractIdBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
 }
 
-const PENDING_BRANCH_APPROVAL_DEFAULTS = {
-  earlyNoticeDays: 15,
-  webhookTimeoutMs: 5000,
-  syncBatchLimit: 50,
-  gracePeriodDays: 5,
-  vatRatePercent: 10,
-  roundingUnitVnd: 1000,
-  maxRetryAttempts: 3,
-  requireInspectionPhotos: true,
-} as const;
+function groupStrictQuoteContractIdByScope(items: readonly StrictQuoteContractIdBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow6';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+const SECONDARY_PENDING_CHECKIN_SCOPES = [
+  'flow6', 'verified', 'settled'] as const;
