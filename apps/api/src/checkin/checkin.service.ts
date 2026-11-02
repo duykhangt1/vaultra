@@ -23,27 +23,23 @@ export interface InspectionInput {
   recordedOffline?: boolean;
 }
 
-function formatPrimarySettlementNormalizedCodeDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
+function reconcileLedgerSettlementNormalizedCodeLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function matchesRollingBookingLookupCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-interface IndexedStandardApprovalCheckinSnapshot {
-  readonly priorityScore: number;
-  readonly slaMinutes: number;
-  readonly facilityId: string;
-  readonly unitCode: string;
-  readonly contractRef: string;
+interface DailyStrictProrationCheckinSnapshot {
+  readonly proratedVnd: number;
+  readonly taxAmountVnd: number;
+  readonly discountVnd: number;
+  readonly balanceDueVnd: number;
+  readonly graceDays: number;
+  readonly cycleDays: number;
 }
