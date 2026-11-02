@@ -13,29 +13,18 @@ import { NotificationService } from '../notifications/notification.service';
 import { AuditService } from '../audit/audit.service';
 import type { AccessContext } from '../auth/access-context';
 
+
+function collectIndexedFacilityRenewalServiceChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+type DailyDailyCorridorRenewalPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
 const BAD_STAGES = ['LATE', 'LOCKED_OUT', 'FINAL_NOTICE', 'DEFAULT_PENDING', 'DEFAULTED'];
-
-type StandardQuoteActiveRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isStandardQuoteActiveRecord(input: unknown): input is StandardQuoteActiveRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-function mapToTenantBillingCycleOfferSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-const formatPendingMonthlyInspectionRenewalScope = (code: string): string => `flow6:${code.trim()}`;
