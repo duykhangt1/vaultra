@@ -36,6 +36,23 @@ export const METRIC_DOCS: Record<string, string> = {
   'rev.byFee': 'Phát hành theo loại phí: tiền thuê, các loại phí, giảm giá (số âm)… Cộng tất cả ra đúng ô Phát hành. Tiền cọc không nằm ở đây vì không phải doanh thu.',
   'rev.period': 'Kỳ của các con số tiền trên trang này. Doanh thu ghi nhận, thực thu và phát hành tính trong kỳ đã chọn. Lấp đầy và công nợ luôn là số liệu tại thời điểm xem.',
   'rev.bySize': 'Tiền thuê ghi nhận trong kỳ chia theo cỡ kho. Cộng các cỡ ra đúng phần Tiền thuê ghi nhận trong Doanh thu ghi nhận.',
+
+  // ------------------------------------------------------------ receivables
+  'ar.total': 'Tổng dư nợ phải thu = tổng số tiền còn nợ của các hóa đơn chưa trả hết (đã trừ phần đã trả và phần ghi có), cả chưa đến hạn lẫn quá hạn.',
+  'ar.current': 'Chưa đến hạn: hóa đơn chưa tới ngày đến hạn thanh toán.',
+  'ar.d0_30': 'Quá hạn 1–30 ngày: số ngày tính từ ngày đến hạn của hóa đơn đến hôm nay.',
+  'ar.d31_60': 'Quá hạn 31–60 ngày.',
+  'ar.d61_90': 'Quá hạn 61–90 ngày.',
+  'ar.d90_plus': 'Quá hạn trên 90 ngày: khoản nợ lâu, khó thu.',
+  'ar.overdue': 'Nợ quá hạn = tổng các hóa đơn đã qua ngày đến hạn mà chưa trả hết (tất cả các mức quá hạn cộng lại).',
+  'ar.ratio':
+    'Tỷ lệ nợ quá hạn = nợ quá hạn ÷ tổng dư nợ phải thu đang mở (gồm cả chưa đến hạn). Luôn từ 0% đến 100%. Cơ sở vượt ngưỡng trong Chính sách bị đánh dấu "Công nợ cao".',
+
+  // ------------------------------------------------------------ delinquency
+  'dq.GRACE': 'Ân hạn: vừa quá hạn, chưa tính phí trễ. Nhân viên chỉ nhắc khách.',
+  'dq.LATE': 'Trễ hạn: bắt đầu tính phí trễ hạn, nhân viên gọi nhắc và ghi nhận liên hệ.',
+  'dq.LOCKED_OUT': 'Khóa truy cập: mã ra vào của khách bị khóa, nhân viên ra gắn khóa chặn.',
+  'dq.FINAL_NOTICE': 'Thông báo cuối: đã gửi thông báo cuối cùng cho khách trước khi coi là vi phạm.',
 };
 
 /** Tip text for a metric id; an unknown id yields an empty string so a missing entry is obvious in tests rather than in front of a user. */
