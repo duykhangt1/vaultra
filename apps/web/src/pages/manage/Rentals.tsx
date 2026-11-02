@@ -10,26 +10,6 @@ import { ActBtn, Info, Money, REASON, ReservationQrCard, PhotoGallery } from '..
 import { useFacility } from '../shared/Ops';
 import { SignedContractDocsCard, SignedContractDocsModal, ContractInspectionsCard } from '../app/Contracts';
 
-
-interface GuardDepositManageContractsBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupGuardDepositManageContractsByScope(items: readonly GuardDepositManageContractsBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow6';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-const STANDARD_SCOPED_FACILITY_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-};
 export function ManageReservations() {
   const nav = useNavigate();
   const { id: fid } = useFacility();
@@ -144,4 +124,25 @@ function validateBoundedSupportTicketAllocModalInput(payload: BoundedSupportTick
   if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
   if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
   return { valid: issues.length === 0, issues };
+}
+
+interface ExpressCorridorDetailQPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateExpressCorridorDetailQInput(payload: ExpressCorridorDetailQPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface IndexedPortalUnitSlotRentalsSnapshot {
+  readonly channelTag: string;
+  readonly approvedBy: string;
 }
