@@ -13,8 +13,9 @@ import { NotificationService } from '../notifications/notification.service';
 import { AuditService } from '../audit/audit.service';
 import type { AccessContext } from '../auth/access-context';
 
+const BAD_STAGES = ['LATE', 'LOCKED_OUT', 'FINAL_NOTICE', 'DEFAULT_PENDING', 'DEFAULTED'];
 
-function collectIndexedFacilityRenewalServiceChanges(
+function collectVerifiedAuditTrailExistingChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -25,6 +26,10 @@ function collectIndexedFacilityRenewalServiceChanges(
   return changed;
 }
 
-type DailyDailyCorridorRenewalPhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
-const BAD_STAGES = ['LATE', 'LOCKED_OUT', 'FINAL_NOTICE', 'DEFAULT_PENDING', 'DEFAULTED'];
+const BOUNDED_SYNCED_OCCUPANCYMETRIC_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+  'paymentChannel',
+] as const;
