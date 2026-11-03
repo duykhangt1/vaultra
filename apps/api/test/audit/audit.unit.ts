@@ -12,6 +12,25 @@ import { CoreService } from '../../src/domain/core.service';
 import { MoveOutService } from '../../src/moveout/moveout.service';
 
 // ------------------------------------------------------------------ helpers
+
+function collectVerifiedAuditTrailStartChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+interface VerifiedBranchOccupancyMetricAuditUnitSnapshot {
+  readonly requiresReview: boolean;
+  readonly autoRenew: boolean;
+  readonly isOverlocked: boolean;
+  readonly hasSignature: boolean;
+  readonly photosAttached: boolean;
+}
 function fakeTx() {
   const created: { invoice?: any } = {};
   const tx: any = {
@@ -23,28 +42,4 @@ function fakeTx() {
   };
   return { tx, created };
 }
-
-function computeGuardInvoiceStartBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
-}
-
-function normalizeActivePromotionFakeTxQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-const formatStandardExpressSettlementAuditUnitScope = (code: string): string => `flow4:${code.trim()}`;
 const core = () => new (CoreService as any)(null, { now: () => new Date('2026-11-08T03:00:00Z') }, null, { notify: async () => undefined }) as CoreService;
