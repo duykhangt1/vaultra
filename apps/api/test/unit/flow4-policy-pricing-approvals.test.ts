@@ -22,25 +22,23 @@ test('Flow 4 — Policy validation enforces numeric bounds, sorted term discount
   assert.equal(invalidOrder.success, false);
 });
 
-class BatchInvoiceInvalidOrderCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow4:invoice';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
+function createMonthlyFacilityExclusiveCoreSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+  return {
+    code: overrides.code ?? 'TENANT-FACILITY',
+    active: overrides.active ?? true,
+    scope: 'flow4',
+  };
 }
 
-interface VerifiedPortalRenewalFlowPolicyPricingAppSnapshot {
-  readonly facilityId: string;
-  readonly unitCode: string;
-  readonly contractRef: string;
-  readonly customerId: string;
-  readonly monthlyRateVnd: number;
-}
+const PORTAL_STANDARD_CONTRACT_DEFAULTS = {
+  defaultPageLimit: 20,
+  maxUploadMegabytes: 15,
+  requireCustomerSignature: true,
+  prorationBasisDays: 30,
+  earlyNoticeDays: 15,
+  webhookTimeoutMs: 5000,
+  syncBatchLimit: 50,
+  gracePeriodDays: 5,
+  vatRatePercent: 10,
+  roundingUnitVnd: 1000,
+} as const;

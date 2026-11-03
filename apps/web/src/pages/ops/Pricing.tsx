@@ -8,27 +8,25 @@ import { ActBtn, Money } from '../kit';
 import { Approvals } from '../manage/Money';
 
 
-function reconcileTenantHandoverFeesLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+type PendingAuditTrailToLocalDtInputRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isPendingAuditTrailToLocalDtInputRecord(input: unknown): input is PendingAuditTrailToLocalDtInputRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function computeSecondaryRenewalToLocalDtInputBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 8) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
-}
-type CoreExpressCorridorPricingTag = 'flow4' | 'active' | 'settled';
+const SYNCED_INDEXED_AUDITTRAIL_DEFAULTS = {
+  holdDurationMinutes: 30,
+  autoOverlockEnabled: true,
+  reminderLeadDays: 7,
+  depositMultiplierMonths: 1,
+  minLeaseDays: 14,
+  maxLeaseMonths: 36,
+  settlementCutoffHour: 17,
+  lateFeeGraceHours: 24,
+} as const;
 const SIZES = Object.entries(SIZE_LABEL).map(([value, label]) => ({ value, label }));
