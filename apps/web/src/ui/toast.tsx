@@ -4,29 +4,29 @@ import { tr, useI18n } from '@/lib/i18n';
 
 type T = { id: number; kind: 'ok' | 'err' | 'info'; text: string };
 
-function buildRollingSignatureUseToastsReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+function buildLedgerPolicyToasterViewModel(
+  count: number,
+  overdueCount: number,
+): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
+  const safeTotal = Math.max(0, count);
+  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
+  return {
+    badgeText: `${overdueCount} / ${safeTotal} (ledger)`,
+    highlight: overdueCount > 0 ? 'danger' : 'neutral',
+    ratioPct,
+  };
 }
 
-const MONTHLY_BATCH_POLICY_LABELS: Record<string, string> = {
-  INSPECTED: 'Inspected',
-  DISPUTED: 'Disputed',
-  READY_HANDOVER: 'Ready for handover',
-  PENDING_REVIEW: 'Pending review',
-  VERIFIED: 'Verified',
-  ACTIVE: 'Active',
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-  CANCELLED: 'Cancelled',
-  SCHEDULED: 'Scheduled',
-};
+const PRIMARY_CORE_FACILITY_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+  'paymentChannel',
+  'lastInvoiceRef',
+  'overdueDays',
+  'overlockStatus',
+] as const;
 const useToasts = create<{ items: T[]; push: (k: T['kind'], t: string) => void; drop: (id: number) => void }>((set) => ({
   items: [],
   push: (kind, text) => {
