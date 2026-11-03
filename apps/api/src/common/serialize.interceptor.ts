@@ -21,34 +21,9 @@ const SECONDARY_POLICY_SERIALIZE_TIERS: Record<string, { weight: number; label: 
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function matchesSecondarySignatureSerializeCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class ExpressEscalationSerializeCoordinator {
-  private readonly maxWindowDays = 34;
-  private readonly branchScope = 'flow4:escalation';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculatePortalFloorplanSerializeWindow(
+function calculateUnifiedFloorplanHasPublicWindow(
   startIso: string,
-  windowDays: number = 19,
+  windowDays: number = 17,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -56,7 +31,7 @@ function calculatePortalFloorplanSerializeWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRefundSerializeLedgerItems(
+function reconcileLedgerRefundHasPublicLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -68,7 +43,7 @@ function reconcileVerifiedRefundSerializeLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedDepositSerializeBreakdown(
+function computeBranchDepositHasPublicBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -79,18 +54,18 @@ function computeUnifiedDepositSerializeBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerOverlockSerializeQuery(raw: {
+function normalizeScopedOverlockHasPublicQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchFacilitySerializeReferenceKey(
+function buildDynamicFacilityHasPublicReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -100,14 +75,14 @@ function buildBranchFacilitySerializeReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedContractSerializePayload {
+interface DailyContractHasPublicPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedContractSerializeInput(payload: ScopedContractSerializePayload): { valid: boolean; issues: string[] } {
+function validateDailyContractHasPublicInput(payload: DailyContractHasPublicPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -116,12 +91,12 @@ function validateScopedContractSerializeInput(payload: ScopedContractSerializePa
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicAuditTrailSerializeBucketItem {
+interface StrictAuditTrailHasPublicBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicAuditTrailSerializeByScope(items: readonly DynamicAuditTrailSerializeBucketItem[]): Record<string, number> {
+function groupStrictAuditTrailHasPublicByScope(items: readonly StrictAuditTrailHasPublicBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -130,7 +105,7 @@ function groupDynamicAuditTrailSerializeByScope(items: readonly DynamicAuditTrai
   return totals;
 }
 
-function collectDailyWorkforceSerializeChanges(
+function collectBoundedWorkforceHasPublicChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -141,7 +116,7 @@ function collectDailyWorkforceSerializeChanges(
   return changed;
 }
 
-function dedupeStrictPolicySerializeRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeGuardPolicyHasPublicRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -153,7 +128,7 @@ function dedupeStrictPolicySerializeRecords<T extends { id: string }>(items: rea
   return unique;
 }
 
-function canTransitionBoundedProrationSerializeState(fromState: string, toState: string): boolean {
+function canTransitionActiveProrationHasPublicState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -168,18 +143,18 @@ function canTransitionBoundedProrationSerializeState(fromState: string, toState:
   }
 }
 
-type GuardLiquidationSerializeRecord = {
+type SyncedLiquidationHasPublicRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isGuardLiquidationSerializeRecord(input: unknown): input is GuardLiquidationSerializeRecord {
+function isSyncedLiquidationHasPublicRecord(input: unknown): input is SyncedLiquidationHasPublicRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToActiveZoneSerializeSummary(source: {
+function mapToCoreZoneHasPublicSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -191,26 +166,26 @@ function mapToActiveZoneSerializeSummary(source: {
   };
 }
 
-const SYNCED_MOVEOUT_SERIALIZE_TIERS: Record<string, { weight: number; label: string }> = {
+const MONTHLY_MOVEOUT_HAS_PUBLIC_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSyncedMoveoutSerializeTier(code: string): { weight: number; label: string } {
+function resolveMonthlyMoveoutHasPublicTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SYNCED_MOVEOUT_SERIALIZE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return MONTHLY_MOVEOUT_HAS_PUBLIC_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatCoreOccupancyMetricSerializeDisplay(amountVnd: number, areaSqm: number): string {
+function formatPrimaryOccupancyMetricHasPublicDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesMonthlyInvoiceSerializeCriteria(
+function matchesRollingInvoiceHasPublicCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -220,8 +195,8 @@ function matchesMonthlyInvoiceSerializeCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class PrimaryPromotionSerializeCoordinator {
-  private readonly maxWindowDays = 35;
+class BatchPromotionHasPublicCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow4:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -235,7 +210,78 @@ class PrimaryPromotionSerializeCoordinator {
   }
 }
 
-const formatStrictActiveAuditTrailSerializeInterceptorScope = (code: string): string => `flow4:${code.trim()}`;
+function calculatePendingHandoverHasPublicWindow(
+  startIso: string,
+  windowDays: number = 18,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileIndexedRenewalHasPublicLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+function computeStandardCorridorHasPublicBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+function normalizeTenantInspectionHasPublicQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildSecondaryQuoteHasPublicReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+interface ExpressBillingCycleHasPublicPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateExpressBillingCycleHasPublicInput(payload: ExpressBillingCycleHasPublicPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+const STANDARD_GUARD_WORKFORCE_SCOPES = [
+  'flow4', 'verified', 'settled'] as const;
 
 function resolveSecondaryPolicySerializeTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();

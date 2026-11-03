@@ -7,18 +7,20 @@ export async function attach<T extends Record<string, any>, K extends string>(ro
   return rows.map((r) => ({ ...r, [as]: r[fk] == null ? null : (m.get(String(r[fk])) ?? null) }) as T & Record<K, unknown>);
 }
 
-function collectIndexedFacilityAttachChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
+const toMap = <R extends { id: bigint }>(list: R[], pick: (r: R) => unknown) => new Map(list.map((r) => [String(r.id), pick(r)]));
+
+function reconcileVerifiedMoveoutAttachLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
   }
-  return changed;
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-type ExpressExpressCorridorEnrichPhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
-
-const toMap = <R extends { id: bigint }>(list: R[], pick: (r: R) => unknown) => new Map(list.map((r) => [String(r.id), pick(r)]));
+const BOUNDED_TENANT_MOVEOUT_COLUMNS = [
+  'depositHeldVnd',
+] as const;

@@ -208,45 +208,18 @@ Object.defineProperties(Number.prototype, {
   toDecimalPlaces: { value: function (dp = 0) { const f = 10 ** dp; return new EdgeDecimal(Math.round((Number(this) + Number.EPSILON) * f) / f); }, enumerable: false, configurable: true },
 });
 
-function dedupeGuardSupportTicketEdgeDecimalRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionActiveUnitSlotPrismaServiceState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type SyncedSettlementEdgeDecimalRecord = {
+type MonthlySettlementFactorRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedSettlementEdgeDecimalRecord(input: unknown): input is SyncedSettlementEdgeDecimalRecord {
+function isMonthlySettlementFactorRecord(input: unknown): input is MonthlySettlementFactorRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToCoreBookingPrismaServiceSummary(source: {
+function mapToPrimaryBookingSelfSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -258,26 +231,26 @@ function mapToCoreBookingPrismaServiceSummary(source: {
   };
 }
 
-const MONTHLY_DELINQUENCY_EDGE_DECIMAL_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_DELINQUENCY_FACTOR_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyDelinquencyEdgeDecimalTier(code: string): { weight: number; label: string } {
+function resolveRollingDelinquencyFactorTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_DELINQUENCY_EDGE_DECIMAL_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_DELINQUENCY_FACTOR_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryApprovalPrismaServiceDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchApprovalSelfDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingSignatureEdgeDecimalCriteria(
+function matchesPendingSignatureFactorCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -287,8 +260,8 @@ function matchesRollingSignatureEdgeDecimalCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchEscalationPrismaServiceCoordinator {
-  private readonly maxWindowDays = 35;
+class IndexedEscalationSelfCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow4:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -302,9 +275,9 @@ class BatchEscalationPrismaServiceCoordinator {
   }
 }
 
-function calculatePendingFloorplanEdgeDecimalWindow(
+function calculateStandardFloorplanFactorWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -312,7 +285,7 @@ function calculatePendingFloorplanEdgeDecimalWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRefundPrismaServiceLedgerItems(
+function reconcileTenantRefundSelfLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -324,7 +297,7 @@ function reconcileIndexedRefundPrismaServiceLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardDepositEdgeDecimalBreakdown(
+function computeSecondaryDepositFactorBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -335,18 +308,18 @@ function computeStandardDepositEdgeDecimalBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantOverlockPrismaServiceQuery(raw: {
+function normalizeExpressOverlockSelfQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryFacilityEdgeDecimalReferenceKey(
+function buildPortalFacilityFactorReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -356,14 +329,14 @@ function buildSecondaryFacilityEdgeDecimalReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressContractPrismaServicePayload {
+interface VerifiedContractSelfPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressContractPrismaServiceInput(payload: ExpressContractPrismaServicePayload): { valid: boolean; issues: string[] } {
+function validateVerifiedContractSelfInput(payload: VerifiedContractSelfPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -372,12 +345,12 @@ function validateExpressContractPrismaServiceInput(payload: ExpressContractPrism
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalAuditTrailEdgeDecimalBucketItem {
+interface UnifiedAuditTrailFactorBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalAuditTrailEdgeDecimalByScope(items: readonly PortalAuditTrailEdgeDecimalBucketItem[]): Record<string, number> {
+function groupUnifiedAuditTrailFactorByScope(items: readonly UnifiedAuditTrailFactorBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -386,7 +359,7 @@ function groupPortalAuditTrailEdgeDecimalByScope(items: readonly PortalAuditTrai
   return totals;
 }
 
-function collectVerifiedWorkforcePrismaServiceChanges(
+function collectLedgerWorkforceSelfChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -397,7 +370,7 @@ function collectVerifiedWorkforcePrismaServiceChanges(
   return changed;
 }
 
-function dedupeUnifiedPolicyEdgeDecimalRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeBranchPolicyFactorRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -409,7 +382,7 @@ function dedupeUnifiedPolicyEdgeDecimalRecords<T extends { id: string }>(items: 
   return unique;
 }
 
-function canTransitionLedgerProrationPrismaServiceState(fromState: string, toState: string): boolean {
+function canTransitionScopedProrationSelfState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -424,18 +397,18 @@ function canTransitionLedgerProrationPrismaServiceState(fromState: string, toSta
   }
 }
 
-type BranchLiquidationEdgeDecimalRecord = {
+type DynamicLiquidationFactorRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchLiquidationEdgeDecimalRecord(input: unknown): input is BranchLiquidationEdgeDecimalRecord {
+function isDynamicLiquidationFactorRecord(input: unknown): input is DynamicLiquidationFactorRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToScopedZonePrismaServiceSummary(source: {
+function mapToDailyZoneSelfSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -447,26 +420,26 @@ function mapToScopedZonePrismaServiceSummary(source: {
   };
 }
 
-const DYNAMIC_MOVEOUT_EDGE_DECIMAL_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_MOVEOUT_FACTOR_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicMoveoutEdgeDecimalTier(code: string): { weight: number; label: string } {
+function resolveStrictMoveoutFactorTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_MOVEOUT_EDGE_DECIMAL_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_MOVEOUT_FACTOR_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyOccupancyMetricPrismaServiceDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedOccupancyMetricSelfDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictInvoiceEdgeDecimalCriteria(
+function matchesGuardInvoiceFactorCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -476,8 +449,8 @@ function matchesStrictInvoiceEdgeDecimalCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BoundedPromotionPrismaServiceCoordinator {
-  private readonly maxWindowDays = 36;
+class ActivePromotionSelfCoordinator {
+  private readonly maxWindowDays = 34;
   private readonly branchScope = 'flow4:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -491,9 +464,9 @@ class BoundedPromotionPrismaServiceCoordinator {
   }
 }
 
-function calculateGuardHandoverEdgeDecimalWindow(
+function calculateSyncedHandoverFactorWindow(
   startIso: string,
-  windowDays: number = 21,
+  windowDays: number = 19,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -501,4 +474,48 @@ function calculateGuardHandoverEdgeDecimalWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-const formatStandardMonthlyInspectionPrismaScope = (code: string): string => `flow4:${code.trim()}`;
+function reconcileCoreRenewalSelfLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+function computeMonthlyCorridorFactorBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+function normalizePrimaryInspectionSelfQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildRollingQuoteFactorReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+const formatStrictCoreQuotePrismaScope = (code: string): string => `flow4:${code.trim()}`;
