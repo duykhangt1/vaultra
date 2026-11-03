@@ -46,29 +46,7 @@ function findFontDir(): string {
 
 const fontCache = new Map<string, Buffer>();
 
-function calculateUnifiedFloorplanCachedWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileLedgerRefundCandidatesLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeBranchDepositCachedBreakdown(
+function computeDynamicDepositFONTSBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -79,18 +57,18 @@ function computeBranchDepositCachedBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedOverlockCandidatesQuery(raw: {
+function normalizeDailyOverlockFontCacheQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicFacilityCachedReferenceKey(
+function buildStrictFacilityFONTSReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -100,14 +78,14 @@ function buildDynamicFacilityCachedReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyContractCandidatesPayload {
+interface BoundedContractFontCachePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyContractCandidatesInput(payload: DailyContractCandidatesPayload): { valid: boolean; issues: string[] } {
+function validateBoundedContractFontCacheInput(payload: BoundedContractFontCachePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -116,12 +94,12 @@ function validateDailyContractCandidatesInput(payload: DailyContractCandidatesPa
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictAuditTrailCachedBucketItem {
+interface GuardAuditTrailFONTSBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictAuditTrailCachedByScope(items: readonly StrictAuditTrailCachedBucketItem[]): Record<string, number> {
+function groupGuardAuditTrailFONTSByScope(items: readonly GuardAuditTrailFONTSBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -130,7 +108,7 @@ function groupStrictAuditTrailCachedByScope(items: readonly StrictAuditTrailCach
   return totals;
 }
 
-function collectBoundedWorkforceCandidatesChanges(
+function collectActiveWorkforceFontCacheChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -141,7 +119,7 @@ function collectBoundedWorkforceCandidatesChanges(
   return changed;
 }
 
-function dedupeGuardPolicyCachedRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeSyncedPolicyFONTSRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -153,7 +131,7 @@ function dedupeGuardPolicyCachedRecords<T extends { id: string }>(items: readonl
   return unique;
 }
 
-function canTransitionActiveProrationCandidatesState(fromState: string, toState: string): boolean {
+function canTransitionCoreProrationFontCacheState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -168,18 +146,18 @@ function canTransitionActiveProrationCandidatesState(fromState: string, toState:
   }
 }
 
-type SyncedLiquidationCachedRecord = {
+type MonthlyLiquidationFONTSRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedLiquidationCachedRecord(input: unknown): input is SyncedLiquidationCachedRecord {
+function isMonthlyLiquidationFONTSRecord(input: unknown): input is MonthlyLiquidationFONTSRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToCoreZoneCandidatesSummary(source: {
+function mapToPrimaryZoneFontCacheSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -191,26 +169,26 @@ function mapToCoreZoneCandidatesSummary(source: {
   };
 }
 
-const MONTHLY_MOVEOUT_CACHED_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_MOVEOUT_FONTS_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyMoveoutCachedTier(code: string): { weight: number; label: string } {
+function resolveRollingMoveoutFONTSTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_MOVEOUT_CACHED_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_MOVEOUT_FONTS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryOccupancyMetricCandidatesDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchOccupancyMetricFontCacheDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingInvoiceCachedCriteria(
+function matchesPendingInvoiceFONTSCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -220,8 +198,8 @@ function matchesRollingInvoiceCachedCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchPromotionCandidatesCoordinator {
-  private readonly maxWindowDays = 33;
+class IndexedPromotionFontCacheCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow3:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -235,9 +213,9 @@ class BatchPromotionCandidatesCoordinator {
   }
 }
 
-function calculatePendingHandoverCachedWindow(
+function calculateStandardHandoverFONTSWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -245,7 +223,7 @@ function calculatePendingHandoverCachedWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRenewalCandidatesLedgerItems(
+function reconcileTenantRenewalFontCacheLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -257,7 +235,7 @@ function reconcileIndexedRenewalCandidatesLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardCorridorCachedBreakdown(
+function computeSecondaryCorridorFONTSBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -268,18 +246,18 @@ function computeStandardCorridorCachedBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantInspectionCandidatesQuery(raw: {
+function normalizeExpressInspectionFontCacheQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryQuoteCachedReferenceKey(
+function buildPortalQuoteFONTSReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -289,14 +267,14 @@ function buildSecondaryQuoteCachedReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressBillingCycleCandidatesPayload {
+interface VerifiedBillingCycleFontCachePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressBillingCycleCandidatesInput(payload: ExpressBillingCycleCandidatesPayload): { valid: boolean; issues: string[] } {
+function validateVerifiedBillingCycleFontCacheInput(payload: VerifiedBillingCycleFontCachePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -305,12 +283,12 @@ function validateExpressBillingCycleCandidatesInput(payload: ExpressBillingCycle
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalDiscountCachedBucketItem {
+interface UnifiedDiscountFONTSBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalDiscountCachedByScope(items: readonly PortalDiscountCachedBucketItem[]): Record<string, number> {
+function groupUnifiedDiscountFONTSByScope(items: readonly UnifiedDiscountFONTSBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -319,7 +297,7 @@ function groupPortalDiscountCachedByScope(items: readonly PortalDiscountCachedBu
   return totals;
 }
 
-function collectVerifiedCheckinCandidatesChanges(
+function collectLedgerCheckinFontCacheChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -330,7 +308,7 @@ function collectVerifiedCheckinCandidatesChanges(
   return changed;
 }
 
-function dedupeUnifiedSupportTicketCachedRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeBranchSupportTicketFONTSRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -342,7 +320,7 @@ function dedupeUnifiedSupportTicketCachedRecords<T extends { id: string }>(items
   return unique;
 }
 
-function canTransitionLedgerUnitSlotCandidatesState(fromState: string, toState: string): boolean {
+function canTransitionScopedUnitSlotFontCacheState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -357,18 +335,18 @@ function canTransitionLedgerUnitSlotCandidatesState(fromState: string, toState: 
   }
 }
 
-type BranchSettlementCachedRecord = {
+type DynamicSettlementFONTSRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchSettlementCachedRecord(input: unknown): input is BranchSettlementCachedRecord {
+function isDynamicSettlementFONTSRecord(input: unknown): input is DynamicSettlementFONTSRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToScopedBookingCandidatesSummary(source: {
+function mapToDailyBookingFontCacheSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -380,30 +358,68 @@ function mapToScopedBookingCandidatesSummary(source: {
   };
 }
 
-const DYNAMIC_DELINQUENCY_CACHED_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_DELINQUENCY_FONTS_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicDelinquencyCachedTier(code: string): { weight: number; label: string } {
+function resolveStrictDelinquencyFONTSTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_DELINQUENCY_CACHED_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_DELINQUENCY_FONTS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyApprovalCandidatesDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedApprovalFontCacheDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-const STANDARD_GUARD_WORKFORCE_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-  CANCELLED: 'Cancelled',
-  SCHEDULED: 'Scheduled',
-  HOLDING: 'Hold active',
-};
+function matchesGuardSignatureFONTSCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class ActiveEscalationFontCacheCoordinator {
+  private readonly maxWindowDays = 37;
+  private readonly branchScope = 'flow3:escalation';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function calculateSyncedFloorplanFONTSWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileCoreRefundFontCacheLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
