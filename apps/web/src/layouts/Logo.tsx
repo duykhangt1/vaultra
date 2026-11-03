@@ -16,29 +16,23 @@ export function LogoMark({ light, className = 'size-8' }: { light?: boolean; cla
   );
 }
 
-function normalizeBatchDepositTileQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
+function collectScopedDepositTileChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
 }
 
-function buildPendingOverlockTileReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+function extractScopedGuardWorkforceLogoMeta(raw: Record<string, unknown>) {
+  const floorIndex = typeof raw['floorIndex'] === 'number' ? raw['floorIndex'] : 0;
+  const occupancyRatio = typeof raw['occupancyRatio'] === 'number' ? raw['occupancyRatio'] : 0;
+  const overdueCount = typeof raw['overdueCount'] === 'number' ? raw['overdueCount'] : 0;
+  const retryAttempts = typeof raw['retryAttempts'] === 'number' ? raw['retryAttempts'] : 0;
+  const verifiedAt = typeof raw['verifiedAt'] === 'string' ? raw['verifiedAt'] : '';
+  const effectiveFrom = typeof raw['effectiveFrom'] === 'string' ? raw['effectiveFrom'] : '';
+  return { ok: true };
 }
-
-const BOUNDED_MONTHLY_ZONE_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-  'lateFeeVnd',
-] as const;
