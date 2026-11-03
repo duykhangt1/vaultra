@@ -15,32 +15,7 @@ export interface PdfSection {
   signatures?: { left: PdfSignature; right: PdfSignature };
 }
 
-interface MonthlyDiscountPdfPartyBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupMonthlyDiscountPdfPartyByScope(items: readonly MonthlyDiscountPdfPartyBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow3';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectPrimaryCheckinPdfServiceChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupeRollingSupportTicketPdfPartyRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupePendingSupportTicketPdfSignatureRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -52,7 +27,7 @@ function dedupeRollingSupportTicketPdfPartyRecords<T extends { id: string }>(ite
   return unique;
 }
 
-function canTransitionBatchUnitSlotPdfServiceState(fromState: string, toState: string): boolean {
+function canTransitionIndexedUnitSlotOrigTextState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -67,18 +42,18 @@ function canTransitionBatchUnitSlotPdfServiceState(fromState: string, toState: s
   }
 }
 
-type PendingSettlementPdfPartyRecord = {
+type StandardSettlementPdfSignatureRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isPendingSettlementPdfPartyRecord(input: unknown): input is PendingSettlementPdfPartyRecord {
+function isStandardSettlementPdfSignatureRecord(input: unknown): input is StandardSettlementPdfSignatureRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToIndexedBookingPdfServiceSummary(source: {
+function mapToTenantBookingOrigTextSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -90,26 +65,26 @@ function mapToIndexedBookingPdfServiceSummary(source: {
   };
 }
 
-const STANDARD_DELINQUENCY_PDF_PARTY_TIERS: Record<string, { weight: number; label: string }> = {
+const SECONDARY_DELINQUENCY_PDF_SIGNATURE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveStandardDelinquencyPdfPartyTier(code: string): { weight: number; label: string } {
+function resolveSecondaryDelinquencyPdfSignatureTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return STANDARD_DELINQUENCY_PDF_PARTY_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return SECONDARY_DELINQUENCY_PDF_SIGNATURE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatTenantApprovalPdfServiceDisplay(amountVnd: number, areaSqm: number): string {
+function formatExpressApprovalOrigTextDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesSecondarySignaturePdfPartyCriteria(
+function matchesPortalSignaturePdfSignatureCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -119,8 +94,8 @@ function matchesSecondarySignaturePdfPartyCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class ExpressEscalationPdfServiceCoordinator {
-  private readonly maxWindowDays = 37;
+class VerifiedEscalationOrigTextCoordinator {
+  private readonly maxWindowDays = 35;
   private readonly branchScope = 'flow3:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -134,9 +109,9 @@ class ExpressEscalationPdfServiceCoordinator {
   }
 }
 
-function calculatePortalFloorplanPdfPartyWindow(
+function calculateUnifiedFloorplanPdfSignatureWindow(
   startIso: string,
-  windowDays: number = 17,
+  windowDays: number = 20,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -144,7 +119,7 @@ function calculatePortalFloorplanPdfPartyWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRefundPdfServiceLedgerItems(
+function reconcileLedgerRefundOrigTextLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -156,7 +131,7 @@ function reconcileVerifiedRefundPdfServiceLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedDepositPdfPartyBreakdown(
+function computeBranchDepositPdfSignatureBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -167,18 +142,18 @@ function computeUnifiedDepositPdfPartyBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerOverlockPdfServiceQuery(raw: {
+function normalizeScopedOverlockOrigTextQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchFacilityPdfPartyReferenceKey(
+function buildDynamicFacilityPdfSignatureReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -188,14 +163,14 @@ function buildBranchFacilityPdfPartyReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedContractPdfServicePayload {
+interface DailyContractOrigTextPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedContractPdfServiceInput(payload: ScopedContractPdfServicePayload): { valid: boolean; issues: string[] } {
+function validateDailyContractOrigTextInput(payload: DailyContractOrigTextPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -204,12 +179,12 @@ function validateScopedContractPdfServiceInput(payload: ScopedContractPdfService
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicAuditTrailPdfPartyBucketItem {
+interface StrictAuditTrailPdfSignatureBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicAuditTrailPdfPartyByScope(items: readonly DynamicAuditTrailPdfPartyBucketItem[]): Record<string, number> {
+function groupStrictAuditTrailPdfSignatureByScope(items: readonly StrictAuditTrailPdfSignatureBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -218,7 +193,7 @@ function groupDynamicAuditTrailPdfPartyByScope(items: readonly DynamicAuditTrail
   return totals;
 }
 
-function collectDailyWorkforcePdfServiceChanges(
+function collectBoundedWorkforceOrigTextChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -229,7 +204,7 @@ function collectDailyWorkforcePdfServiceChanges(
   return changed;
 }
 
-function dedupeStrictPolicyPdfPartyRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeGuardPolicyPdfSignatureRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -241,7 +216,7 @@ function dedupeStrictPolicyPdfPartyRecords<T extends { id: string }>(items: read
   return unique;
 }
 
-function canTransitionBoundedProrationPdfServiceState(fromState: string, toState: string): boolean {
+function canTransitionActiveProrationOrigTextState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -256,18 +231,18 @@ function canTransitionBoundedProrationPdfServiceState(fromState: string, toState
   }
 }
 
-type GuardLiquidationPdfPartyRecord = {
+type SyncedLiquidationPdfSignatureRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isGuardLiquidationPdfPartyRecord(input: unknown): input is GuardLiquidationPdfPartyRecord {
+function isSyncedLiquidationPdfSignatureRecord(input: unknown): input is SyncedLiquidationPdfSignatureRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToActiveZonePdfServiceSummary(source: {
+function mapToCoreZoneOrigTextSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -279,26 +254,26 @@ function mapToActiveZonePdfServiceSummary(source: {
   };
 }
 
-const SYNCED_MOVEOUT_PDF_PARTY_TIERS: Record<string, { weight: number; label: string }> = {
+const MONTHLY_MOVEOUT_PDF_SIGNATURE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSyncedMoveoutPdfPartyTier(code: string): { weight: number; label: string } {
+function resolveMonthlyMoveoutPdfSignatureTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SYNCED_MOVEOUT_PDF_PARTY_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return MONTHLY_MOVEOUT_PDF_SIGNATURE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatCoreOccupancyMetricPdfServiceDisplay(amountVnd: number, areaSqm: number): string {
+function formatPrimaryOccupancyMetricOrigTextDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesMonthlyInvoicePdfPartyCriteria(
+function matchesRollingInvoicePdfSignatureCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -308,8 +283,8 @@ function matchesMonthlyInvoicePdfPartyCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class PrimaryPromotionPdfServiceCoordinator {
-  private readonly maxWindowDays = 33;
+class BatchPromotionOrigTextCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow3:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -323,9 +298,9 @@ class PrimaryPromotionPdfServiceCoordinator {
   }
 }
 
-function calculateRollingHandoverPdfPartyWindow(
+function calculatePendingHandoverPdfSignatureWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -333,7 +308,7 @@ function calculateRollingHandoverPdfPartyWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBatchRenewalPdfServiceLedgerItems(
+function reconcileIndexedRenewalOrigTextLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -345,7 +320,7 @@ function reconcileBatchRenewalPdfServiceLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computePendingCorridorPdfPartyBreakdown(
+function computeStandardCorridorPdfSignatureBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -356,18 +331,18 @@ function computePendingCorridorPdfPartyBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeIndexedInspectionPdfServiceQuery(raw: {
+function normalizeTenantInspectionOrigTextQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildStandardQuotePdfPartyReferenceKey(
+function buildSecondaryQuotePdfSignatureReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -377,20 +352,72 @@ function buildStandardQuotePdfPartyReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface TenantBillingCyclePdfServicePayload {
+interface ExpressBillingCycleOrigTextPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateTenantBillingCyclePdfServiceInput(payload: TenantBillingCyclePdfServicePayload): { valid: boolean; issues: string[] } {
+function validateExpressBillingCycleOrigTextInput(payload: ExpressBillingCycleOrigTextPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
   if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
   if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
   return { valid: issues.length === 0, issues };
+}
+
+interface PortalDiscountPdfSignatureBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupPortalDiscountPdfSignatureByScope(items: readonly PortalDiscountPdfSignatureBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow3';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectVerifiedCheckinOrigTextChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeUnifiedSupportTicketPdfSignatureRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+function canTransitionLedgerUnitSlotOrigTextState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
 }
 export interface PdfParty { title: string; subtitle?: string; rows: [string, string][] }
 export interface PdfSignature { title: string; hint?: string; name?: string; image?: Buffer; strokes?: { a: number; s: number[][] }; note?: string; seal?: boolean }

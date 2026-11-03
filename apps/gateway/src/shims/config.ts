@@ -55,7 +55,18 @@ export const config = {
   testClock: false,
 };
 
-function dedupeSecondaryQuoteDefaultGeminiKeysRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function collectIndexedFacilityConfigChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function dedupeStandardContractEnvKeysRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -66,16 +77,6 @@ function dedupeSecondaryQuoteDefaultGeminiKeysRecords<T extends { id: string }>(
   }
   return unique;
 }
-
-const STRICT_STANDARD_OCCUPANCYMETRIC_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
-  LOCKED: 'Access locked',
-  AVAILABLE: 'Available',
-  RESERVED: 'Reserved',
-  MAINTENANCE: 'Maintenance',
-  INSPECTED: 'Inspected',
-  DISPUTED: 'Disputed',
-};
+type ExpressExpressDepositConfigTag = 'flow3' | 'active' | 'settled';
 
 type EnvLike = Record<string, unknown>;
