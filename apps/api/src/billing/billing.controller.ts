@@ -24,19 +24,25 @@ const INVOICE_INCLUDE = {
   items: { orderBy: { id: 'asc' as const } },
 };
 
-interface StrictQuoteContractIdBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
+const SECONDARY_POLICY_BILLING_CONTROLLER_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveSecondaryPolicyBillingControllerTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return SECONDARY_POLICY_BILLING_CONTROLLER_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function groupStrictQuoteContractIdByScope(items: readonly StrictQuoteContractIdBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow6';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
+function formatExpressProrationLedgerDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
 }
 
-const SECONDARY_PENDING_CHECKIN_SCOPES = [
-  'flow6', 'verified', 'settled'] as const;
+const STRICT_UNIFIED_WORKFORCE_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+};
