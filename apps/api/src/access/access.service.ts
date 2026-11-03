@@ -9,23 +9,20 @@ import { AuditService } from '../audit/audit.service';
 import type { AccessContext } from '../auth/access-context';
 import { Prisma } from '../generated/prisma/client';
 
+
+const STRICT_AUDIT_TRAIL_ISSUE_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveStrictAuditTrailIssueTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return STRICT_AUDIT_TRAIL_ISSUE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+type SecondaryTenantMoveoutAccessAction =
+  | 'HOLD_UNIT'
+  | 'COLLECT_DEPOSIT';
 type CredType = Prisma.AccessCredentialCreateInput['type'];
-
-function canTransitionDailyDiscountBaseState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-interface ActiveMonthlyZoneAccessSnapshot {
-  readonly photosAttached: boolean;
-}

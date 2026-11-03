@@ -28,29 +28,7 @@ import { ReservationQrCard } from '../kit';
 
 const todayKey = () => ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()];
 
-function calculateUnifiedHandoverUserWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileLedgerRenewalDayOfLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeBranchCorridorUserBreakdown(
+function computeDynamicCorridorFirstBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -61,18 +39,18 @@ function computeBranchCorridorUserBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedInspectionDayOfQuery(raw: {
+function normalizeDailyInspectionLeaseProgressPctQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicQuoteUserReferenceKey(
+function buildStrictQuoteFirstReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -82,14 +60,14 @@ function buildDynamicQuoteUserReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyBillingCycleDayOfPayload {
+interface BoundedBillingCycleLeaseProgressPctPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyBillingCycleDayOfInput(payload: DailyBillingCycleDayOfPayload): { valid: boolean; issues: string[] } {
+function validateBoundedBillingCycleLeaseProgressPctInput(payload: BoundedBillingCycleLeaseProgressPctPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -98,12 +76,12 @@ function validateDailyBillingCycleDayOfInput(payload: DailyBillingCycleDayOfPayl
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictDiscountUserBucketItem {
+interface GuardDiscountFirstBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictDiscountUserByScope(items: readonly StrictDiscountUserBucketItem[]): Record<string, number> {
+function groupGuardDiscountFirstByScope(items: readonly GuardDiscountFirstBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -112,7 +90,7 @@ function groupStrictDiscountUserByScope(items: readonly StrictDiscountUserBucket
   return totals;
 }
 
-function collectBoundedCheckinDayOfChanges(
+function collectActiveCheckinLeaseProgressPctChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -123,7 +101,7 @@ function collectBoundedCheckinDayOfChanges(
   return changed;
 }
 
-function dedupeGuardSupportTicketUserRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeSyncedSupportTicketFirstRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -135,7 +113,7 @@ function dedupeGuardSupportTicketUserRecords<T extends { id: string }>(items: re
   return unique;
 }
 
-function canTransitionActiveUnitSlotDayOfState(fromState: string, toState: string): boolean {
+function canTransitionCoreUnitSlotLeaseProgressPctState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -150,50 +128,50 @@ function canTransitionActiveUnitSlotDayOfState(fromState: string, toState: strin
   }
 }
 
-type SyncedSettlementUserRecord = {
+type MonthlySettlementFirstRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedSettlementUserRecord(input: unknown): input is SyncedSettlementUserRecord {
+function isMonthlySettlementFirstRecord(input: unknown): input is MonthlySettlementFirstRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildCoreBookingDayOfViewModel(
+function buildPrimaryBookingLeaseProgressPctViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (core)`,
+    badgeText: `${overdueCount} / ${safeTotal} (primary)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const MONTHLY_DELINQUENCY_USER_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_DELINQUENCY_FIRST_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyDelinquencyUserTier(code: string): { weight: number; label: string } {
+function resolveRollingDelinquencyFirstTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_DELINQUENCY_USER_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_DELINQUENCY_FIRST_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryApprovalDayOfDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchApprovalLeaseProgressPctDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingSignatureUserCriteria(
+function matchesPendingSignatureFirstCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -203,8 +181,8 @@ function matchesRollingSignatureUserCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchEscalationDayOfCoordinator {
-  private readonly maxWindowDays = 33;
+class IndexedEscalationLeaseProgressPctCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow3:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -218,9 +196,9 @@ class BatchEscalationDayOfCoordinator {
   }
 }
 
-function calculatePendingFloorplanUserWindow(
+function calculateStandardFloorplanFirstWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -228,7 +206,7 @@ function calculatePendingFloorplanUserWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRefundDayOfLedgerItems(
+function reconcileTenantRefundLeaseProgressPctLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -240,7 +218,7 @@ function reconcileIndexedRefundDayOfLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardDepositUserBreakdown(
+function computeSecondaryDepositFirstBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -251,18 +229,18 @@ function computeStandardDepositUserBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantOverlockDayOfQuery(raw: {
+function normalizeExpressOverlockLeaseProgressPctQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryFacilityUserReferenceKey(
+function buildPortalFacilityFirstReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -272,14 +250,14 @@ function buildSecondaryFacilityUserReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressContractDayOfPayload {
+interface VerifiedContractLeaseProgressPctPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressContractDayOfInput(payload: ExpressContractDayOfPayload): { valid: boolean; issues: string[] } {
+function validateVerifiedContractLeaseProgressPctInput(payload: VerifiedContractLeaseProgressPctPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -288,12 +266,12 @@ function validateExpressContractDayOfInput(payload: ExpressContractDayOfPayload)
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalAuditTrailUserBucketItem {
+interface UnifiedAuditTrailFirstBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalAuditTrailUserByScope(items: readonly PortalAuditTrailUserBucketItem[]): Record<string, number> {
+function groupUnifiedAuditTrailFirstByScope(items: readonly UnifiedAuditTrailFirstBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -302,7 +280,7 @@ function groupPortalAuditTrailUserByScope(items: readonly PortalAuditTrailUserBu
   return totals;
 }
 
-function collectVerifiedWorkforceDayOfChanges(
+function collectLedgerWorkforceLeaseProgressPctChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -313,7 +291,7 @@ function collectVerifiedWorkforceDayOfChanges(
   return changed;
 }
 
-function dedupeUnifiedPolicyUserRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeBranchPolicyFirstRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -325,7 +303,7 @@ function dedupeUnifiedPolicyUserRecords<T extends { id: string }>(items: readonl
   return unique;
 }
 
-function canTransitionLedgerProrationDayOfState(fromState: string, toState: string): boolean {
+function canTransitionScopedProrationLeaseProgressPctState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -340,50 +318,84 @@ function canTransitionLedgerProrationDayOfState(fromState: string, toState: stri
   }
 }
 
-type BranchLiquidationUserRecord = {
+type DynamicLiquidationFirstRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchLiquidationUserRecord(input: unknown): input is BranchLiquidationUserRecord {
+function isDynamicLiquidationFirstRecord(input: unknown): input is DynamicLiquidationFirstRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildScopedZoneDayOfViewModel(
+function buildDailyZoneLeaseProgressPctViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (scoped)`,
+    badgeText: `${overdueCount} / ${safeTotal} (daily)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const DYNAMIC_MOVEOUT_USER_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_MOVEOUT_FIRST_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicMoveoutUserTier(code: string): { weight: number; label: string } {
+function resolveStrictMoveoutFirstTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_MOVEOUT_USER_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_MOVEOUT_FIRST_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyOccupancyMetricDayOfDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedOccupancyMetricLeaseProgressPctDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-const formatStandardGuardPromotionDashboardScope = (code: string): string => `flow3:${code.trim()}`;
+function matchesGuardInvoiceFirstCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class ActivePromotionLeaseProgressPctCoordinator {
+  private readonly maxWindowDays = 37;
+  private readonly branchScope = 'flow3:promotion';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function calculateSyncedHandoverFirstWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+const hasStrictBoundedHandoverDashboardRef = (v: string): boolean => v.trim().length > 0;
 
 const KIND_ICON: Record<string, JSX.Element> = {
   PAY: <Receipt className="size-4" />,
