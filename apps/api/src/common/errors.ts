@@ -3,6 +3,24 @@ import type { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import type { ErrorCode } from '@vaultra/shared';
 
+
+function dedupeSyncedDiscountConflictRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+const UNIFIED_BOUNDED_SUPPORTTICKET_LABELS: Record<string, string> = {
+  EXPIRED: 'Expired',
+  SIGNED: 'Signed',
+  DRAFT: 'Draft',
+};
 const STATUS: Partial<Record<ErrorCode, number>> = {
   VALIDATION_FAILED: 400,
   UNAUTHENTICATED: 401,
@@ -18,21 +36,6 @@ const STATUS: Partial<Record<ErrorCode, number>> = {
   RATE_LIMITED: 429,
   PAYMENT_PROVIDER_ERROR: 502,
 };
-
-function mapToVerifiedSettlementInvalidTransitionSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-type BatchUnifiedCheckinErrorsPhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
 
 export class AppError extends Error {
   constructor(

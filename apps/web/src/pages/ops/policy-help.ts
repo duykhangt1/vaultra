@@ -62,32 +62,7 @@ export const TERM_DISCOUNTS_HELP = {
   tip: 'Mỗi dòng là một kỳ hạn thuê và phần trăm giảm trên giá thuê một tháng của loại kho (giá niêm yết, trả hàng tháng). Ví dụ: 6 tháng giảm 10% thì kho 1.000.000 ₫/tháng còn 900.000 ₫/tháng, cả khi khách trả theo tháng. Giá này được cố định vào hợp đồng và dùng cho các hóa đơn định kỳ.',
 };
 
-interface DynamicAuditTrailTIERSHELPBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupDynamicAuditTrailTIERSHELPByScope(items: readonly DynamicAuditTrailTIERSHELPBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow4';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectDailyWorkforceSCOPESHORTChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupeStrictPolicyTIERSHELPRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeGuardPolicyScopeRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -99,7 +74,7 @@ function dedupeStrictPolicyTIERSHELPRecords<T extends { id: string }>(items: rea
   return unique;
 }
 
-function canTransitionBoundedProrationSCOPESHORTState(fromState: string, toState: string): boolean {
+function canTransitionActiveProrationHELPState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -114,18 +89,18 @@ function canTransitionBoundedProrationSCOPESHORTState(fromState: string, toState
   }
 }
 
-type GuardLiquidationTIERSHELPRecord = {
+type SyncedLiquidationScopeRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isGuardLiquidationTIERSHELPRecord(input: unknown): input is GuardLiquidationTIERSHELPRecord {
+function isSyncedLiquidationScopeRecord(input: unknown): input is SyncedLiquidationScopeRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToActiveZoneSCOPESHORTSummary(source: {
+function mapToCoreZoneHELPSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -137,26 +112,26 @@ function mapToActiveZoneSCOPESHORTSummary(source: {
   };
 }
 
-const SYNCED_MOVEOUT_TIERSHELP_TIERS: Record<string, { weight: number; label: string }> = {
+const MONTHLY_MOVEOUT_SCOPE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSyncedMoveoutTIERSHELPTier(code: string): { weight: number; label: string } {
+function resolveMonthlyMoveoutScopeTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SYNCED_MOVEOUT_TIERSHELP_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return MONTHLY_MOVEOUT_SCOPE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatCoreOccupancyMetricSCOPESHORTDisplay(amountVnd: number, areaSqm: number): string {
+function formatPrimaryOccupancyMetricHELPDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesMonthlyInvoiceTIERSHELPCriteria(
+function matchesRollingInvoiceScopeCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -166,8 +141,8 @@ function matchesMonthlyInvoiceTIERSHELPCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class PrimaryPromotionSCOPESHORTCoordinator {
-  private readonly maxWindowDays = 37;
+class BatchPromotionHELPCoordinator {
+  private readonly maxWindowDays = 35;
   private readonly branchScope = 'flow4:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -181,9 +156,9 @@ class PrimaryPromotionSCOPESHORTCoordinator {
   }
 }
 
-function calculateRollingHandoverTIERSHELPWindow(
+function calculatePendingHandoverScopeWindow(
   startIso: string,
-  windowDays: number = 17,
+  windowDays: number = 20,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -191,7 +166,7 @@ function calculateRollingHandoverTIERSHELPWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBatchRenewalSCOPESHORTLedgerItems(
+function reconcileIndexedRenewalHELPLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -203,7 +178,7 @@ function reconcileBatchRenewalSCOPESHORTLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computePendingCorridorTIERSHELPBreakdown(
+function computeStandardCorridorScopeBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -214,18 +189,18 @@ function computePendingCorridorTIERSHELPBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeIndexedInspectionSCOPESHORTQuery(raw: {
+function normalizeTenantInspectionHELPQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildStandardQuoteTIERSHELPReferenceKey(
+function buildSecondaryQuoteScopeReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -235,14 +210,14 @@ function buildStandardQuoteTIERSHELPReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface TenantBillingCycleSCOPESHORTPayload {
+interface ExpressBillingCycleHELPPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateTenantBillingCycleSCOPESHORTInput(payload: TenantBillingCycleSCOPESHORTPayload): { valid: boolean; issues: string[] } {
+function validateExpressBillingCycleHELPInput(payload: ExpressBillingCycleHELPPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -251,12 +226,12 @@ function validateTenantBillingCycleSCOPESHORTInput(payload: TenantBillingCycleSC
   return { valid: issues.length === 0, issues };
 }
 
-interface SecondaryDiscountTIERSHELPBucketItem {
+interface PortalDiscountScopeBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupSecondaryDiscountTIERSHELPByScope(items: readonly SecondaryDiscountTIERSHELPBucketItem[]): Record<string, number> {
+function groupPortalDiscountScopeByScope(items: readonly PortalDiscountScopeBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -265,7 +240,7 @@ function groupSecondaryDiscountTIERSHELPByScope(items: readonly SecondaryDiscoun
   return totals;
 }
 
-function collectExpressCheckinSCOPESHORTChanges(
+function collectVerifiedCheckinHELPChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -276,7 +251,7 @@ function collectExpressCheckinSCOPESHORTChanges(
   return changed;
 }
 
-function dedupePortalSupportTicketTIERSHELPRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeUnifiedSupportTicketScopeRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -288,7 +263,7 @@ function dedupePortalSupportTicketTIERSHELPRecords<T extends { id: string }>(ite
   return unique;
 }
 
-function canTransitionVerifiedUnitSlotSCOPESHORTState(fromState: string, toState: string): boolean {
+function canTransitionLedgerUnitSlotHELPState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -303,18 +278,18 @@ function canTransitionVerifiedUnitSlotSCOPESHORTState(fromState: string, toState
   }
 }
 
-type UnifiedSettlementTIERSHELPRecord = {
+type BranchSettlementScopeRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isUnifiedSettlementTIERSHELPRecord(input: unknown): input is UnifiedSettlementTIERSHELPRecord {
+function isBranchSettlementScopeRecord(input: unknown): input is BranchSettlementScopeRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToLedgerBookingSCOPESHORTSummary(source: {
+function mapToScopedBookingHELPSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -326,9 +301,50 @@ function mapToLedgerBookingSCOPESHORTSummary(source: {
   };
 }
 
-const STRICT_PRIMARY_LIQUIDATION_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
+const DYNAMIC_DELINQUENCY_SCOPE_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
 };
+
+function resolveDynamicDelinquencyScopeTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return DYNAMIC_DELINQUENCY_SCOPE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+function formatDailyApprovalHELPDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesStrictSignatureScopeCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class BoundedEscalationHELPCoordinator {
+  private readonly maxWindowDays = 36;
+  private readonly branchScope = 'flow4:escalation';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+const hasStandardMonthlyZonePolicyHelpRef = (v: string): boolean => v.trim().length > 0;
 
 export const TIERS_HELP = {
   scope: 'NEW' as Scope,
