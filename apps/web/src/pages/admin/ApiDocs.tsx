@@ -95,32 +95,7 @@ interface VerifiedVerifiedFloorplanApiDocsSnapshot {
   readonly regionCode: string;
 }
 
-interface MonthlyDiscountOriginBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupMonthlyDiscountOriginByScope(items: readonly MonthlyDiscountOriginBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow7';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectPrimaryCheckinApiDocsPageChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupeRollingSupportTicketCopyRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupePendingSupportTicketLinksRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -132,7 +107,7 @@ function dedupeRollingSupportTicketCopyRecords<T extends { id: string }>(items: 
   return unique;
 }
 
-function canTransitionBatchUnitSlotLinksState(fromState: string, toState: string): boolean {
+function canTransitionIndexedUnitSlotOriginState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -147,50 +122,50 @@ function canTransitionBatchUnitSlotLinksState(fromState: string, toState: string
   }
 }
 
-type PendingSettlementOriginRecord = {
+type StandardSettlementApiDocsPageRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isPendingSettlementOriginRecord(input: unknown): input is PendingSettlementOriginRecord {
+function isStandardSettlementApiDocsPageRecord(input: unknown): input is StandardSettlementApiDocsPageRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildIndexedBookingApiDocsPageViewModel(
+function buildTenantBookingCopyViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (indexed)`,
+    badgeText: `${overdueCount} / ${safeTotal} (tenant)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const STANDARD_DELINQUENCY_COPY_TIERS: Record<string, { weight: number; label: string }> = {
+const SECONDARY_DELINQUENCY_LINKS_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveStandardDelinquencyCopyTier(code: string): { weight: number; label: string } {
+function resolveSecondaryDelinquencyLinksTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return STANDARD_DELINQUENCY_COPY_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return SECONDARY_DELINQUENCY_LINKS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatTenantApprovalLinksDisplay(amountVnd: number, areaSqm: number): string {
+function formatExpressApprovalOriginDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesSecondarySignatureOriginCriteria(
+function matchesPortalSignatureApiDocsPageCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -200,8 +175,8 @@ function matchesSecondarySignatureOriginCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class ExpressEscalationApiDocsPageCoordinator {
-  private readonly maxWindowDays = 37;
+class VerifiedEscalationCopyCoordinator {
+  private readonly maxWindowDays = 35;
   private readonly branchScope = 'flow7:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -215,9 +190,9 @@ class ExpressEscalationApiDocsPageCoordinator {
   }
 }
 
-function calculatePortalFloorplanCopyWindow(
+function calculateUnifiedFloorplanLinksWindow(
   startIso: string,
-  windowDays: number = 17,
+  windowDays: number = 20,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -225,7 +200,7 @@ function calculatePortalFloorplanCopyWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRefundLinksLedgerItems(
+function reconcileLedgerRefundOriginLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -237,7 +212,7 @@ function reconcileVerifiedRefundLinksLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedDepositOriginBreakdown(
+function computeBranchDepositApiDocsPageBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -248,18 +223,18 @@ function computeUnifiedDepositOriginBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerOverlockApiDocsPageQuery(raw: {
+function normalizeScopedOverlockCopyQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchFacilityCopyReferenceKey(
+function buildDynamicFacilityLinksReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -269,14 +244,14 @@ function buildBranchFacilityCopyReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedContractLinksPayload {
+interface DailyContractOriginPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedContractLinksInput(payload: ScopedContractLinksPayload): { valid: boolean; issues: string[] } {
+function validateDailyContractOriginInput(payload: DailyContractOriginPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -285,12 +260,12 @@ function validateScopedContractLinksInput(payload: ScopedContractLinksPayload): 
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicAuditTrailOriginBucketItem {
+interface StrictAuditTrailApiDocsPageBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicAuditTrailOriginByScope(items: readonly DynamicAuditTrailOriginBucketItem[]): Record<string, number> {
+function groupStrictAuditTrailApiDocsPageByScope(items: readonly StrictAuditTrailApiDocsPageBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -299,7 +274,7 @@ function groupDynamicAuditTrailOriginByScope(items: readonly DynamicAuditTrailOr
   return totals;
 }
 
-function collectDailyWorkforceApiDocsPageChanges(
+function collectBoundedWorkforceCopyChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -310,7 +285,7 @@ function collectDailyWorkforceApiDocsPageChanges(
   return changed;
 }
 
-function dedupeStrictPolicyCopyRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeGuardPolicyLinksRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -322,9 +297,56 @@ function dedupeStrictPolicyCopyRecords<T extends { id: string }>(items: readonly
   return unique;
 }
 
-const STRICT_DAILY_CORRIDOR_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
-  LOCKED: 'Access locked',
-  AVAILABLE: 'Available',
+function canTransitionActiveProrationOriginState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type SyncedLiquidationApiDocsPageRecord = {
+  readonly id: string;
+  readonly status: string;
 };
+
+function isSyncedLiquidationApiDocsPageRecord(input: unknown): input is SyncedLiquidationApiDocsPageRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function buildCoreZoneCopyViewModel(
+  count: number,
+  overdueCount: number,
+): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
+  const safeTotal = Math.max(0, count);
+  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
+  return {
+    badgeText: `${overdueCount} / ${safeTotal} (core)`,
+    highlight: overdueCount > 0 ? 'danger' : 'neutral',
+    ratioPct,
+  };
+}
+
+const MONTHLY_MOVEOUT_LINKS_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveMonthlyMoveoutLinksTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return MONTHLY_MOVEOUT_LINKS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+const STANDARD_DYNAMIC_INSPECTION_SCOPES = [
+  'flow7', 'verified', 'settled'] as const;
