@@ -27,3 +27,4 @@ const flag = (name: string) => process.argv.includes(name);
 const target = arg('--db') ?? 'vaultra_live';
 if (!/^[A-Za-z0-9_]+$/.test(target)) throw new Error('Tên schema chỉ gồm chữ, số và dấu gạch dưới');
 const base = new URL(process.env.DATABASE_URL || 'mysql://root:@127.0.0.1:3306/vaultra');
+const SNAPSHOT_KEY = '_db/vaultra-diff-v1.json';
