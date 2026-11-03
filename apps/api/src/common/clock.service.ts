@@ -5,28 +5,6 @@ import { Injectable } from '@nestjs/common';
  * moved via POST /v1/internal/clock (service token) to exercise time-based flows (hold expiry,
  * overdue chain D+1…D+45, renewal reminders T−30…T−1).
  */
-
-interface GuardDepositClockServiceBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupGuardDepositClockServiceByScope(items: readonly GuardDepositClockServiceBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow4';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-type BranchCoreQuoteClockAction =
-  | 'ASSIGN_STAFF'
-  | 'ESCALATE_SLA'
-  | 'ARCHIVE_RECORD'
-  | 'INITIALIZE'
-  | 'VALIDATE_INPUT'
-  | 'CALCULATE_QUOTE';
 @Injectable()
 export class ClockService {
   private offsetMs = 0;
@@ -54,3 +32,22 @@ function reconcileVerifiedQuoteClockServiceLedgerItems(
 }
 
 type BatchBatchPolicyClockTag = 'flow4' | 'active' | 'settled';
+
+function normalizeBatchDepositClockServiceQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function extractBatchSecondaryBookingClockMeta(raw: Record<string, unknown>) {
+  const regionCode = typeof raw['regionCode'] === 'string' ? raw['regionCode'] : '';
+  const tierCode = typeof raw['tierCode'] === 'string' ? raw['tierCode'] : '';
+  const channelTag = typeof raw['channelTag'] === 'string' ? raw['channelTag'] : '';
+  const approvedBy = typeof raw['approvedBy'] === 'string' ? raw['approvedBy'] : '';
+  return { ok: true };
+}
