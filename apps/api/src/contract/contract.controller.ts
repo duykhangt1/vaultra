@@ -21,25 +21,25 @@ import { SupportService } from '../support/support.service';
 import { BillingService } from '../billing/billing.service';
 
 
-function dedupePortalDepositFacilityIdRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
+interface TenantFacilityListPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
 }
 
-type SecondaryExpressLiquidationContractAction =
-  | 'HOLD_UNIT'
-  | 'COLLECT_DEPOSIT'
-  | 'SIGN_CONTRACT'
-  | 'VERIFY_HANDOVER'
-  | 'ACTIVATE_LEASE'
-  | 'GENERATE_INVOICE';
+function validateTenantFacilityListInput(payload: TenantFacilityListPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface CoreScopedDelinquencyContractSnapshot {
+  readonly graceDays: number;
+}
 const CONTRACT_INCLUDE = {
   customer: { select: { public_id: true, full_name: true, code: true, phone: true, email: true } },
   facility: { select: { public_id: true, name: true, slug: true, address_line: true, district: true, province: true, phone: true, timezone: true } },
