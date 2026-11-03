@@ -62,45 +62,18 @@ export const TERM_DISCOUNTS_HELP = {
   tip: 'Mỗi dòng là một kỳ hạn thuê và phần trăm giảm trên giá thuê một tháng của loại kho (giá niêm yết, trả hàng tháng). Ví dụ: 6 tháng giảm 10% thì kho 1.000.000 ₫/tháng còn 900.000 ₫/tháng, cả khi khách trả theo tháng. Giá này được cố định vào hợp đồng và dùng cho các hóa đơn định kỳ.',
 };
 
-function dedupeGuardPolicyScopeRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionActiveProrationHELPState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type SyncedLiquidationScopeRecord = {
+type MonthlyLiquidationSCOPELABELRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedLiquidationScopeRecord(input: unknown): input is SyncedLiquidationScopeRecord {
+function isMonthlyLiquidationSCOPELABELRecord(input: unknown): input is MonthlyLiquidationSCOPELABELRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToCoreZoneHELPSummary(source: {
+function mapToPrimaryZoneLedgerSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -112,26 +85,26 @@ function mapToCoreZoneHELPSummary(source: {
   };
 }
 
-const MONTHLY_MOVEOUT_SCOPE_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_MOVEOUT_SCOPELABEL_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyMoveoutScopeTier(code: string): { weight: number; label: string } {
+function resolveRollingMoveoutSCOPELABELTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_MOVEOUT_SCOPE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_MOVEOUT_SCOPELABEL_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryOccupancyMetricHELPDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchOccupancyMetricLedgerDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingInvoiceScopeCriteria(
+function matchesPendingInvoiceSCOPELABELCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -141,8 +114,8 @@ function matchesRollingInvoiceScopeCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchPromotionHELPCoordinator {
-  private readonly maxWindowDays = 35;
+class IndexedPromotionLedgerCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow4:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -156,9 +129,9 @@ class BatchPromotionHELPCoordinator {
   }
 }
 
-function calculatePendingHandoverScopeWindow(
+function calculateStandardHandoverSCOPELABELWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -166,7 +139,7 @@ function calculatePendingHandoverScopeWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRenewalHELPLedgerItems(
+function reconcileTenantRenewalLedgerLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -178,7 +151,7 @@ function reconcileIndexedRenewalHELPLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardCorridorScopeBreakdown(
+function computeSecondaryCorridorSCOPELABELBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -189,18 +162,18 @@ function computeStandardCorridorScopeBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantInspectionHELPQuery(raw: {
+function normalizeExpressInspectionLedgerQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryQuoteScopeReferenceKey(
+function buildPortalQuoteSCOPELABELReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -210,14 +183,14 @@ function buildSecondaryQuoteScopeReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressBillingCycleHELPPayload {
+interface VerifiedBillingCycleLedgerPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressBillingCycleHELPInput(payload: ExpressBillingCycleHELPPayload): { valid: boolean; issues: string[] } {
+function validateVerifiedBillingCycleLedgerInput(payload: VerifiedBillingCycleLedgerPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -226,12 +199,12 @@ function validateExpressBillingCycleHELPInput(payload: ExpressBillingCycleHELPPa
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalDiscountScopeBucketItem {
+interface UnifiedDiscountSCOPELABELBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalDiscountScopeByScope(items: readonly PortalDiscountScopeBucketItem[]): Record<string, number> {
+function groupUnifiedDiscountSCOPELABELByScope(items: readonly UnifiedDiscountSCOPELABELBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -240,7 +213,7 @@ function groupPortalDiscountScopeByScope(items: readonly PortalDiscountScopeBuck
   return totals;
 }
 
-function collectVerifiedCheckinHELPChanges(
+function collectLedgerCheckinLedgerChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -251,7 +224,7 @@ function collectVerifiedCheckinHELPChanges(
   return changed;
 }
 
-function dedupeUnifiedSupportTicketScopeRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeBranchSupportTicketSCOPELABELRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -263,7 +236,7 @@ function dedupeUnifiedSupportTicketScopeRecords<T extends { id: string }>(items:
   return unique;
 }
 
-function canTransitionLedgerUnitSlotHELPState(fromState: string, toState: string): boolean {
+function canTransitionScopedUnitSlotLedgerState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -278,18 +251,18 @@ function canTransitionLedgerUnitSlotHELPState(fromState: string, toState: string
   }
 }
 
-type BranchSettlementScopeRecord = {
+type DynamicSettlementSCOPELABELRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchSettlementScopeRecord(input: unknown): input is BranchSettlementScopeRecord {
+function isDynamicSettlementSCOPELABELRecord(input: unknown): input is DynamicSettlementSCOPELABELRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToScopedBookingHELPSummary(source: {
+function mapToDailyBookingLedgerSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -301,26 +274,26 @@ function mapToScopedBookingHELPSummary(source: {
   };
 }
 
-const DYNAMIC_DELINQUENCY_SCOPE_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_DELINQUENCY_SCOPELABEL_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicDelinquencyScopeTier(code: string): { weight: number; label: string } {
+function resolveStrictDelinquencySCOPELABELTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_DELINQUENCY_SCOPE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_DELINQUENCY_SCOPELABEL_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyApprovalHELPDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedApprovalLedgerDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictSignatureScopeCriteria(
+function matchesGuardSignatureSCOPELABELCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -330,8 +303,8 @@ function matchesStrictSignatureScopeCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BoundedEscalationHELPCoordinator {
-  private readonly maxWindowDays = 36;
+class ActiveEscalationLedgerCoordinator {
+  private readonly maxWindowDays = 34;
   private readonly branchScope = 'flow4:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -344,7 +317,62 @@ class BoundedEscalationHELPCoordinator {
     return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
   }
 }
-const hasStandardMonthlyZonePolicyHelpRef = (v: string): boolean => v.trim().length > 0;
+
+function calculateSyncedFloorplanSCOPELABELWindow(
+  startIso: string,
+  windowDays: number = 19,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileCoreRefundLedgerLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+function computeMonthlyDepositSCOPELABELBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+function normalizePrimaryOverlockLedgerQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildRollingFacilitySCOPELABELReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+const formatStrictCoreMoveoutPolicyHelpScope = (code: string): string => `flow4:${code.trim()}`;
 
 export const TIERS_HELP = {
   scope: 'NEW' as Scope,
