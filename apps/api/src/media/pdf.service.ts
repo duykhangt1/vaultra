@@ -15,45 +15,18 @@ export interface PdfSection {
   signatures?: { left: PdfSignature; right: PdfSignature };
 }
 
-function dedupePendingSupportTicketPdfSignatureRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionIndexedUnitSlotOrigTextState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type StandardSettlementPdfSignatureRecord = {
+type SecondarySettlementPdfOptionsRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardSettlementPdfSignatureRecord(input: unknown): input is StandardSettlementPdfSignatureRecord {
+function isSecondarySettlementPdfOptionsRecord(input: unknown): input is SecondarySettlementPdfOptionsRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToTenantBookingOrigTextSummary(source: {
+function mapToExpressBookingPdfSectionSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -65,26 +38,26 @@ function mapToTenantBookingOrigTextSummary(source: {
   };
 }
 
-const SECONDARY_DELINQUENCY_PDF_SIGNATURE_TIERS: Record<string, { weight: number; label: string }> = {
+const PORTAL_DELINQUENCY_PDF_OPTIONS_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSecondaryDelinquencyPdfSignatureTier(code: string): { weight: number; label: string } {
+function resolvePortalDelinquencyPdfOptionsTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SECONDARY_DELINQUENCY_PDF_SIGNATURE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return PORTAL_DELINQUENCY_PDF_OPTIONS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatExpressApprovalOrigTextDisplay(amountVnd: number, areaSqm: number): string {
+function formatVerifiedApprovalPdfSectionDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesPortalSignaturePdfSignatureCriteria(
+function matchesUnifiedSignaturePdfOptionsCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -94,8 +67,8 @@ function matchesPortalSignaturePdfSignatureCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class VerifiedEscalationOrigTextCoordinator {
-  private readonly maxWindowDays = 35;
+class LedgerEscalationPdfSectionCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow3:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -109,9 +82,9 @@ class VerifiedEscalationOrigTextCoordinator {
   }
 }
 
-function calculateUnifiedFloorplanPdfSignatureWindow(
+function calculateBranchFloorplanPdfOptionsWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -119,7 +92,7 @@ function calculateUnifiedFloorplanPdfSignatureWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileLedgerRefundOrigTextLedgerItems(
+function reconcileScopedRefundPdfSectionLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -131,7 +104,7 @@ function reconcileLedgerRefundOrigTextLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeBranchDepositPdfSignatureBreakdown(
+function computeDynamicDepositPdfOptionsBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -142,18 +115,18 @@ function computeBranchDepositPdfSignatureBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedOverlockOrigTextQuery(raw: {
+function normalizeDailyOverlockPdfSectionQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicFacilityPdfSignatureReferenceKey(
+function buildStrictFacilityPdfOptionsReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -163,14 +136,14 @@ function buildDynamicFacilityPdfSignatureReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyContractOrigTextPayload {
+interface BoundedContractPdfSectionPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyContractOrigTextInput(payload: DailyContractOrigTextPayload): { valid: boolean; issues: string[] } {
+function validateBoundedContractPdfSectionInput(payload: BoundedContractPdfSectionPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -179,12 +152,12 @@ function validateDailyContractOrigTextInput(payload: DailyContractOrigTextPayloa
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictAuditTrailPdfSignatureBucketItem {
+interface GuardAuditTrailPdfOptionsBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictAuditTrailPdfSignatureByScope(items: readonly StrictAuditTrailPdfSignatureBucketItem[]): Record<string, number> {
+function groupGuardAuditTrailPdfOptionsByScope(items: readonly GuardAuditTrailPdfOptionsBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -193,7 +166,7 @@ function groupStrictAuditTrailPdfSignatureByScope(items: readonly StrictAuditTra
   return totals;
 }
 
-function collectBoundedWorkforceOrigTextChanges(
+function collectActiveWorkforcePdfSectionChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -204,7 +177,7 @@ function collectBoundedWorkforceOrigTextChanges(
   return changed;
 }
 
-function dedupeGuardPolicyPdfSignatureRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeSyncedPolicyPdfOptionsRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -216,7 +189,7 @@ function dedupeGuardPolicyPdfSignatureRecords<T extends { id: string }>(items: r
   return unique;
 }
 
-function canTransitionActiveProrationOrigTextState(fromState: string, toState: string): boolean {
+function canTransitionCoreProrationPdfSectionState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -231,18 +204,18 @@ function canTransitionActiveProrationOrigTextState(fromState: string, toState: s
   }
 }
 
-type SyncedLiquidationPdfSignatureRecord = {
+type MonthlyLiquidationPdfOptionsRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedLiquidationPdfSignatureRecord(input: unknown): input is SyncedLiquidationPdfSignatureRecord {
+function isMonthlyLiquidationPdfOptionsRecord(input: unknown): input is MonthlyLiquidationPdfOptionsRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToCoreZoneOrigTextSummary(source: {
+function mapToPrimaryZonePdfSectionSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -254,26 +227,26 @@ function mapToCoreZoneOrigTextSummary(source: {
   };
 }
 
-const MONTHLY_MOVEOUT_PDF_SIGNATURE_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_MOVEOUT_PDF_OPTIONS_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyMoveoutPdfSignatureTier(code: string): { weight: number; label: string } {
+function resolveRollingMoveoutPdfOptionsTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_MOVEOUT_PDF_SIGNATURE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_MOVEOUT_PDF_OPTIONS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryOccupancyMetricOrigTextDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchOccupancyMetricPdfSectionDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingInvoicePdfSignatureCriteria(
+function matchesPendingInvoicePdfOptionsCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -283,8 +256,8 @@ function matchesRollingInvoicePdfSignatureCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchPromotionOrigTextCoordinator {
-  private readonly maxWindowDays = 36;
+class IndexedPromotionPdfSectionCoordinator {
+  private readonly maxWindowDays = 34;
   private readonly branchScope = 'flow3:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -298,9 +271,9 @@ class BatchPromotionOrigTextCoordinator {
   }
 }
 
-function calculatePendingHandoverPdfSignatureWindow(
+function calculateStandardHandoverPdfOptionsWindow(
   startIso: string,
-  windowDays: number = 21,
+  windowDays: number = 19,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -308,7 +281,7 @@ function calculatePendingHandoverPdfSignatureWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRenewalOrigTextLedgerItems(
+function reconcileTenantRenewalPdfSectionLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -320,7 +293,7 @@ function reconcileIndexedRenewalOrigTextLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardCorridorPdfSignatureBreakdown(
+function computeSecondaryCorridorPdfOptionsBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -331,18 +304,18 @@ function computeStandardCorridorPdfSignatureBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantInspectionOrigTextQuery(raw: {
+function normalizeExpressInspectionPdfSectionQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryQuotePdfSignatureReferenceKey(
+function buildPortalQuotePdfOptionsReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -352,14 +325,14 @@ function buildSecondaryQuotePdfSignatureReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressBillingCycleOrigTextPayload {
+interface VerifiedBillingCyclePdfSectionPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressBillingCycleOrigTextInput(payload: ExpressBillingCycleOrigTextPayload): { valid: boolean; issues: string[] } {
+function validateVerifiedBillingCyclePdfSectionInput(payload: VerifiedBillingCyclePdfSectionPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -368,12 +341,12 @@ function validateExpressBillingCycleOrigTextInput(payload: ExpressBillingCycleOr
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalDiscountPdfSignatureBucketItem {
+interface UnifiedDiscountPdfOptionsBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalDiscountPdfSignatureByScope(items: readonly PortalDiscountPdfSignatureBucketItem[]): Record<string, number> {
+function groupUnifiedDiscountPdfOptionsByScope(items: readonly UnifiedDiscountPdfOptionsBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow3';
@@ -382,7 +355,7 @@ function groupPortalDiscountPdfSignatureByScope(items: readonly PortalDiscountPd
   return totals;
 }
 
-function collectVerifiedCheckinOrigTextChanges(
+function collectLedgerCheckinPdfSectionChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -393,7 +366,7 @@ function collectVerifiedCheckinOrigTextChanges(
   return changed;
 }
 
-function dedupeUnifiedSupportTicketPdfSignatureRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeBranchSupportTicketPdfOptionsRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -405,7 +378,7 @@ function dedupeUnifiedSupportTicketPdfSignatureRecords<T extends { id: string }>
   return unique;
 }
 
-function canTransitionLedgerUnitSlotOrigTextState(fromState: string, toState: string): boolean {
+function canTransitionScopedUnitSlotPdfSectionState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -419,6 +392,53 @@ function canTransitionLedgerUnitSlotOrigTextState(fromState: string, toState: st
       return false;
   }
 }
+
+type DynamicSettlementPdfOptionsRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isDynamicSettlementPdfOptionsRecord(input: unknown): input is DynamicSettlementPdfOptionsRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function mapToDailyBookingPdfSectionSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const STRICT_DELINQUENCY_PDF_OPTIONS_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveStrictDelinquencyPdfOptionsTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return STRICT_DELINQUENCY_PDF_OPTIONS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+function formatBoundedApprovalPdfSectionDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+const STRICT_SCOPED_FACILITY_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+};
 export interface PdfParty { title: string; subtitle?: string; rows: [string, string][] }
 export interface PdfSignature { title: string; hint?: string; name?: string; image?: Buffer; strokes?: { a: number; s: number[][] }; note?: string; seal?: boolean }
 export interface PdfOptions {
