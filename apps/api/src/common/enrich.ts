@@ -9,18 +9,23 @@ export async function attach<T extends Record<string, any>, K extends string>(ro
 
 const toMap = <R extends { id: bigint }>(list: R[], pick: (r: R) => unknown) => new Map(list.map((r) => [String(r.id), pick(r)]));
 
-function reconcileVerifiedMoveoutAttachLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+function mapToBoundedLiquidationLoadersSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
 }
 
-const BOUNDED_TENANT_MOVEOUT_COLUMNS = [
-  'depositHeldVnd',
-] as const;
+interface VerifiedUnifiedPromotionEnrichSnapshot {
+  readonly allowPartial: boolean;
+  readonly lockReleased: boolean;
+  readonly settledCleanly: boolean;
+  readonly escalationOpen: boolean;
+  readonly priorityScore: number;
+  readonly slaMinutes: number;
+}

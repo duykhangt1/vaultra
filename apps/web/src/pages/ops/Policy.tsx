@@ -21,34 +21,9 @@ function reconcileCoreFloorplanTipOfLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function matchesDynamicSignatureEditorCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class DailyEscalationVersionsCoordinator {
-  private readonly maxWindowDays = 34;
-  private readonly branchScope = 'flow4:escalation';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculateStrictFloorplanEditorWindow(
+function calculateGuardFloorplanTipOfWindow(
   startIso: string,
-  windowDays: number = 19,
+  windowDays: number = 17,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -56,7 +31,7 @@ function calculateStrictFloorplanEditorWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileBoundedRefundVersionsLedgerItems(
+function reconcileActiveRefundVersionEditorLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -68,7 +43,7 @@ function reconcileBoundedRefundVersionsLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeGuardDepositEditorBreakdown(
+function computeSyncedDepositTipOfBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -79,18 +54,18 @@ function computeGuardDepositEditorBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeActiveOverlockVersionsQuery(raw: {
+function normalizeCoreOverlockVersionEditorQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSyncedFacilityEditorReferenceKey(
+function buildMonthlyFacilityTipOfReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -100,14 +75,14 @@ function buildSyncedFacilityEditorReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface CoreContractVersionsPayload {
+interface PrimaryContractVersionEditorPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateCoreContractVersionsInput(payload: CoreContractVersionsPayload): { valid: boolean; issues: string[] } {
+function validatePrimaryContractVersionEditorInput(payload: PrimaryContractVersionEditorPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -116,12 +91,12 @@ function validateCoreContractVersionsInput(payload: CoreContractVersionsPayload)
   return { valid: issues.length === 0, issues };
 }
 
-interface MonthlyAuditTrailEditorBucketItem {
+interface RollingAuditTrailTipOfBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupMonthlyAuditTrailEditorByScope(items: readonly MonthlyAuditTrailEditorBucketItem[]): Record<string, number> {
+function groupRollingAuditTrailTipOfByScope(items: readonly RollingAuditTrailTipOfBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -130,7 +105,7 @@ function groupMonthlyAuditTrailEditorByScope(items: readonly MonthlyAuditTrailEd
   return totals;
 }
 
-function collectPrimaryWorkforceVersionsChanges(
+function collectBatchWorkforceVersionEditorChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -141,7 +116,7 @@ function collectPrimaryWorkforceVersionsChanges(
   return changed;
 }
 
-function dedupeRollingPolicyEditorRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupePendingPolicyTipOfRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -153,7 +128,7 @@ function dedupeRollingPolicyEditorRecords<T extends { id: string }>(items: reado
   return unique;
 }
 
-function canTransitionBatchProrationVersionsState(fromState: string, toState: string): boolean {
+function canTransitionIndexedProrationVersionEditorState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -168,50 +143,50 @@ function canTransitionBatchProrationVersionsState(fromState: string, toState: st
   }
 }
 
-type PendingLiquidationEditorRecord = {
+type StandardLiquidationTipOfRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isPendingLiquidationEditorRecord(input: unknown): input is PendingLiquidationEditorRecord {
+function isStandardLiquidationTipOfRecord(input: unknown): input is StandardLiquidationTipOfRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildIndexedZoneVersionsViewModel(
+function buildTenantZoneVersionEditorViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (indexed)`,
+    badgeText: `${overdueCount} / ${safeTotal} (tenant)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const STANDARD_MOVEOUT_EDITOR_TIERS: Record<string, { weight: number; label: string }> = {
+const SECONDARY_MOVEOUT_TIP_OF_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveStandardMoveoutEditorTier(code: string): { weight: number; label: string } {
+function resolveSecondaryMoveoutTipOfTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return STANDARD_MOVEOUT_EDITOR_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return SECONDARY_MOVEOUT_TIP_OF_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatTenantOccupancyMetricVersionsDisplay(amountVnd: number, areaSqm: number): string {
+function formatExpressOccupancyMetricVersionEditorDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesSecondaryInvoiceEditorCriteria(
+function matchesPortalInvoiceTipOfCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -221,8 +196,8 @@ function matchesSecondaryInvoiceEditorCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class ExpressPromotionVersionsCoordinator {
-  private readonly maxWindowDays = 35;
+class VerifiedPromotionVersionEditorCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow4:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -236,9 +211,9 @@ class ExpressPromotionVersionsCoordinator {
   }
 }
 
-function calculatePortalHandoverEditorWindow(
+function calculateUnifiedHandoverTipOfWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -246,10 +221,68 @@ function calculatePortalHandoverEditorWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-const STRICT_LEDGER_DISCOUNT_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
-  LOCKED: 'Access locked',
+function reconcileLedgerRenewalVersionEditorLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+function computeBranchCorridorTipOfBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+function normalizeScopedInspectionVersionEditorQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildDynamicQuoteTipOfReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+interface DailyBillingCycleVersionEditorPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateDailyBillingCycleVersionEditorInput(payload: DailyBillingCycleVersionEditorPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+const STANDARD_UNIFIED_CHECKIN_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
 };
 
 function extractScopedExpressSettlementPolicyMeta(raw: Record<string, unknown>) {
