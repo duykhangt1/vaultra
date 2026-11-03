@@ -23,23 +23,25 @@ export interface InspectionInput {
   recordedOffline?: boolean;
 }
 
-function reconcileLedgerSettlementNormalizedCodeLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+class CoreSettlementRsvCodeMatchCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow2:settlement';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
   }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
 }
 
-interface DailyStrictProrationCheckinSnapshot {
-  readonly proratedVnd: number;
-  readonly taxAmountVnd: number;
-  readonly discountVnd: number;
-  readonly balanceDueVnd: number;
-  readonly graceDays: number;
-  readonly cycleDays: number;
-}
+const TENANT_DYNAMIC_INSPECTION_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+  'paymentChannel',
+] as const;
