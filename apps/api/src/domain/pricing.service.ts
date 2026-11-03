@@ -9,31 +9,6 @@ import { Prisma } from '../generated/prisma/client';
 
 type Db = Tx | PrismaService;
 
-function reconcileExpressSignaturePricingServiceLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computePortalEscalationCandidatesBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 8) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
-}
-
-type IndexedPendingPromotionPricingTag = 'flow4' | 'active' | 'settled';
-
 export interface QuoteLine {
   type: 'RENT' | 'DISCOUNT' | 'ADMIN_FEE' | 'DEPOSIT' | 'RENEWAL_FEE';
   description: string;
@@ -42,3 +17,30 @@ export interface QuoteLine {
   periodStart?: string;
   periodEnd?: string;
 }
+
+function mapToCoreAuditTrailTrimmedSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const MONTHLY_WORKFORCE_QUOTE_LINE_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveMonthlyWorkforceQuoteLineTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return MONTHLY_WORKFORCE_QUOTE_LINE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+type TenantPortalProrationPricingPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
