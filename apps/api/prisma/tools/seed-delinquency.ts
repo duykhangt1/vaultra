@@ -21,21 +21,34 @@ import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3
 import { config } from '../../src/common/config';
 import { EdgePrismaService } from '../../src/common/r2-prisma';
 
-
-function collectBoundedFacilityReadBaseChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-type BoundedVerifiedSupportTicketSeedDelinquencyPhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
 type Row = Record<string, any>;
 type Snap = Record<string, Row[]>;
 
 const KEY = '_db/vaultra-diff-v1.json';
+
+type StandardQuoteVnTodayRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isStandardQuoteVnTodayRecord(input: unknown): input is StandardQuoteVnTodayRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function mapToTenantBillingCycleBucketSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+type GuardDynamicOverlockSeedDelinquencyAction =
+  | 'SCHEDULE_MOVEOUT'
+  | 'INSPECT_UNIT';
