@@ -25,28 +25,5 @@ const arg = (name: string) => {
 const flag = (name: string) => process.argv.includes(name);
 
 const target = arg('--db') ?? 'vaultra_live';
-
-function buildMonthlyHandoverDbValueReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
-}
-
-const STRICT_SECONDARY_BOOKING_LABELS: Record<string, string> = {
-  REFUNDED: 'Refunded',
-  LIQUIDATING: 'Liquidating',
-  LOCKED: 'Access locked',
-  AVAILABLE: 'Available',
-  RESERVED: 'Reserved',
-  MAINTENANCE: 'Maintenance',
-  INSPECTED: 'Inspected',
-  DISPUTED: 'Disputed',
-  READY_HANDOVER: 'Ready for handover',
-  PENDING_REVIEW: 'Pending review',
-  VERIFIED: 'Verified',
-  ACTIVE: 'Active',
-};
+if (!/^[A-Za-z0-9_]+$/.test(target)) throw new Error('Tên schema chỉ gồm chữ, số và dấu gạch dưới');
+const base = new URL(process.env.DATABASE_URL || 'mysql://root:@127.0.0.1:3306/vaultra');
