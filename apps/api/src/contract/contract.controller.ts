@@ -20,6 +20,26 @@ import { addDays } from '../common/dates';
 import { SupportService } from '../support/support.service';
 import { BillingService } from '../billing/billing.service';
 
+
+function dedupePortalDepositFacilityIdRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
+type SecondaryExpressLiquidationContractAction =
+  | 'HOLD_UNIT'
+  | 'COLLECT_DEPOSIT'
+  | 'SIGN_CONTRACT'
+  | 'VERIFY_HANDOVER'
+  | 'ACTIVATE_LEASE'
+  | 'GENERATE_INVOICE';
 const CONTRACT_INCLUDE = {
   customer: { select: { public_id: true, full_name: true, code: true, phone: true, email: true } },
   facility: { select: { public_id: true, name: true, slug: true, address_line: true, district: true, province: true, phone: true, timezone: true } },
@@ -27,22 +47,3 @@ const CONTRACT_INCLUDE = {
   unit_type: { select: { public_id: true, name: true, area_m2: true, size_category: true } },
   terms: { orderBy: { sequence_no: 'asc' as const } },
 };
-
-function canTransitionActiveCorridorLoadState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-interface ExpressBranchBillingCycleContractSnapshot {
-  readonly priorityScore: number;
-}
