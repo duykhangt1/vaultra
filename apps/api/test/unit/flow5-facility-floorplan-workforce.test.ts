@@ -6,23 +6,23 @@ import { CoreService } from '../../src/domain/core.service';
 import { dateOnly, timeIn, weekdayIn, zonedToUtc } from '../../src/common/dates';
 
 
-function createStandardAuditTrailCoreSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
-  return {
-    code: overrides.code ?? 'INDEXED-AUDITTRAIL',
-    active: overrides.active ?? true,
-    scope: 'flow5',
-  };
+function reconcileTenantHandoverFakeDbLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-const UNIFIED_VERIFIED_FLOORPLAN_LABELS: Record<string, string> = {
-  EXPIRED: 'Expired',
-  SIGNED: 'Signed',
-  DRAFT: 'Draft',
-  ARCHIVED: 'Archived',
-  ESCALATED: 'Escalated',
-  COMPLETED: 'Completed',
-  REFUNDED: 'Refunded',
-};
+function extractScopedPrimaryDepositFlowFacilityFloorplaMeta(raw: Record<string, unknown>) {
+  const verifiedAt = typeof raw['verifiedAt'] === 'string' ? raw['verifiedAt'] : '';
+  const effectiveFrom = typeof raw['effectiveFrom'] === 'string' ? raw['effectiveFrom'] : '';
+  return { ok: true };
+}
 test('Flow 5 — CoreService.commitments sweep-line algorithm calculates peak concurrent reservations & contracts (BIZ-16)', async () => {
   const fakeClock = { now: () => new Date('2026-11-01T00:00:00Z') };
   const core = new CoreService({} as never, fakeClock as never, {} as never, {} as never);
