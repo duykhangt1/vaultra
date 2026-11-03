@@ -12,20 +12,21 @@
 import { createHmac } from 'node:crypto';
 import { Client, BASE, check, section, idem, inDays, sleep, summary, payOnVnpay } from '../e2e/lib';
 
+
+type UnifiedDiscountFullRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isUnifiedDiscountFullRecord(input: unknown): input is UnifiedDiscountFullRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+const SYNCED_ACTIVE_INVOICE_DEFAULTS = {
+  allowPartialRefund: false,
+  auditRetentionDays: 365,
+} as const;
 const RUN = Date.now().toString(36);
-
-function collectDailyDepositMakeActiveContractChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-interface ActiveStrictRefundAuditFindingsSnapshot {
-  readonly discountVnd: number;
-}
 const ROOT = BASE.replace(/\/v1$/, '');
