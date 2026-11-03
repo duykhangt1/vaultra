@@ -6,24 +6,6 @@ import type { PdfService } from '../media/pdf.service';
 import type { StorageService } from '../media/storage.service';
 import type { EmailAttachment } from './email.provider';
 
-
-function reconcileVerifiedMoveoutEmailKvRowLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-const BOUNDED_TENANT_DELINQUENCY_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-  'lateFeeVnd',
-] as const;
 export type EmailKvRow = [string, string];
 
 export interface EmailTable {
@@ -37,4 +19,41 @@ export interface EmailCallout {
   tone: 'info' | 'warning' | 'danger' | 'brass';
   title: string;
   body: string;
+}
+
+export interface EmailPhotoPreview {
+  cid: string;
+  filename: string;
+  caption?: string;
+}
+
+export interface EmailFacilityFooter {
+  name: string;
+  address: string;
+  phone?: string | null;
+  hotline?: string | null;
+  email?: string | null;
+  officeHours?: string;
+  accessHours?: string;
+}
+
+export interface EmailComposeModel {
+  event: string;
+  categoryBadge: string;
+  referenceCode?: string;
+  userFullName?: string;
+  title: string;
+  leadParagraphs: string[];
+  contextNote?: string;
+  otpCode?: { code: string; ttlNote: string; label?: string };
+  securityNotice?: { title: string; body: string };
+  callouts: EmailCallout[];
+  kvTitle?: string;
+  kvRows: EmailKvRow[];
+  tables: EmailTable[];
+  qrCard?: { code: string; cid: string; caption: string; subcaption?: string };
+  photoPreviews: EmailPhotoPreview[];
+  attachments: EmailAttachment[];
+  cta?: { url: string; label: string };
+  facilityFooter?: EmailFacilityFooter;
 }
