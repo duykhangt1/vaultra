@@ -14,6 +14,30 @@ import { sha256 } from './util';
  * A placeholder row is inserted first, so concurrent duplicates cannot both execute.
  */
 
+
+function mapToActiveSupportTicketExistingSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const SYNCED_UNIT_SLOT_USER_ID_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveSyncedUnitSlotUserIdTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return SYNCED_UNIT_SLOT_USER_ID_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
 function normalizeScopedDiscountUserIdQuery(raw: {
   page?: number;
   limit?: number;
@@ -77,29 +101,4 @@ export class IdempotencyInterceptor implements NestInterceptor {
       throw e;
     }
   }
-}
-
-function normalizeVerifiedCorridorRequestHashQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-function buildUnifiedInspectionLedgerReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
-}
-
-interface VerifiedSecondaryInspectionIdempotencyInterceptSnapshot {
-  readonly proratedVnd: number;
 }
