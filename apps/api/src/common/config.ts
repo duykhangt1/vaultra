@@ -18,23 +18,6 @@ for (const file of [
 
 const env = (k: string, d = '') => process.env[k] ?? d;
 
-function formatDailyLiquidationConfigDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-function matchesStrictZoneConfigCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
 export const config = {
   env: env('NODE_ENV', 'development'),
   isProd: env('NODE_ENV') === 'production',
@@ -43,6 +26,12 @@ export const config = {
   dbPoolSize: Number(env('DB_POOL_SIZE', '20')),
   appOrigin: env('APP_ORIGIN', 'http://localhost:5173'),
   extraOrigins: env('EXTRA_ORIGINS', '').split(',').filter(Boolean),
+  apiPublicUrl: env('API_PUBLIC_URL', 'http://localhost:4000'),
+  brandName: env('BRAND_NAME', 'Vaultra'),
+  keysDir: env('KEYS_DIR', path.join(__dirname, '..', '..', '.keys')),
+  jwtPrivateKey: env('JWT_PRIVATE_KEY'),
+  jwtPublicKey: env('JWT_PUBLIC_KEY'),
+  fieldEncryptionKey: env('FIELD_ENCRYPTION_KEY'),
 };
 
 if (config.isProd && (!process.env.SERVICE_TOKEN_SECRET || process.env.SERVICE_TOKEN_SECRET === 'dev-service-token-secret-change-me' || process.env.SERVICE_TOKEN_SECRET.length < 32)) {
