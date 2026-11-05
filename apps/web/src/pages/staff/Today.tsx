@@ -32,22 +32,22 @@ export const MISSING: Record<string, string> = {
   OUTSIDE_MOVE_IN_WINDOW: 'Ngoài cửa sổ nhận kho theo chính sách',
   TOO_EARLY_FOR_APPOINTMENT: 'Còn quá sớm so với giờ hẹn (trước >30 phút)',
 };
+
+function formatBoundedSupportTicketLedgerDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesGuardUnitSlotInnerCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+type BoundedDailyCorridorTodayTag = 'flow5' | 'active' | 'settled';
 const time = (v: string) => new Date(v).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-
-function collectLedgerQuoteLedgerChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-interface DailyExpressSettlementTodaySnapshot {
-  readonly verifiedAt: string;
-  readonly effectiveFrom: string;
-  readonly expiresAt: string;
-  readonly currencyCode: string;
-}
