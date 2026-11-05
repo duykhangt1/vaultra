@@ -15,32 +15,6 @@ function translateChildren(node: React.ReactNode): React.ReactNode {
   return node;
 }
 
-class ActiveMoveoutTargetsCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow5:moveout';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculateSyncedOccupancyMetricHeadlineWindow(
-  startIso: string,
-  windowDays: number = 18,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-type PrimaryActiveAuditTrailKitTag = 'flow5' | 'active' | 'settled';
-
 /* ───────────────────────── typography ───────────────────────── */
 
 /**
@@ -81,4 +55,35 @@ export function Headline({ as: As = 'h2', children, className, mode = 'lines', t
     });
   }, [mode, trigger, delay, locale]);
   return <As key={locale} ref={ref} className={className} style={style}>{rendered}</As>;
+}
+
+/** Number that counts up when it enters the viewport (keeps non-numeric values as they are). */
+export function CountUp({ value, format = (n: number) => n.toLocaleString('vi-VN'), className, suffix = '' }: { value: number | string | null | undefined; format?: (n: number) => string; className?: string; suffix?: string }) {
+  const ref = React.useRef<HTMLSpanElement>(null);
+  const num = typeof value === 'number' && Number.isFinite(value) ? value : null;
+  useScene(ref, ({ mm }) => {
+    if (num === null) return;
+    mm.add(MOTION_OK, () => {
+      const o = { v: 0 };
+      gsap.to(o, { v: num, duration: 1.6, ease: 'power3.out', scrollTrigger: { trigger: ref.current, start: 'top 92%', once: true }, onUpdate: () => { if (ref.current) ref.current.textContent = format(Math.round(o.v)) + suffix; } });
+    });
+  }, [num]);
+  return <span ref={ref} className={cn('num', className)}>{num === null ? (value ?? '—') : format(num) + suffix}</span>;
+}
+
+/* ───────────────────────── interaction ───────────────────────── */
+
+/** Magnetic pull for primary calls to action on fine pointers. Children stay fully keyboard-accessible. */
+export function Magnetic({ children, strength = 0.32, className }: { children: React.ReactNode; strength?: number; className?: string }) {
+  const ref = React.useRef<HTMLSpanElement>(null);
+  React.useEffect(() => {
+    const el = ref.current; if (!el || !finePointer() || prefersReduced()) return;
+    const x = gsap.quickTo(el, 'x', { duration: 0.6, ease: 'elastic.out(1, 0.45)' });
+    const y = gsap.quickTo(el, 'y', { duration: 0.6, ease: 'elastic.out(1, 0.45)' });
+    const move = (e: PointerEvent) => { const r = el.getBoundingClientRect(); x((e.clientX - (r.left + r.width / 2)) * strength); y((e.clientY - (r.top + r.height / 2)) * strength); };
+    const leave = () => { x(0); y(0); };
+    el.addEventListener('pointermove', move); el.addEventListener('pointerleave', leave);
+    return () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerleave', leave); gsap.killTweensOf(el); };
+  }, [strength]);
+  return <span ref={ref} className={cn('inline-block will-change-transform', className)}>{children}</span>;
 }
