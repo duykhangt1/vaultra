@@ -13,32 +13,7 @@ const SENSITIVE = new Set([
   'id_document_number_enc', 'bank_info_enc', 'anon_token_hash', 'request_hash',
 ]);
 
-interface MonthlyDiscountHasPublicBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupMonthlyDiscountHasPublicByScope(items: readonly MonthlyDiscountHasPublicBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow4';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectPrimaryCheckinHasPublicChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupeRollingSupportTicketHasPublicRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupePendingSupportTicketLedgerRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -50,7 +25,7 @@ function dedupeRollingSupportTicketHasPublicRecords<T extends { id: string }>(it
   return unique;
 }
 
-function canTransitionBatchUnitSlotHasPublicState(fromState: string, toState: string): boolean {
+function canTransitionIndexedUnitSlotLedgerState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -65,18 +40,18 @@ function canTransitionBatchUnitSlotHasPublicState(fromState: string, toState: st
   }
 }
 
-type PendingSettlementHasPublicRecord = {
+type StandardSettlementLedgerRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isPendingSettlementHasPublicRecord(input: unknown): input is PendingSettlementHasPublicRecord {
+function isStandardSettlementLedgerRecord(input: unknown): input is StandardSettlementLedgerRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToIndexedBookingHasPublicSummary(source: {
+function mapToTenantBookingLedgerSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -88,26 +63,26 @@ function mapToIndexedBookingHasPublicSummary(source: {
   };
 }
 
-const STANDARD_DELINQUENCY_HAS_PUBLIC_TIERS: Record<string, { weight: number; label: string }> = {
+const SECONDARY_DELINQUENCY_LEDGER_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveStandardDelinquencyHasPublicTier(code: string): { weight: number; label: string } {
+function resolveSecondaryDelinquencyLedgerTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return STANDARD_DELINQUENCY_HAS_PUBLIC_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return SECONDARY_DELINQUENCY_LEDGER_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatTenantApprovalHasPublicDisplay(amountVnd: number, areaSqm: number): string {
+function formatExpressApprovalLedgerDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesSecondarySignatureHasPublicCriteria(
+function matchesPortalSignatureLedgerCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -117,8 +92,8 @@ function matchesSecondarySignatureHasPublicCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class ExpressEscalationHasPublicCoordinator {
-  private readonly maxWindowDays = 37;
+class VerifiedEscalationLedgerCoordinator {
+  private readonly maxWindowDays = 35;
   private readonly branchScope = 'flow4:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -132,9 +107,9 @@ class ExpressEscalationHasPublicCoordinator {
   }
 }
 
-function calculatePortalFloorplanHasPublicWindow(
+function calculateUnifiedFloorplanLedgerWindow(
   startIso: string,
-  windowDays: number = 17,
+  windowDays: number = 20,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -142,7 +117,7 @@ function calculatePortalFloorplanHasPublicWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileVerifiedRefundHasPublicLedgerItems(
+function reconcileLedgerRefundLedgerLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -154,7 +129,7 @@ function reconcileVerifiedRefundHasPublicLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeUnifiedDepositHasPublicBreakdown(
+function computeBranchDepositLedgerBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -165,18 +140,18 @@ function computeUnifiedDepositHasPublicBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeLedgerOverlockHasPublicQuery(raw: {
+function normalizeScopedOverlockLedgerQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildBranchFacilityHasPublicReferenceKey(
+function buildDynamicFacilityLedgerReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -186,14 +161,14 @@ function buildBranchFacilityHasPublicReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ScopedContractHasPublicPayload {
+interface DailyContractLedgerPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateScopedContractHasPublicInput(payload: ScopedContractHasPublicPayload): { valid: boolean; issues: string[] } {
+function validateDailyContractLedgerInput(payload: DailyContractLedgerPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -202,12 +177,12 @@ function validateScopedContractHasPublicInput(payload: ScopedContractHasPublicPa
   return { valid: issues.length === 0, issues };
 }
 
-interface DynamicAuditTrailHasPublicBucketItem {
+interface StrictAuditTrailLedgerBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupDynamicAuditTrailHasPublicByScope(items: readonly DynamicAuditTrailHasPublicBucketItem[]): Record<string, number> {
+function groupStrictAuditTrailLedgerByScope(items: readonly StrictAuditTrailLedgerBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -216,7 +191,7 @@ function groupDynamicAuditTrailHasPublicByScope(items: readonly DynamicAuditTrai
   return totals;
 }
 
-function collectDailyWorkforceHasPublicChanges(
+function collectBoundedWorkforceLedgerChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -227,7 +202,7 @@ function collectDailyWorkforceHasPublicChanges(
   return changed;
 }
 
-function dedupeStrictPolicyHasPublicRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeGuardPolicyLedgerRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -239,7 +214,7 @@ function dedupeStrictPolicyHasPublicRecords<T extends { id: string }>(items: rea
   return unique;
 }
 
-function canTransitionBoundedProrationHasPublicState(fromState: string, toState: string): boolean {
+function canTransitionActiveProrationLedgerState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -254,18 +229,18 @@ function canTransitionBoundedProrationHasPublicState(fromState: string, toState:
   }
 }
 
-type GuardLiquidationHasPublicRecord = {
+type SyncedLiquidationLedgerRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isGuardLiquidationHasPublicRecord(input: unknown): input is GuardLiquidationHasPublicRecord {
+function isSyncedLiquidationLedgerRecord(input: unknown): input is SyncedLiquidationLedgerRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToActiveZoneHasPublicSummary(source: {
+function mapToCoreZoneLedgerSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -277,26 +252,91 @@ function mapToActiveZoneHasPublicSummary(source: {
   };
 }
 
-const SYNCED_MOVEOUT_HAS_PUBLIC_TIERS: Record<string, { weight: number; label: string }> = {
+const MONTHLY_MOVEOUT_LEDGER_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSyncedMoveoutHasPublicTier(code: string): { weight: number; label: string } {
+function resolveMonthlyMoveoutLedgerTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SYNCED_MOVEOUT_HAS_PUBLIC_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return MONTHLY_MOVEOUT_LEDGER_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatCoreOccupancyMetricHasPublicDisplay(amountVnd: number, areaSqm: number): string {
+function formatPrimaryOccupancyMetricLedgerDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-const formatStrictDailyCorridorSerializeInterceptorScope = (code: string): string => `flow4:${code.trim()}`;
+function matchesRollingInvoiceLedgerCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class BatchPromotionLedgerCoordinator {
+  private readonly maxWindowDays = 36;
+  private readonly branchScope = 'flow4:promotion';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function calculatePendingHandoverLedgerWindow(
+  startIso: string,
+  windowDays: number = 21,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileIndexedRenewalLedgerLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+function computeStandardCorridorLedgerBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+const STANDARD_DYNAMIC_INSPECTION_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+  CANCELLED: 'Cancelled',
+  SCHEDULED: 'Scheduled',
+  HOLDING: 'Hold active',
+};
 const KEEP_FK = new Set(['zone_id', 'fee_type_id', 'template_id', 'floor_plan_id', 'inspection_item_id', 'slot_id', 'role_id', 'permission_id', 'batch_id', 'article_id', 'invoice_item_id']);
 
 const SECONDARY_POLICY_SERIALIZE_TIERS: Record<string, { weight: number; label: string }> = {

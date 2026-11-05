@@ -9,6 +9,28 @@
  */
 export type Scope = 'NEW' | 'CONTRACT' | 'RENEWAL' | 'LIVE' | 'TEXT';
 
+function normalizeIndexedHandoverScopeQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildStandardRenewalHELPReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+type PrimaryBoundedPolicyPolicyHelpTag = 'flow4' | 'active' | 'settled';
+
 export const SCOPE_LABEL: Record<Scope, string> = {
   NEW: 'Chỉ áp dụng cho đặt chỗ tạo SAU khi xuất bản. Đơn đã đặt giữ nguyên bản cũ.',
   CONTRACT: 'Chỉ áp dụng cho hợp đồng ký SAU khi xuất bản. Hợp đồng đang chạy giữ bản chính sách lúc ký.',
@@ -43,18 +65,6 @@ export const HELP: Record<string, { tip: string; scope: Scope }> = {
   admin_fee: { scope: 'NEW', tip: 'Phí hành chính thu một lần khi khách đặt thuê, tính vào báo giá. Đơn nhập số đồng, 0 = miễn phí.' },
   admin_fee_refundable: { scope: 'NEW', tip: 'Bật: khi khách hủy đặt chỗ thì phí hành chính được hoàn lại. Tắt: không hoàn, trừ khi nhân viên miễn phí cho khách.' },
   vat_rate: { scope: 'CONTRACT', tip: 'Thuế VAT tính theo phần trăm trên hóa đơn. Ví dụ: 8 = 8%. Báo giá lấy mức hiện hành, còn hóa đơn của hợp đồng đã ký dùng mức lúc ký.' },
-  prices_include_vat: { scope: 'CONTRACT', tip: 'Bật: giá niêm yết đã gồm VAT, VAT được tách ra từ giá. Tắt: VAT được cộng thêm lên trên giá niêm yết.' },
-
-  // Gia hạn & kết thúc
-  renewal_window_days: { scope: 'CONTRACT', tip: 'Số ngày trước ngày hết hạn thì mở cửa sổ gia hạn: khách nhận đề nghị gia hạn và thông báo nhắc. Ví dụ: 60 = mở trước 60 ngày.' },
-  renewal_fee: { scope: 'RENEWAL', tip: 'Phí cố định thu mỗi lần khách gia hạn hợp đồng. 0 = miễn phí.' },
-  renewal_price_rule: { scope: 'RENEWAL', tip: 'Giá thuê kỳ mới khi gia hạn: theo giá niêm yết hiện tại nhưng không tăng quá trần, giữ nguyên giá cũ, hoặc theo giá niêm yết hiện tại không giới hạn.' },
-  renewal_max_increase_pct: { scope: 'RENEWAL', tip: 'Trần tăng giá khi gia hạn so với giá đang thuê, tính theo phần trăm. Chỉ có tác dụng với quy tắc "Giá niêm yết, có trần tăng". Ví dụ: 10 = tăng tối đa 10%.' },
-  auto_renew_default: { scope: 'CONTRACT', tip: 'Hợp đồng mới ký có bật sẵn "Tự động gia hạn" hay không. Khách vẫn tự bật hoặc tắt được trong hợp đồng của mình.' },
-  auto_renew_term_months: { scope: 'CONTRACT', tip: 'Kỳ hạn dùng khi hệ thống tự gia hạn (hợp đồng bật tự động gia hạn, còn ≤ 7 ngày, không nợ). Phải nằm trong danh sách kỳ hạn cho phép, nếu không dùng kỳ đầu tiên.' },
-  price_change_notice_days: { scope: 'RENEWAL', tip: 'Nếu giá gia hạn cao hơn giá hiện tại, công ty phải báo khách trước ít nhất bấy nhiêu ngày. Dùng để tính thời điểm mở đề nghị và gửi thông báo đổi giá.' },
-  on_expiry_action: { scope: 'LIVE', tip: 'Việc xảy ra khi hợp đồng hết hạn mà khách chưa gia hạn hay trả kho: chuyển sang thuê theo tháng (holdover), hoặc bắt buộc trả kho.' },
-  move_out_notice_days: { scope: 'CONTRACT', tip: 'Khách tự yêu cầu trả kho phải chọn ngày trả cách hôm nay ít nhất bấy nhiêu ngày, nếu không yêu cầu bị từ chối. Nhân viên tạo yêu cầu thay khách thì không bị giới hạn này.' },
 };
 
 export const TERM_DISCOUNTS_HELP = {
