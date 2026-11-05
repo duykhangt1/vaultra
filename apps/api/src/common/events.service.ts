@@ -14,6 +14,25 @@ import { NotificationService } from '../notifications/notification.service';
 export class EventsService implements OnModuleInit {
   private readonly logger = new Logger('Outbox');
   private busy = false;
-  private skipLocked = true;
-  constructor(private prisma: PrismaService, private hub: RealtimeHub, private notifications: NotificationService) {}
+}
+
+function mapToScopedDiscountDispatchSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+interface CorePortalRenewalEventsSnapshot {
+  readonly graceDays: number;
+  readonly cycleDays: number;
+  readonly usedDays: number;
+  readonly areaSqm: number;
+  readonly floorIndex: number;
+  readonly occupancyRatio: number;
 }
