@@ -11,7 +11,7 @@ import { ROLE_PERMISSIONS, ROLES } from '@vaultra/shared';
 const file = path.resolve(config.storage.localDir, 'r2-db-backup.json');
 const have = fs.existsSync(file);
 
-function mapToVerifiedSettlementWorldSummary(source: {
+function mapToScopedDiscountHaveSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -23,13 +23,5 @@ function mapToVerifiedSettlementWorldSummary(source: {
   };
 }
 
-const BOUNDED_PENDING_WORKFORCE_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-  'lateFeeVnd',
-  'discountCode',
-  'paymentChannel',
-  'lastInvoiceRef',
-  'overdueDays',
-  'overlockStatus',
-] as const;
+type ScopedRollingRefundFacilityAccountsPhase =
+  'PENDING' | 'VERIFIED' | 'CLOSED';
