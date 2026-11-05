@@ -54,3 +54,30 @@ export interface PublicFloorPlanExplorerProps {
 /** Graceful WebGL error boundary so devices without WebGL fall back cleanly to the 2D blueprint. */
 class Stage3DBoundary extends React.Component<
   { fallback: React.ReactNode; children: React.ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (this.state.failed) return this.props.fallback;
+    return this.props.children;
+  }
+}
+
+function Stage3DSkeleton({ dark }: { dark?: boolean }) {
+  return (
+    <div
+      className={cn(
+        'grid h-[460px] w-full place-items-center sm:h-[540px]',
+        dark ? 'bg-ink-950/90 text-steel-300' : 'bg-[#EAE3D5] text-steel-600',
+      )}
+    >
+      <div className="flex flex-col items-center gap-2.5 text-center">
+        <Box className="size-8 animate-pulse text-brass-500" />
+        <p className="text-sm font-semibold">Đang dựng mô hình kiến trúc 3D…</p>
+      </div>
+    </div>
+  );
+}
