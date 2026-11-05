@@ -11,17 +11,25 @@ import { WeekHours, hoursError, type Hours } from '@/widgets/WeekHours';
 
 const WD = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 
-function collectVerifiedQuoteFacilitySettingsChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
+function canTransitionTenantSupportTicketSaveState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
   }
-  return changed;
 }
 
-type BatchBatchFloorplanSettingsPhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
+const TENANT_INDEXED_AUDITTRAIL_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+] as const;
 const TYPE_L: Record<string, string> = { MOVE_IN: 'Nhận kho', MOVE_OUT: 'Trả kho', BOTH: 'Cả hai' };
