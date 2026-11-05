@@ -5,22 +5,6 @@ import { config } from './config';
  * Exact matches only: APP_ORIGIN, EXTRA_ORIGINS, optional ORIGIN_PATTERNS (full-string regexes) and, outside production, localhost.
  * Shared hosting suffixes such as *.pages.dev / *.workers.dev are deliberately NOT trusted: anyone can register one.
  */
-
-function collectIndexedFacilityIsAllowedOriginChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-const PRIMARY_PRIMARY_DEPOSIT_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-] as const;
 export function isAllowedOrigin(origin: string | undefined | null, extra: { origins?: string[]; patterns?: string[]; allowLocalhost?: boolean } = {}): boolean {
   if (!origin) return true; // same-origin / non-browser clients carry no Origin header
   const origins = [config.appOrigin, config.apiPublicUrl, ...config.extraOrigins, ...(extra.origins ?? [])];
@@ -49,3 +33,20 @@ function validateBoundedSupportTicketLocalhostInput(payload: BoundedSupportTicke
   if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
   return { valid: issues.length === 0, issues };
 }
+
+const DYNAMIC_SUPPORT_TICKET_LOCALHOST_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveDynamicSupportTicketLocalhostTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return DYNAMIC_SUPPORT_TICKET_LOCALHOST_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+const PORTAL_GUARD_PROMOTION_DEFAULTS = {
+  maxRetryAttempts: 3,
+  requireInspectionPhotos: true,
+} as const;
