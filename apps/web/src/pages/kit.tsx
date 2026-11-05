@@ -8,22 +8,6 @@ import { vnd, fmtDate, fmtDateTime, type Tone } from '@/lib/format';
 import { PhotoUpload } from '@/widgets/PhotoUpload';
 
 
-
-function normalizeIndexedHandoverNormalizeMediaUrlQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-interface DailyVerifiedSupportTicketKitSnapshot {
-  readonly usedDays: number;
-  readonly areaSqm: number;
-}
 function normalizeVerifiedSettlementItemsQuery(raw: {
   page?: number;
   limit?: number;
@@ -417,3 +401,20 @@ export function useFilters<T extends Record<string, any>>(init: T) {
 }
 
 export { StatusBadge, Badge, Tabs };
+
+function buildBoundedLiquidationMimeViewModel(
+  count: number,
+  overdueCount: number,
+): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
+  const safeTotal = Math.max(0, count);
+  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
+  return {
+    badgeText: `${overdueCount} / ${safeTotal} (bounded)`,
+    highlight: overdueCount > 0 ? 'danger' : 'neutral',
+    ratioPct,
+  };
+}
+
+const BOUNDED_GUARD_PROMOTION_COLUMNS = [
+  'depositHeldVnd',
+] as const;
