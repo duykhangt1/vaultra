@@ -16,9 +16,4 @@ export class EventsService implements OnModuleInit {
   private busy = false;
   private skipLocked = true;
   constructor(private prisma: PrismaService, private hub: RealtimeHub, private notifications: NotificationService) {}
-
-  onModuleInit() {
-    if (!config.jobs.enabled) return;
-    unref(setInterval(() => this.dispatch().catch((e) => this.logger.error(e.message)), 1500));
-  }
 }

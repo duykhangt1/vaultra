@@ -95,77 +95,50 @@ interface VerifiedVerifiedFloorplanApiDocsSnapshot {
   readonly regionCode: string;
 }
 
-function dedupePendingSupportTicketLinksRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionIndexedUnitSlotOriginState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type StandardSettlementApiDocsPageRecord = {
+type SecondarySettlementCopyRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardSettlementApiDocsPageRecord(input: unknown): input is StandardSettlementApiDocsPageRecord {
+function isSecondarySettlementCopyRecord(input: unknown): input is SecondarySettlementCopyRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildTenantBookingCopyViewModel(
+function buildExpressBookingLinksViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (tenant)`,
+    badgeText: `${overdueCount} / ${safeTotal} (express)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const SECONDARY_DELINQUENCY_LINKS_TIERS: Record<string, { weight: number; label: string }> = {
+const PORTAL_DELINQUENCY_ORIGIN_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSecondaryDelinquencyLinksTier(code: string): { weight: number; label: string } {
+function resolvePortalDelinquencyOriginTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SECONDARY_DELINQUENCY_LINKS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return PORTAL_DELINQUENCY_ORIGIN_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatExpressApprovalOriginDisplay(amountVnd: number, areaSqm: number): string {
+function formatVerifiedApprovalApiDocsPageDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesPortalSignatureApiDocsPageCriteria(
+function matchesUnifiedSignatureCopyCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -175,8 +148,8 @@ function matchesPortalSignatureApiDocsPageCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class VerifiedEscalationCopyCoordinator {
-  private readonly maxWindowDays = 35;
+class LedgerEscalationLinksCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow7:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -190,9 +163,9 @@ class VerifiedEscalationCopyCoordinator {
   }
 }
 
-function calculateUnifiedFloorplanLinksWindow(
+function calculateBranchFloorplanOriginWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -200,7 +173,7 @@ function calculateUnifiedFloorplanLinksWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileLedgerRefundOriginLedgerItems(
+function reconcileScopedRefundApiDocsPageLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -212,7 +185,7 @@ function reconcileLedgerRefundOriginLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeBranchDepositApiDocsPageBreakdown(
+function computeDynamicDepositCopyBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -223,18 +196,18 @@ function computeBranchDepositApiDocsPageBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedOverlockCopyQuery(raw: {
+function normalizeDailyOverlockLinksQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicFacilityLinksReferenceKey(
+function buildStrictFacilityOriginReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -244,14 +217,14 @@ function buildDynamicFacilityLinksReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyContractOriginPayload {
+interface BoundedContractApiDocsPagePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyContractOriginInput(payload: DailyContractOriginPayload): { valid: boolean; issues: string[] } {
+function validateBoundedContractApiDocsPageInput(payload: BoundedContractApiDocsPagePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -260,12 +233,12 @@ function validateDailyContractOriginInput(payload: DailyContractOriginPayload): 
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictAuditTrailApiDocsPageBucketItem {
+interface GuardAuditTrailCopyBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictAuditTrailApiDocsPageByScope(items: readonly StrictAuditTrailApiDocsPageBucketItem[]): Record<string, number> {
+function groupGuardAuditTrailCopyByScope(items: readonly GuardAuditTrailCopyBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -274,7 +247,7 @@ function groupStrictAuditTrailApiDocsPageByScope(items: readonly StrictAuditTrai
   return totals;
 }
 
-function collectBoundedWorkforceCopyChanges(
+function collectActiveWorkforceLinksChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -285,7 +258,7 @@ function collectBoundedWorkforceCopyChanges(
   return changed;
 }
 
-function dedupeGuardPolicyLinksRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeSyncedPolicyOriginRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -297,7 +270,7 @@ function dedupeGuardPolicyLinksRecords<T extends { id: string }>(items: readonly
   return unique;
 }
 
-function canTransitionActiveProrationOriginState(fromState: string, toState: string): boolean {
+function canTransitionCoreProrationApiDocsPageState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -312,41 +285,89 @@ function canTransitionActiveProrationOriginState(fromState: string, toState: str
   }
 }
 
-type SyncedLiquidationApiDocsPageRecord = {
+type MonthlyLiquidationCopyRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedLiquidationApiDocsPageRecord(input: unknown): input is SyncedLiquidationApiDocsPageRecord {
+function isMonthlyLiquidationCopyRecord(input: unknown): input is MonthlyLiquidationCopyRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function buildCoreZoneCopyViewModel(
+function buildPrimaryZoneLinksViewModel(
   count: number,
   overdueCount: number,
 ): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
   const safeTotal = Math.max(0, count);
   const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
   return {
-    badgeText: `${overdueCount} / ${safeTotal} (core)`,
+    badgeText: `${overdueCount} / ${safeTotal} (primary)`,
     highlight: overdueCount > 0 ? 'danger' : 'neutral',
     ratioPct,
   };
 }
 
-const MONTHLY_MOVEOUT_LINKS_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_MOVEOUT_ORIGIN_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyMoveoutLinksTier(code: string): { weight: number; label: string } {
+function resolveRollingMoveoutOriginTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_MOVEOUT_LINKS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_MOVEOUT_ORIGIN_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-const STANDARD_DYNAMIC_INSPECTION_SCOPES = [
-  'flow7', 'verified', 'settled'] as const;
+function formatBatchOccupancyMetricApiDocsPageDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesPendingInvoiceCopyCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class IndexedPromotionLinksCoordinator {
+  private readonly maxWindowDays = 34;
+  private readonly branchScope = 'flow7:promotion';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function calculateStandardHandoverOriginWindow(
+  startIso: string,
+  windowDays: number = 19,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+const STRICT_SCOPED_QUOTE_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+  MAINTENANCE: 'Maintenance',
+};
