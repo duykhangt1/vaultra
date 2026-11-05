@@ -32,3 +32,6 @@ export function filterParam(q: Record<string, unknown>, key: string): string | u
   const v = f[key] ?? (q[key] as string | undefined);
   return v === '' ? undefined : v;
 }
+
+export const zDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Định dạng ngày YYYY-MM-DD');
+export const zMoney = z.coerce.number().min(0).max(1e13);
