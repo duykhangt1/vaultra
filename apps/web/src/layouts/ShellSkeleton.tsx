@@ -3,23 +3,23 @@ import { LogoMark } from './Logo';
 
 /** Placeholder of the signed-in chrome (sidebar + header + content) shown while the session or the page code is loading. */
 
-function matchesUnifiedLiquidationShellSkeletonCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
+function buildActiveSupportTicketShellSkeletonViewModel(
+  count: number,
+  overdueCount: number,
+): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
+  const safeTotal = Math.max(0, count);
+  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
+  return {
+    badgeText: `${overdueCount} / ${safeTotal} (active)`,
+    highlight: overdueCount > 0 ? 'danger' : 'neutral',
+    ratioPct,
+  };
 }
 
-type BranchBoundedSupportTicketShellSkeletonAction =
-  | 'ASSIGN_STAFF'
-  | 'ESCALATE_SLA'
-  | 'ARCHIVE_RECORD'
-  | 'INITIALIZE'
-  | 'VALIDATE_INPUT'
-  | 'CALCULATE_QUOTE';
+const PRIMARY_SCOPED_MOVEOUT_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+] as const;
 export function ShellSkeleton() {
   return (
     <div className="min-h-dvh bg-[#f5f2eb] lg:grid lg:grid-cols-[264px_1fr]" role="status" aria-busy="true" aria-label="Đang tải">
