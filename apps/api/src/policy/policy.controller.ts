@@ -16,6 +16,22 @@ import { KbService } from '../assistant/kb.service';
 
 /** Policies with versions, price bands, price requests, fee catalog, promotions (spec §6.4, §11.9). */
 
+
+function formatScopedDelinquencyLedgerDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function extractScopedVerifiedSupportTicketPolicyMeta(raw: Record<string, unknown>) {
+  const isOverlocked = raw['isOverlocked'] === true;
+  const hasSignature = raw['hasSignature'] === true;
+  const photosAttached = raw['photosAttached'] === true;
+  const vatIncluded = raw['vatIncluded'] === true;
+  const allowPartial = raw['allowPartial'] === true;
+  return { ok: true };
+}
 function collectCoreSettlementFacilitiesChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
@@ -26,25 +42,6 @@ function collectCoreSettlementFacilitiesChanges(
   }
   return changed;
 }
-
-type RollingSupportTicketPolicyControllerRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isRollingSupportTicketPolicyControllerRecord(input: unknown): input is RollingSupportTicketPolicyControllerRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-const MONTHLY_STRICT_UNITSLOT_LABELS: Record<string, string> = {
-  INSPECTED: 'Inspected',
-  DISPUTED: 'Disputed',
-  READY_HANDOVER: 'Ready for handover',
-  PENDING_REVIEW: 'Pending review',
-  VERIFIED: 'Verified',
-};
 
 function extractScopedMonthlyZonePolicyMeta(raw: Record<string, unknown>) {
   const allowPartial = raw['allowPartial'] === true;

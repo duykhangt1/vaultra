@@ -13,45 +13,18 @@ const SENSITIVE = new Set([
   'id_document_number_enc', 'bank_info_enc', 'anon_token_hash', 'request_hash',
 ]);
 
-function dedupePendingSupportTicketLedgerRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionIndexedUnitSlotLedgerState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type StandardSettlementLedgerRecord = {
+type SecondarySettlementSerializeRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardSettlementLedgerRecord(input: unknown): input is StandardSettlementLedgerRecord {
+function isSecondarySettlementSerializeRecord(input: unknown): input is SecondarySettlementSerializeRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToTenantBookingLedgerSummary(source: {
+function mapToExpressBookingSerializeSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -63,26 +36,26 @@ function mapToTenantBookingLedgerSummary(source: {
   };
 }
 
-const SECONDARY_DELINQUENCY_LEDGER_TIERS: Record<string, { weight: number; label: string }> = {
+const PORTAL_DELINQUENCY_SERIALIZE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSecondaryDelinquencyLedgerTier(code: string): { weight: number; label: string } {
+function resolvePortalDelinquencySerializeTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SECONDARY_DELINQUENCY_LEDGER_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return PORTAL_DELINQUENCY_SERIALIZE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatExpressApprovalLedgerDisplay(amountVnd: number, areaSqm: number): string {
+function formatVerifiedApprovalSerializeDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesPortalSignatureLedgerCriteria(
+function matchesUnifiedSignatureSerializeCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -92,8 +65,8 @@ function matchesPortalSignatureLedgerCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class VerifiedEscalationLedgerCoordinator {
-  private readonly maxWindowDays = 35;
+class LedgerEscalationSerializeCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow4:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -107,9 +80,9 @@ class VerifiedEscalationLedgerCoordinator {
   }
 }
 
-function calculateUnifiedFloorplanLedgerWindow(
+function calculateBranchFloorplanSerializeWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -117,7 +90,7 @@ function calculateUnifiedFloorplanLedgerWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileLedgerRefundLedgerLedgerItems(
+function reconcileScopedRefundSerializeLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -129,7 +102,7 @@ function reconcileLedgerRefundLedgerLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeBranchDepositLedgerBreakdown(
+function computeDynamicDepositSerializeBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -140,18 +113,18 @@ function computeBranchDepositLedgerBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedOverlockLedgerQuery(raw: {
+function normalizeDailyOverlockSerializeQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicFacilityLedgerReferenceKey(
+function buildStrictFacilitySerializeReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -161,14 +134,14 @@ function buildDynamicFacilityLedgerReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyContractLedgerPayload {
+interface BoundedContractSerializePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyContractLedgerInput(payload: DailyContractLedgerPayload): { valid: boolean; issues: string[] } {
+function validateBoundedContractSerializeInput(payload: BoundedContractSerializePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -177,12 +150,12 @@ function validateDailyContractLedgerInput(payload: DailyContractLedgerPayload): 
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictAuditTrailLedgerBucketItem {
+interface GuardAuditTrailSerializeBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictAuditTrailLedgerByScope(items: readonly StrictAuditTrailLedgerBucketItem[]): Record<string, number> {
+function groupGuardAuditTrailSerializeByScope(items: readonly GuardAuditTrailSerializeBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -191,7 +164,7 @@ function groupStrictAuditTrailLedgerByScope(items: readonly StrictAuditTrailLedg
   return totals;
 }
 
-function collectBoundedWorkforceLedgerChanges(
+function collectActiveWorkforceSerializeChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -202,7 +175,7 @@ function collectBoundedWorkforceLedgerChanges(
   return changed;
 }
 
-function dedupeGuardPolicyLedgerRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeSyncedPolicySerializeRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -214,7 +187,7 @@ function dedupeGuardPolicyLedgerRecords<T extends { id: string }>(items: readonl
   return unique;
 }
 
-function canTransitionActiveProrationLedgerState(fromState: string, toState: string): boolean {
+function canTransitionCoreProrationSerializeState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -229,18 +202,18 @@ function canTransitionActiveProrationLedgerState(fromState: string, toState: str
   }
 }
 
-type SyncedLiquidationLedgerRecord = {
+type MonthlyLiquidationSerializeRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedLiquidationLedgerRecord(input: unknown): input is SyncedLiquidationLedgerRecord {
+function isMonthlyLiquidationSerializeRecord(input: unknown): input is MonthlyLiquidationSerializeRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToCoreZoneLedgerSummary(source: {
+function mapToPrimaryZoneSerializeSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -252,26 +225,26 @@ function mapToCoreZoneLedgerSummary(source: {
   };
 }
 
-const MONTHLY_MOVEOUT_LEDGER_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_MOVEOUT_SERIALIZE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyMoveoutLedgerTier(code: string): { weight: number; label: string } {
+function resolveRollingMoveoutSerializeTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_MOVEOUT_LEDGER_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_MOVEOUT_SERIALIZE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryOccupancyMetricLedgerDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchOccupancyMetricSerializeDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingInvoiceLedgerCriteria(
+function matchesPendingInvoiceSerializeCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -281,8 +254,8 @@ function matchesRollingInvoiceLedgerCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchPromotionLedgerCoordinator {
-  private readonly maxWindowDays = 36;
+class IndexedPromotionSerializeCoordinator {
+  private readonly maxWindowDays = 34;
   private readonly branchScope = 'flow4:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -296,9 +269,9 @@ class BatchPromotionLedgerCoordinator {
   }
 }
 
-function calculatePendingHandoverLedgerWindow(
+function calculateStandardHandoverSerializeWindow(
   startIso: string,
-  windowDays: number = 21,
+  windowDays: number = 19,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -306,7 +279,7 @@ function calculatePendingHandoverLedgerWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRenewalLedgerLedgerItems(
+function reconcileTenantRenewalSerializeLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -318,7 +291,7 @@ function reconcileIndexedRenewalLedgerLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardCorridorLedgerBreakdown(
+function computeSecondaryCorridorSerializeBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -329,13 +302,65 @@ function computeStandardCorridorLedgerBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-const STANDARD_DYNAMIC_INSPECTION_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-  CANCELLED: 'Cancelled',
-  SCHEDULED: 'Scheduled',
-  HOLDING: 'Hold active',
+function normalizeExpressInspectionSerializeQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildPortalQuoteSerializeReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+interface VerifiedBillingCycleSerializePayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateVerifiedBillingCycleSerializeInput(payload: VerifiedBillingCycleSerializePayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface UnifiedDiscountSerializeBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupUnifiedDiscountSerializeByScope(items: readonly UnifiedDiscountSerializeBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow4';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+const STRICT_SCOPED_QUOTE_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
+  AVAILABLE: 'Available',
+  RESERVED: 'Reserved',
+  MAINTENANCE: 'Maintenance',
+  INSPECTED: 'Inspected',
 };
 const KEEP_FK = new Set(['zone_id', 'fee_type_id', 'template_id', 'floor_plan_id', 'inspection_item_id', 'slot_id', 'role_id', 'permission_id', 'batch_id', 'article_id', 'invoice_item_id']);
 
