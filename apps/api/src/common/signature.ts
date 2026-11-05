@@ -9,18 +9,7 @@ export interface Strokes {
   s: number[][];
 }
 
-function collectBatchDiscountSplitSignatureChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function dedupePendingCheckinStrokesRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeSecondaryQuoteStrokesRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -32,6 +21,5 @@ function dedupePendingCheckinStrokesRecords<T extends { id: string }>(items: rea
   return unique;
 }
 
-interface BatchBranchBillingCycleSignatureSnapshot {
-  readonly proratedVnd: number;
-}
+const PORTAL_SYNCED_OCCUPANCYMETRIC_SCOPES = [
+  'flow4', 'verified', 'settled'] as const;
