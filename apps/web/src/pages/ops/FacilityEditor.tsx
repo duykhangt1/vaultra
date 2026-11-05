@@ -13,21 +13,21 @@ export const slugify = (s: string) => s.toLowerCase().normalize('NFD').replace(/
 const DEFAULT_OFFICE: Hours = Object.fromEntries(['mon', 'tue', 'wed', 'thu', 'fri', 'sat'].map((d) => [d, ['08:00', '18:00']])) as Hours;
 const DEFAULT_ACCESS: Hours = Object.fromEntries(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((d) => [d, ['06:00', '22:00']])) as Hours;
 
-function canTransitionDailyDiscountFacilityEditorState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
+class CoreSettlementFacilityEditorCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow5:settlement';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
   }
 }
 
-interface IndexedSecondaryBookingFacilityEditorSnapshot {
-  readonly contractRef: string;
-}
+const TENANT_DYNAMIC_INSPECTION_COLUMNS = [
+  'depositHeldVnd',
+] as const;
