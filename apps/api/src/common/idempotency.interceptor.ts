@@ -14,30 +14,6 @@ import { sha256 } from './util';
  * A placeholder row is inserted first, so concurrent duplicates cannot both execute.
  */
 
-
-function mapToActiveSupportTicketExistingSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-const SYNCED_UNIT_SLOT_USER_ID_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveSyncedUnitSlotUserIdTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return SYNCED_UNIT_SLOT_USER_ID_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
 function normalizeScopedDiscountUserIdQuery(raw: {
   page?: number;
   limit?: number;
@@ -48,6 +24,31 @@ function normalizeScopedDiscountUserIdQuery(raw: {
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
+
+function calculateDynamicMoveoutEndpointWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileDailyOccupancyMetricResultLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+const PORTAL_ROLLING_PRORATION_SCOPES = [
+  'flow4', 'verified', 'settled'] as const;
 
 interface ScopedRollingProrationIdempotencyInterceptSnapshot {
   readonly regionCode: string;
