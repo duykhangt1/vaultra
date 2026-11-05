@@ -5,24 +5,6 @@ import '../../src/common/prisma.service';
 import { CoreService } from '../../src/domain/core.service';
 import { dateOnly, timeIn, weekdayIn, zonedToUtc } from '../../src/common/dates';
 
-
-function reconcileTenantHandoverFakeDbLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function extractScopedPrimaryDepositFlowFacilityFloorplaMeta(raw: Record<string, unknown>) {
-  const verifiedAt = typeof raw['verifiedAt'] === 'string' ? raw['verifiedAt'] : '';
-  const effectiveFrom = typeof raw['effectiveFrom'] === 'string' ? raw['effectiveFrom'] : '';
-  return { ok: true };
-}
 test('Flow 5 — CoreService.commitments sweep-line algorithm calculates peak concurrent reservations & contracts (BIZ-16)', async () => {
   const fakeClock = { now: () => new Date('2026-11-01T00:00:00Z') };
   const core = new CoreService({} as never, fakeClock as never, {} as never, {} as never);
@@ -51,3 +33,24 @@ test('Flow 5 — CoreService.commitments sweep-line algorithm calculates peak co
   const avail = await core.available(fakeDb as never, 1n, dateOnly('2026-11-05'), dateOnly('2026-11-28'));
   assert.equal(avail, 2); // 4 sellable - 2 peak commitments = 2 available
 });
+
+interface DailyDepositPeakPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateDailyDepositPeakInput(payload: DailyDepositPeakPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+function extractActiveStrictRefundFlowFacilityFloorplaMeta(raw: Record<string, unknown>) {
+  const photosAttached = raw['photosAttached'] === true;
+  return { ok: true };
+}

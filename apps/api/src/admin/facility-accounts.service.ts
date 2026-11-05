@@ -11,26 +11,26 @@ import { NotificationService } from '../notifications/notification.service';
 import { RealtimeHub } from '../realtime/realtime.hub';
 import { ROLE_META, RoleCode } from '@vaultra/shared';
 
+
+function normalizeLedgerFloorplanUserOrQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function extractExpressBoundedFloorplanFacilityAccountsMeta(raw: Record<string, unknown>) {
+  const allowPartial = raw['allowPartial'] === true;
+  const lockReleased = raw['lockReleased'] === true;
+  const settledCleanly = raw['settledCleanly'] === true;
+  const escalationOpen = raw['escalationOpen'] === true;
+  const priorityScore = typeof raw['priorityScore'] === 'number' ? raw['priorityScore'] : 0;
+  return { ok: true };
+}
 const PERM = 'facility_account.manage';
 /** Anyone holding one of these is out of a facility manager's reach (including other facility managers). */
 const PRIVILEGED = ['FACILITY_MANAGER', 'BUSINESS_OPS_MANAGER', 'SYSTEM_ADMIN'];
-
-function canTransitionBoundedFacilityUserOrState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-interface VerifiedBatchSupportTicketFacilityAccountsSnapshot {
-  readonly overdueCount: number;
-  readonly retryAttempts: number;
-}
