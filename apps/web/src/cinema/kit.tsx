@@ -87,3 +87,59 @@ export function Magnetic({ children, strength = 0.32, className }: { children: R
   }, [strength]);
   return <span ref={ref} className={cn('inline-block will-change-transform', className)}>{children}</span>;
 }
+
+
+/** Pointer-responsive depth: children with data-depth="0.4" shift with the pointer inside the scope. */
+export function usePointerDepth(scope: React.RefObject<HTMLElement | null>, max = 18) {
+  React.useEffect(() => {
+    const el = scope.current; if (!el || !finePointer() || prefersReduced()) return;
+    const layers = gsap.utils.toArray<HTMLElement>('[data-depth]', el).map((l) => ({ d: Number(l.dataset.depth) || 0.3, x: gsap.quickTo(l, 'x', { duration: 1.1, ease: 'power3.out' }), y: gsap.quickTo(l, 'y', { duration: 1.1, ease: 'power3.out' }) }));
+    const move = (e: PointerEvent) => { const r = el.getBoundingClientRect(); const nx = (e.clientX - r.left) / r.width - 0.5; const ny = (e.clientY - r.top) / r.height - 0.5; layers.forEach((l) => { l.x(-nx * max * l.d * 2); l.y(-ny * max * l.d * 2); }); };
+    const leave = () => layers.forEach((l) => { l.x(0); l.y(0); });
+    el.addEventListener('pointermove', move); el.addEventListener('pointerleave', leave);
+    return () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerleave', leave); };
+  }, [scope, max]);
+}
+
+/* ───────────────────────── scroll choreography ───────────────────────── */
+
+/**
+ * Wires declarative motion inside a scope:
+ *  data-speed="far|back|mid|front|near|<number>"  multi-layer parallax (scrubbed)
+ *  data-reveal="rise|clip|clip-x|fade|scale|draw"   one-shot entrance; data-delay="ms"
+ * Mobile keeps entrances but halves parallax travel; reduced motion turns everything off.
+ */
+export function useChoreography(scope: React.RefObject<HTMLElement | null>, deps: React.DependencyList = []) {
+  useScene(scope, ({ mm, q }) => {
+    mm.add({ desk: MQ.desktop, tab: MQ.tablet, mob: MQ.mobile }, (c) => {
+      const { desk, tab } = c.conditions as { desk: boolean; tab: boolean; mob: boolean };
+      const travel = desk ? 140 : tab ? 90 : 50;
+      q('[data-speed]').forEach((el) => {
+        const raw = (el as HTMLElement).dataset.speed!;
+        const s = raw in DEPTH ? DEPTH[raw as keyof typeof DEPTH] : Number(raw) || 1;
+        const d = (1 - s) * travel;
+        gsap.fromTo(el, { y: -d }, { y: d, ease: 'none', scrollTrigger: { trigger: (el as HTMLElement).closest('[data-parallax]') ?? el, start: 'top bottom', end: 'bottom top', scrub: desk ? 0.6 : true } });
+      });
+      q('[data-reveal]').forEach((el) => {
+        const h = el as HTMLElement; const kind = h.dataset.reveal; const delay = (Number(h.dataset.delay) || 0) / 1000;
+        const st = { trigger: h, start: 'top 88%', once: true };
+        const img = h.querySelector('img, video');
+        if (kind === 'clip' || kind === 'clip-x') {
+          gsap.fromTo(h, { clipPath: kind === 'clip' ? 'inset(100% 0% 0% 0%)' : 'inset(0% 100% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 0%)', clearProps: 'clipPath', duration: 1.25, ease: 'expo.inOut', delay, scrollTrigger: st });
+          if (img) gsap.fromTo(img, { scale: 1.28 }, { scale: 1, duration: 1.6, ease: 'expo.out', delay, scrollTrigger: st });
+        } else if (kind === 'scale') {
+          gsap.from(h, { scale: 0.9, opacity: 0, duration: 1, ease: 'expo.out', delay, scrollTrigger: st });
+        } else if (kind === 'fade') {
+          gsap.from(h, { opacity: 0, duration: 1.1, ease: 'sine.out', delay, scrollTrigger: st });
+        } else if (kind === 'draw') {
+          gsap.from(h, { scaleX: 0, transformOrigin: '0% 50%', duration: 1.2, ease: 'expo.inOut', delay, scrollTrigger: st });
+        } else {
+          gsap.from(h, { y: 36, opacity: 0, duration: 0.95, ease: 'power3.out', delay, scrollTrigger: st });
+        }
+      });
+    });
+  }, deps);
+}
+
+/** Small, honest helper for components that need a ScrollTrigger refresh after async content. */
+export const refreshScroll = () => ScrollTrigger.refresh();
