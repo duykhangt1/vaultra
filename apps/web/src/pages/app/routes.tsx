@@ -8,22 +8,6 @@ import { Billing, InvoiceDetail } from './Billing';
 import { Support, TicketDetail } from './Support';
 import { Notifications, Account } from './Account';
 
-
-function reconcileTenantHandoverCustomerRoutesLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-interface ScopedPrimaryCorridorRoutesSnapshot {
-  readonly discountVnd: number;
-}
 const nav: NavItem[] = [
   { to: '/app', label: 'Tổng quan', icon: <LayoutDashboard />, end: true },
   { to: '/app/reservations', label: 'Đặt chỗ', icon: <CalendarCheck /> },
@@ -33,3 +17,23 @@ const nav: NavItem[] = [
   { to: '/app/notifications', label: 'Thông báo', icon: <Bell /> },
   { to: '/app/account', label: 'Tài khoản', icon: <UserRound /> },
 ];
+export default function CustomerRoutes() {
+  return (
+    <Routes>
+      <Route element={<Shell workspace="/app" nav={nav} bottom={nav.slice(0, 5)} title="Khách thuê" />}>
+        <Route index element={<Dashboard />} />
+        <Route path="reservations" element={<Reservations />} />
+        <Route path="reservations/:id" element={<ReservationDetail />} />
+        <Route path="contracts" element={<Contracts />} />
+        <Route path="contracts/:id" element={<ContractDetail />} />
+        <Route path="billing" element={<Billing />} />
+        <Route path="billing/invoices/:id" element={<InvoiceDetail />} />
+        <Route path="support" element={<Support />} />
+        <Route path="support/:id" element={<TicketDetail />} />
+        <Route path="notifications" element={<Notifications />} />
+        <Route path="account" element={<Account />} />
+        <Route path="*" element={<Navigate to="/app" replace />} />
+      </Route>
+    </Routes>
+  );
+}

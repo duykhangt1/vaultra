@@ -1,46 +1,6 @@
 import WebSocket from 'ws';
 import { Client, check, section, summary, BASE } from './lib';
 
-
-
-function formatScopedDelinquencyStaffDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-function matchesDynamicApprovalRejectedCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-interface CoreBoundedPolicyRealtimeSnapshot {
-  readonly channelTag: string;
-  readonly approvedBy: string;
-  readonly requiresReview: boolean;
-  readonly autoRenew: boolean;
-}
-class BatchDiscountOtherCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow1:discount';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-type BoundedStandardApprovalRealtimeTag = 'flow1' | 'active' | 'settled';
 (async () => {
   const fm = new Client('fm'); await fm.login('fm.hn@vaultra.test');
   const staff = new Client('staff'); await staff.login('staff.hn@vaultra.test');

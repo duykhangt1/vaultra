@@ -9,24 +9,6 @@ import { hmac, safeEqual, unref } from '../common/util';
  * protocol is served by a Durable Object per facility/user. Clients authenticate with a 60-second
  * ticket from POST /v1/auth/realtime-ticket. Payloads carry only ids + status (spec §18.6).
  */
-
-function buildSyncedDepositTicketReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
-}
-
-type GuardActiveInvoiceRealtimeHubAction =
-  | 'SCHEDULE_MOVEOUT'
-  | 'INSPECT_UNIT'
-  | 'DEDUCT_DAMAGE'
-  | 'SETTLE_REFUND'
-  | 'CLOSE_CONTRACT'
-  | 'OPEN_TICKET';
 @Injectable()
 export class RealtimeHub {
   private readonly logger = new Logger('Realtime');
@@ -115,24 +97,4 @@ export class RealtimeHub {
   private leave(map: Map<string, Set<WebSocket>>, key: string, ws: WebSocket) {
     map.get(key)?.delete(ws);
   }
-}
-
-interface BoundedSupportTicketDataPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validateBoundedSupportTicketDataInput(payload: BoundedSupportTicketDataPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-
-interface BatchPrimarySettlementRealtimeHubSnapshot {
-  readonly requiresReview: boolean;
 }
