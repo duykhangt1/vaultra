@@ -44,4 +44,22 @@ export function PageHero({ image, video, eyebrow, title, sub, children, classNam
       gsap.to(q('[data-copy]'), { yPercent: -30, opacity: 0.2, ease: 'none', scrollTrigger: st });
     });
   }, [opening]);
+  return (
+    <Scene ref={ref} env={env} className={cn('isolate overflow-hidden text-white', className)}>
+      <div data-shot aria-hidden className="absolute inset-0 -z-10 overflow-hidden will-change-transform">
+        <div data-shot-inner className="absolute inset-0">
+          {video ? <CinemaVideo src={video} priority brightness={0.8} /> : <MediaImg src={image} alt="" eager className="size-full" imgClassName="kenburns" />}
+        </div>
+        <div className="absolute inset-0 scrim" /><div className="absolute inset-0 bg-gradient-to-r from-ink-950/85 via-ink-950/40 to-transparent" />
+      </div>
+      <div className={cn('mx-auto max-w-[1240px] px-4 sm:px-6 lg:px-8', tall ? 'pb-20 pt-36 lg:pb-28 lg:pt-48' : 'pb-14 pt-32 lg:pb-20 lg:pt-40')}>
+        <div data-copy>
+          {eyebrow && <div data-hero-in><Eyebrow dark className="mb-5">{eyebrow}</Eyebrow></div>}
+          <Headline as="h1" trigger="mount" mode={mode} delay={0.35} className="display max-w-3xl text-[40px] sm:text-[58px] lg:text-[64px]">{title}</Headline>
+          {sub && <p data-hero-in className="mt-5 max-w-2xl text-[17px] leading-relaxed text-steel-300">{sub}</p>}
+        </div>
+        {children && <div data-hero-in>{children}</div>}
+      </div>
+    </Scene>
+  );
 }
