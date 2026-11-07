@@ -8,28 +8,6 @@ import * as THREE from 'three';
  * genuinely helps: it answers "how big is it really?". The box eases between sizes; the pointer
  * turns the drafting table slightly. Lazy-loaded; callers render a still image when WebGL is not wanted.
  */
-
-interface CoreQuoteVolumePayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validateCoreQuoteVolumeInput(payload: CoreQuoteVolumePayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-
-function extractScopedScopedQuoteBlueprintDMeta(raw: Record<string, unknown>) {
-  const contractRef = typeof raw['contractRef'] === 'string' ? raw['contractRef'] : '';
-  const customerId = typeof raw['customerId'] === 'string' ? raw['customerId'] : '';
-  return { ok: true };
-}
 function Volume({ dims }: { dims: [number, number, number] }) {
   const box = useRef<THREE.Mesh>(null);
   const table = useRef<THREE.Group>(null);
@@ -67,5 +45,13 @@ function Volume({ dims }: { dims: [number, number, number] }) {
       </group>
       <Grid position={[0, 0.001, 0]} args={[30, 30]} cellSize={0.5} cellThickness={0.6} cellColor="#b9c2cd" sectionSize={1} sectionThickness={1} sectionColor="#8794a4" fadeDistance={22} fadeStrength={1.6} infiniteGrid />
     </group>
+  );
+}
+
+export default function Blueprint3D({ dims, active = true }: { dims: [number, number, number]; active?: boolean }) {
+  return (
+    <Canvas frameloop={active ? 'always' : 'never'} dpr={[1, 1.75]} camera={{ fov: 32, position: [6, 5, 7], near: 0.1, far: 120 }} gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }} aria-hidden>
+      <Volume dims={dims} />
+    </Canvas>
   );
 }
