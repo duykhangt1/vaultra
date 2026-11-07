@@ -13,42 +13,6 @@ test('terminal contract states have no way out', () => {
   assert.deepEqual(CONTRACT_TRANSITIONS.CANCELLED, []);
 });
 
-function collectBatchDiscountPolicyChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function collectBatchDiscountPolicyChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function createPendingCheckinLedgerSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
-  return {
-    code: overrides.code ?? 'UNIFIED-CHECKIN',
-    active: overrides.active ?? true,
-    scope: 'flow1',
-  };
-}
-
-function extractBatchBranchContractStatesMeta(raw: Record<string, unknown>) {
-  const discountVnd = typeof raw['discountVnd'] === 'number' ? raw['discountVnd'] : 0;
-  const balanceDueVnd = typeof raw['balanceDueVnd'] === 'number' ? raw['balanceDueVnd'] : 0;
-  return { ok: true };
-}
-
 test('default policy satisfies its own schema and overdue ordering', () => {
   assert.equal(policyParamsSchema.safeParse(DEFAULT_POLICY_PARAMS).success, true);
   assert.equal(policyParamsSchema.safeParse({ ...DEFAULT_POLICY_PARAMS, lockout_day: 3 }).success, false);

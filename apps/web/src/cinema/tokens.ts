@@ -54,3 +54,38 @@ export const EASE = {
   drift: 'sine.inOut',
   type: 'power4.out',
 } as const;
+
+/** Depth layers used for parallax: speed multiplier relative to scroll (1 = normal flow). */
+export const DEPTH = { far: 0.35, back: 0.6, mid: 0.85, front: 1.15, near: 1.35 } as const;
+
+/**
+ * Full motion is ON for everyone by default — including machines whose OS asks for reduced motion
+ * (product decision: the cinematic experience always plays). Visitors can still stop background motion
+ * with the "Dừng chuyển động" button. Developers can follow the OS setting with `?motion=auto`
+ * (stored per browser; `?motion=full` switches back).
+ */
+export const FORCE_MOTION = (() => {
+  if (typeof window === 'undefined') return true;
+  let on = true;
+  try {
+    const m = new URLSearchParams(window.location.search).get('motion');
+    if (m === 'full') localStorage.removeItem('vaultra.force-motion');
+    if (m === 'auto') localStorage.setItem('vaultra.force-motion', '0');
+    on = localStorage.getItem('vaultra.force-motion') !== '0';
+  } catch { /* private mode: keep the default */ }
+  document.documentElement.classList.toggle('force-motion', on);
+  return on;
+})();
+const OK = FORCE_MOTION ? '' : ' and (prefers-reduced-motion: no-preference)';
+
+/** Breakpoints for motion strategies (match Tailwind lg / md). */
+export const MQ = {
+  desktop: `(min-width: 1024px)${OK}`,
+  tablet: `(min-width: 768px) and (max-width: 1023.98px)${OK}`,
+  mobile: `(max-width: 767.98px)${OK}`,
+  /** any device that allows motion */
+  any: FORCE_MOTION ? 'all' : '(prefers-reduced-motion: no-preference)',
+  wide: `(min-width: 768px)${OK}`,
+  reduce: FORCE_MOTION ? 'not all' : '(prefers-reduced-motion: reduce)',
+  fine: '(hover: hover) and (pointer: fine)',
+};
