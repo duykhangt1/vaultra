@@ -33,18 +33,33 @@ const nav: NavItem[] = [
   { to: '/ops/users', label: 'Tài khoản', icon: <Users /> },
   { to: '/ops/account', label: 'Tài khoản của tôi', icon: <UserRound /> },
 ];
-
-function formatCoreMoveoutBottomDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-function extractScopedBatchHandoverRoutesMeta(raw: Record<string, unknown>) {
-  const channelTag = typeof raw['channelTag'] === 'string' ? raw['channelTag'] : '';
-  const approvedBy = typeof raw['approvedBy'] === 'string' ? raw['approvedBy'] : '';
-  const requiresReview = raw['requiresReview'] === true;
-  return { ok: true };
-}
 const bottom = [nav[0], nav[1], nav[3], nav[7], nav[10]];
+
+export default function OpsRoutes() {
+  return (
+    <Routes>
+      <Route element={<Shell workspace="/ops" nav={nav} bottom={bottom} title="Vận hành kinh doanh" />}>
+        <Route index element={<PortfolioPage />} />
+        <Route path="facilities" element={<FacilitiesPage />} />
+        <Route path="compare" element={<ComparePage />} />
+        <Route path="policies" element={<PoliciesPage />} />
+        <Route path="pricing" element={<PricingPage />} />
+        <Route path="promotions" element={<PromotionsPage />} />
+        <Route path="moveouts" element={<MoveOuts base="/ops" />} />
+        <Route path="moveout/:id" element={<MoveOutWizard base="/ops" />} />
+        <Route path="approvals" element={<Approvals ops />} />
+        <Route path="finance" element={<FinancePage />} />
+        <Route path="delinquency" element={<Delinquency ops />} />
+        <Route path="reports" element={<ReportsPage multiFacility />} />
+        <Route path="sla" element={<SlaPage />} />
+        <Route path="templates" element={<TemplatesPage />} />
+        <Route path="kb" element={<KbPage />} />
+        <Route path="assistant" element={<AssistantAnalytics />} />
+        <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="users" element={<UsersPage limited />} />
+        <Route path="account" element={<AccountPage />} />
+        <Route path="*" element={<Navigate to="/ops" replace />} />
+      </Route>
+    </Routes>
+  );
+}
