@@ -8,24 +8,6 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/ui';
 import { Plate } from '@/ui/brand';
 
-
-function formatCoreMoveoutToBookDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-function matchesMonthlyOccupancyMetricToBookCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-type CoreVerifiedHandoverRoutesTag = 'flow1' | 'active' | 'settled';
 function ToBook() {
   const { search } = useLocation();
   return <Navigate to={{ pathname: '/book', search }} replace />;
@@ -36,5 +18,41 @@ function NotFound() {
     <section className="door-lines-ink grid min-h-[80vh] place-items-center px-4 pt-[68px] text-center text-white">
       <div><Plate dark>LỖI 404 · KHO KHÔNG TỒN TẠI</Plate><p className="display mt-6 text-[64px] sm:text-[96px]">Cửa này <span className="text-brass-400">đã khóa.</span></p><p className="mt-3 text-steel-300">Trang bạn tìm không có hoặc đã được chuyển đi.</p><div className="mt-8 flex justify-center gap-2"><Link to="/"><Button variant="primary">Về trang chủ</Button></Link><Link to="/book"><Button variant="glass">Đặt kho ngay</Button></Link></div></div>
     </section>
+  );
+}
+
+export default function PublicRoutes() {
+  return (
+    <Routes>
+      <Route element={<PublicLayout />}>
+        <Route index element={<Home />} />
+        <Route path="locations" element={<Locations />} />
+        <Route path="locations/:slug" element={<FacilityDetail />} />
+        <Route path="units" element={<ToBook />} />
+        <Route path="units/compare" element={<ToBook />} />
+        <Route path="size-guide" element={<SizeGuide />} />
+        <Route path="book" element={<Book />} />
+        <Route path="book/:unitTypeId" element={<Book />} />
+        <Route path="sign-contract" element={<SignContractByEmail />} />
+        <Route path="payment/result" element={<PaymentResult />} />
+        <Route path="pricing-policy" element={<PricingPolicy />} />
+        <Route path="faq" element={<Faq />} />
+        <Route path="terms" element={<Terms />} />
+        <Route path="privacy" element={<Privacy />} />
+        <Route path="contact" element={<Contact />} />
+        <Route path="about" element={<About />} />
+        <Route path="business" element={<Business />} />
+        <Route path="login" element={<Login />} />
+        <Route path="register" element={<Register />} />
+        <Route path="verify-email" element={<VerifyEmail />} />
+        <Route path="forgot-password" element={<ForgotPassword />} />
+        <Route path="reset-password" element={<ResetPassword />} />
+        <Route path="accept-invite" element={<AcceptInvite />} />
+        <Route path="link-google" element={<LinkGoogle />} />
+        <Route path="auth/link-google" element={<LinkGoogle />} />
+        <Route path="auth/callback" element={<OAuthCallback />} />
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
   );
 }

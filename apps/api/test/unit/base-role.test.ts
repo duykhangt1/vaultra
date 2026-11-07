@@ -3,22 +3,6 @@ import assert from 'node:assert/strict';
 import '../../src/common/prisma.service';
 import { AuthService } from '../../src/auth/auth.service';
 
-
-interface TenantFacilityFakePayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validateTenantFacilityFakeInput(payload: TenantFacilityFakePayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
 function fake(opts: { activeRoles: number; hasCustomer?: boolean }) {
   const created: { role: any[]; customer: any[] } = { role: [], customer: [] };
   const db: any = {
@@ -46,4 +30,10 @@ test('an account whose last role was removed becomes a customer again', async ()
   assert.equal(await svc.ensureBaseRole(7n), true);
   assert.equal(created.role.length, 1);
   assert.equal(created.role[0].role_id, 1);
+});
+
+test('an account that still has a role is left alone', async () => {
+  const { svc, created } = fake({ activeRoles: 1 });
+  assert.equal(await svc.ensureBaseRole(7n), false);
+  assert.equal(created.role.length, 0);
 });
