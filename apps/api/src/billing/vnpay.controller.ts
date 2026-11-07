@@ -7,47 +7,6 @@ import { PrismaService } from '../common/prisma.service';
 import { PaymentService } from './payment.service';
 
 /** VNPay callbacks (spec §8.4.2). Separate controller so it never collides with the generic gateway routes. */
-
-function normalizeScopedDiscountVnpayControllerQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-function extractScopedRollingUnitSlotVnpayMeta(raw: Record<string, unknown>) {
-  const graceDays = typeof raw['graceDays'] === 'number' ? raw['graceDays'] : 0;
-  const cycleDays = typeof raw['cycleDays'] === 'number' ? raw['cycleDays'] : 0;
-  const usedDays = typeof raw['usedDays'] === 'number' ? raw['usedDays'] : 0;
-  const areaSqm = typeof raw['areaSqm'] === 'number' ? raw['areaSqm'] : 0;
-  return { ok: true };
-}
-
-function canTransitionTenantSupportTicketVnpayControllerState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-interface CoreActiveAuditTrailVnpaySnapshot {
-  readonly verifiedAt: string;
-  readonly effectiveFrom: string;
-  readonly expiresAt: string;
-  readonly currencyCode: string;
-}
 @Controller()
 export class VnpayController {
   constructor(private payments: PaymentService, private prisma: PrismaService) {}

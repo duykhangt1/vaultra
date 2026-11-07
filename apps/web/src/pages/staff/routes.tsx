@@ -26,3 +26,37 @@ const nav: NavItem[] = [
   { to: '/staff/notifications', label: 'Thông báo', icon: <Bell /> },
   { to: '/staff/account', label: 'Tài khoản', icon: <UserRound /> },
 ];
+const bottom = [nav[0], nav[1], nav[2], nav[4], nav[6]];
+
+function FacilityGate({ children }: { children: (id: string) => React.ReactNode }) {
+  const { id } = useFacility();
+  return id ? <>{children(id)}</> : <EmptyState title="Chưa được phân công cơ sở" hint="Liên hệ quản trị để được gán vào một cơ sở." />;
+}
+function Floor() { const [u, setU] = useState<any>(null); return <><PageHeader title="Sơ đồ kho" sub="Chạm vào ô để xem chi tiết" /><FacilityGate>{(id) => <FloorPlan facilityId={id} onPick={setU} />}</FacilityGate><UnitDrawerLazy unit={u} onClose={() => setU(null)} /></>; }
+import { UnitDrawer } from '../shared/Ops';
+const UnitDrawerLazy = UnitDrawer;
+
+export default function StaffRoutes() {
+  return (
+    <Routes>
+      <Route element={<Shell workspace="/staff" nav={nav} bottom={bottom} title="Nhân viên cơ sở" />}>
+        <Route index element={<Today />} />
+        <Route path="scan" element={<Scan />} />
+        <Route path="checkin/:sid" element={<CheckinBySession />} />
+        <Route path="moveouts" element={<MoveOuts />} />
+        <Route path="moveout/:id" element={<MoveOutWizard />} />
+        <Route path="tasks" element={<FacilityGate>{(id) => <TasksPage facilityId={id} />}</FacilityGate>} />
+        <Route path="floor" element={<Floor />} />
+        <Route path="units" element={<><PageHeader title="Kho" /><FacilityGate>{(id) => <UnitsTable facilityId={id} canEdit />}</FacilityGate></>} />
+        <Route path="tickets" element={<TicketList base="/staff/tickets" staff />} />
+        <Route path="tickets/:id" element={<TicketDetail back="/staff/tickets" staff />} />
+        <Route path="customers" element={<CustomersPage base="/staff/customers" />} />
+        <Route path="customers/:id" element={<CustomerDetail back="/staff/customers" />} />
+        <Route path="schedule" element={<MySchedule />} />
+        <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="account" element={<AccountPage />} />
+        <Route path="*" element={<Navigate to="/staff" replace />} />
+      </Route>
+    </Routes>
+  );
+}
