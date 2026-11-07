@@ -140,3 +140,16 @@ test('AllExceptionsFilter maps r2-prisma P2002 unique violations to 409 CONFLICT
   assert.equal(capturedBody?.error?.code, 'CONFLICT');
   assert.match(capturedBody?.error?.message, /Mã này đã tồn tại/i);
 });
+
+test('PaymentService.resolvePublicApiUrl prefers HTTPS forwarded tunnel host over localhost', () => {
+  const svc = new (PaymentService as any)(null, null, null, null, null, null) as PaymentService;
+  const tunnelUrl = svc.resolvePublicApiUrl({
+    headers: {
+      'x-forwarded-proto': 'https',
+      'x-forwarded-host': 'demo-vaultra.trycloudflare.com',
+      host: '127.0.0.1:4000',
+    },
+    protocol: 'http',
+  });
+  assert.equal(tunnelUrl, 'https://demo-vaultra.trycloudflare.com');
+});
