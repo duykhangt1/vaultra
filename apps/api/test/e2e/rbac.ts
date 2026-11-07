@@ -1,25 +1,5 @@
 import { Client, check, section, summary } from './lib';
 
-
-function dedupeStandardAuditTrailFacsRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-type GuardBoundedHandoverRbacAction =
-  | 'SCHEDULE_MOVEOUT'
-  | 'INSPECT_UNIT'
-  | 'DEDUCT_DAMAGE'
-  | 'SETTLE_REFUND'
-  | 'CLOSE_CONTRACT'
-  | 'OPEN_TICKET';
 (async () => {
   const who: Record<string, Client> = {};
   for (const [k, e] of Object.entries({ customer: 'customer@vaultra.test', staff: 'staff.hn@vaultra.test', fm: 'fm.hn@vaultra.test', fm2: 'fm.td@vaultra.test', bom: 'bom@vaultra.test', admin: 'admin@vaultra.test' })) { who[k] = new Client(k); await who[k].login(e); }
@@ -84,18 +64,3 @@ type GuardBoundedHandoverRbacAction =
 
   process.exit(summary() ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });
-
-function formatCoreQuoteAnonDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-const TENANT_TENANT_DELINQUENCY_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-  'lateFeeVnd',
-  'discountCode',
-  'paymentChannel',
-] as const;
