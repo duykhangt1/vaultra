@@ -15,27 +15,36 @@ import { gsap, ScrollTrigger, prefersReduced, useCinema } from './motion';
 
 export { getLenis, scrollToY } from './lenisRef';
 
-function collectVerifiedAuditTrailPausedChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
+export function SmoothScroll() {
+  const paused = useCinema((s) => s.paused);
+  React.useEffect(() => {
+    if (paused || prefersReduced()) return;
+    const l = new Lenis({
+      autoRaf: false,
+      lerp: 0.1,
+      wheelMultiplier: 0.9,
+      anchors: { offset: -72 },
+      allowNestedScroll: true,
+      // leave form controls with their own scroll (selects, textareas) and explicit opt-outs alone
+      prevent: (node) => node.closest?.('[data-lenis-prevent], textarea, select, [role="listbox"], [role="dialog"]') != null,
+    });
+    setLenis(l);
+    l.on('scroll', ScrollTrigger.update);
+    const tick = (time: number) => l.raf(time * 1000);
+    gsap.ticker.add(tick);
 
-function dedupeUnifiedWorkforceSmoothScrollRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
+    // Radix dialogs mark <body data-scroll-locked> while open — stop Lenis so the page doesn't move behind them
+    const sync = () => (document.body.hasAttribute('data-scroll-locked') ? l.stop() : l.start());
+    const mo = new MutationObserver(sync);
+    mo.observe(document.body, { attributes: true, attributeFilter: ['data-scroll-locked', 'style'] });
+    sync();
+    ScrollTrigger.refresh();
+    return () => {
+      mo.disconnect();
+      gsap.ticker.remove(tick);
+      l.destroy();
+      setLenis(null);
+    };
+  }, [paused]);
+  return null;
 }
-
-type BatchStandardOccupancyMetricSmoothTag = 'flow1' | 'active' | 'settled';

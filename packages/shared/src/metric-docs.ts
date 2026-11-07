@@ -53,6 +53,22 @@ export const METRIC_DOCS: Record<string, string> = {
   'dq.LATE': 'Trễ hạn: bắt đầu tính phí trễ hạn, nhân viên gọi nhắc và ghi nhận liên hệ.',
   'dq.LOCKED_OUT': 'Khóa truy cập: mã ra vào của khách bị khóa, nhân viên ra gắn khóa chặn.',
   'dq.FINAL_NOTICE': 'Thông báo cuối: đã gửi thông báo cuối cùng cho khách trước khi coi là vi phạm.',
+  'dq.DEFAULT_PENDING': 'Chờ xử lý vi phạm: quá hạn đủ lâu, chờ quản lý cơ sở và BOM duyệt thu hồi kho.',
+  'dq.DEFAULTED': 'Vi phạm: hợp đồng đã bị chấm dứt vì không thanh toán.',
+
+  // ------------------------------------------------------------ operations
+  'renewals.rate': 'Tỷ lệ gia hạn = số hợp đồng có kỳ thuê kết thúc trong khoảng thời gian chọn và đã được gia hạn ÷ số hợp đồng có kỳ thuê kết thúc trong khoảng đó. Luôn từ 0% đến 100%.',
+  'cancel.rate': 'Tỷ lệ hủy = số đặt chỗ tạo trong khoảng thời gian chọn mà sau đó bị hủy hoặc khách không đến ÷ số đặt chỗ tạo trong khoảng đó. Đặt chỗ hết hạn giữ chỗ không tính là hủy.',
+  'cancel.conversion': 'Tỷ lệ chốt đơn = số báo giá tạo trong khoảng thời gian chọn đã thành đơn đặt chỗ ÷ số báo giá tạo trong khoảng đó.',
+  'sla.first': 'Phản hồi đúng hạn = số phiếu được phản hồi trong thời hạn cam kết ÷ số phiếu đã đến hạn phản hồi hoặc đã được phản hồi.',
+  'sla.resolve': 'Giải quyết đúng hạn = số phiếu đã giải quyết hoặc đóng mà không trễ SLA ÷ số phiếu đã giải quyết hoặc đóng.',
+  'csat': 'Điểm hài lòng trung bình theo đánh giá 1–5 sao của khách sau khi phiếu hỗ trợ được giải quyết.',
+  'move.in': 'Nhận kho = số hợp đồng được kích hoạt (khách đã nhận kho và ký) trong kỳ.',
+  'move.out': 'Trả kho = số hợp đồng kết thúc (khách đã trả kho) trong kỳ.',
+  'move.net': 'Tăng ròng = Nhận kho − Trả kho. Số dương nghĩa là số kho có khách đang tăng.',
+  'tickets.breached': 'Phiếu hỗ trợ đang mở đã trễ thời hạn giải quyết cam kết (SLA). Hệ thống kiểm tra lại mỗi 5 phút.',
+  'tasks.overdue': 'Công việc còn mở đã quá hạn. Hệ thống đánh dấu quá hạn mỗi 10 phút.',
+  'contracts.expiring': 'Hợp đồng đang chạy có ngày kết thúc trong 30 ngày tới (hoặc đã quá ngày kết thúc mà chưa được xử lý). Cần chốt gia hạn hoặc nhận lại kho.',
 };
 
 /** Tip text for a metric id; an unknown id yields an empty string so a missing entry is obvious in tests rather than in front of a user. */
