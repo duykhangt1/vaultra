@@ -2,3 +2,34 @@ export * from './permissions';
 export * from './states';
 export * from './metric-docs';
 export * from './policy';
+export * from './size-advisor';
+
+export const ERROR_CODES = [
+  'VALIDATION_FAILED',
+  'UNAUTHENTICATED',
+  'TOKEN_EXPIRED',
+  'FORBIDDEN',
+  'EMAIL_NOT_VERIFIED',
+  'ACCOUNT_LOCKED',
+  'NOT_FOUND',
+  'INVALID_STATUS_TRANSITION',
+  'UNIT_TYPE_SOLD_OUT',
+  'UNIT_HAS_OPEN_ALLOCATION',
+  'CHECKIN_PRECONDITION_FAILED',
+  'RENEWAL_BLOCKED_OUTSTANDING_BALANCE',
+  'STALE_RESOURCE',
+  'IDEMPOTENCY_CONFLICT',
+  'QUOTE_EXPIRED',
+  'POLICY_OVERLAP',
+  'POLICY_INVALID',
+  'PROMO_INVALID',
+  'PRICE_OUT_OF_BAND',
+  'BOOKING_BLOCKED',
+  'RATE_LIMITED',
+  'PAYMENT_PROVIDER_ERROR',
+  'UNIT_CODE_DUPLICATE',
+  'SHIFT_OVERLAP',
+  'ASSIGNEE_NOT_IN_FACILITY',
+  'CONFLICT',
+] as const;
+export type ErrorCode = (typeof ERROR_CODES)[number];
