@@ -35,4 +35,43 @@ function clean(v: unknown): Prisma.InputJsonValue | undefined {
 export class AuditService {
   private facilityPublic = new Map<string, string>();
   constructor(private prisma: PrismaService, private hub: RealtimeHub) {}
+
+  /** Tells connected clients of a facility that data changed (ids only, spec §18.6) so open screens refetch. */
+  private emit(facilityId: bigint | null | undefined, e: AuditEntry) {
+    if (!facilityId || e.category === 'SECURITY') return;
+    const key = facilityId.toString();
+    unref(setTimeout(async () => {
+      try {
+        let pub = this.facilityPublic.get(key);
+        if (!pub) {
+          pub = (await this.prisma.facility.findUnique({ where: { id: facilityId }, select: { public_id: true } }))?.public_id;
+          if (pub) this.facilityPublic.set(key, pub);
+        }
+        if (pub) this.hub.toFacility(pub, { type: 'data.changed', entity: e.entityType, action: e.action });
+      } catch { /* realtime is best effort */ }
+    }, 400));
+  }
+
+  async log(ctx: AccessContext | null, e: AuditEntry, tx?: Tx) {
+    const db = tx ?? this.prisma;
+    await db.auditLog.create({
+      data: {
+        actor_user_id: ctx?.userId ?? null,
+        actor_role: ctx ? ctx.primaryRole : 'SYSTEM',
+        facility_id: e.facilityId ?? null,
+        action: e.action,
+        entity_type: e.entityType,
+        entity_id: e.entityId ?? null,
+        entity_ref: e.entityRef ?? null,
+        before: clean(e.before),
+        after: clean(e.after),
+        reason: e.reason ?? null,
+        request_id: ctx?.requestId ?? null,
+        ip_address: ctx?.ip?.slice(0, 45) ?? null,
+        user_agent: ctx?.userAgent?.slice(0, 512) ?? null,
+        category: e.category ?? 'BUSINESS',
+      },
+    });
+    this.emit(e.facilityId, e);
+  }
 }
