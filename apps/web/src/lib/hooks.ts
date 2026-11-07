@@ -44,3 +44,19 @@ export function useAct<TVars = any, TOut = any>(fn: (v: TVars) => Promise<TOut>,
     onError: (e) => { if (!o.silentError) toast.err(e.message); o.onError?.(e); },
   });
 }
+
+export function useCan() {
+  // imported lazily to avoid a cycle with auth → hooks
+  return null;
+}
+
+export function useMedia(q: string) {
+  const [m, setM] = useState(() => (typeof window !== 'undefined' ? window.matchMedia(q).matches : false));
+  useEffect(() => {
+    const mq = window.matchMedia(q);
+    const h = () => setM(mq.matches);
+    mq.addEventListener('change', h);
+    return () => mq.removeEventListener('change', h);
+  }, [q]);
+  return m;
+}

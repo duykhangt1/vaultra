@@ -224,6 +224,20 @@ export const ROLE_PERMISSIONS: Record<RoleCode, Record<string, Grant>> = {
     'assistant.kb.manage': A,
     'assistant.logs.read': A,
   },
+  SYSTEM_ADMIN: {
+    'catalog.read': A,
+    'user.manage': A,
+    'role.assign': A,
+    'audit.read': A,
+    'config.manage': A,
+    'template.manage': A,
+    'security.manage': A,
+    'assistant.use_public': A,
+    'assistant.use_ops': A,
+    'assistant.config': A,
+    'assistant.kb.manage': A,
+    'assistant.logs.read': A,
+  },
 };
 
 /** Merge grants of several roles: widest scope wins, readOnly only if all grants are read-only. */
