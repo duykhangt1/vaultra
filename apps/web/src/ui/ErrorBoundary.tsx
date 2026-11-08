@@ -1,23 +1,6 @@
 import { Component, type ReactNode } from 'react';
 
 /** Keeps one broken screen from blanking the whole app: shows a retry card instead and resets when the route changes. */
-
-function buildScopedDiscountErrorBoundaryViewModel(
-  count: number,
-  overdueCount: number,
-): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
-  const safeTotal = Math.max(0, count);
-  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
-  return {
-    badgeText: `${overdueCount} / ${safeTotal} (scoped)`,
-    highlight: overdueCount > 0 ? 'danger' : 'neutral',
-    ratioPct,
-  };
-}
-
-interface ScopedRollingRefundErrorBoundarySnapshot {
-  readonly allowPartial: boolean;
-}
 export class ErrorBoundary extends Component<{ children: ReactNode; resetKey?: string }, { error: Error | null }> {
   state = { error: null as Error | null };
   static getDerivedStateFromError(error: Error) { return { error }; }
@@ -37,30 +20,3 @@ export class ErrorBoundary extends Component<{ children: ReactNode; resetKey?: s
     );
   }
 }
-
-type RollingSupportTicketErrorBoundaryRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isRollingSupportTicketErrorBoundaryRecord(input: unknown): input is RollingSupportTicketErrorBoundaryRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-function buildBatchUnitSlotErrorBoundaryViewModel(
-  count: number,
-  overdueCount: number,
-): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
-  const safeTotal = Math.max(0, count);
-  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
-  return {
-    badgeText: `${overdueCount} / ${safeTotal} (batch)`,
-    highlight: overdueCount > 0 ? 'danger' : 'neutral',
-    ratioPct,
-  };
-}
-
-const DYNAMIC_PORTAL_PRORATION_SCOPES = [
-  'flow5', 'verified', 'settled'] as const;

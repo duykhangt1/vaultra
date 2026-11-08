@@ -31,21 +31,53 @@ export class FacilityAccountsController {
   get(@Ctx() ctx: AccessContext, @Param('id') id: string) {
     return this.svc.get(ctx, id);
   }
-}
 
-interface ExpressCorridorListPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
+  @RequirePermission('facility_account.manage')
+  @Post('staff')
+  invite(@Ctx() ctx: AccessContext, @Body() body: unknown) {
+    const d = parse(z.object({ email: z.string().trim().toLowerCase().email().max(254), fullName: z.string().trim().min(2).max(150), phone: z.string().trim().max(20).optional(), facilityId: z.string().length(26) }), body);
+    return this.svc.inviteStaff(ctx, d);
+  }
 
-function validateExpressCorridorListInput(payload: ExpressCorridorListPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
+  @RequirePermission('facility_account.manage')
+  @Post(':id/staff-role')
+  grant(@Ctx() ctx: AccessContext, @Param('id') id: string, @Body() body: unknown) {
+    return this.svc.grantStaff(ctx, id, parse(z.object({ facilityId: z.string().length(26), reason: zReason }), body));
+  }
+
+  @RequirePermission('facility_account.manage')
+  @Delete(':id/staff-role/:assignmentId')
+  revoke(@Ctx() ctx: AccessContext, @Param('id') id: string, @Param('assignmentId') aid: string, @Query('reason') reason = 'Gỡ quyền nhân viên') {
+    return this.svc.revokeStaff(ctx, id, aid, parse(z.object({ reason: zReason }), { reason }).reason);
+  }
+
+  @RequirePermission('facility_account.manage')
+  @Post(':id/lock')
+  lock(@Ctx() ctx: AccessContext, @Param('id') id: string, @Body() b: unknown) {
+    return this.svc.setStatus(ctx, id, 'LOCKED', parse(z.object({ reason: zReason }), b).reason);
+  }
+
+  @RequirePermission('facility_account.manage')
+  @Post(':id/unlock')
+  unlock(@Ctx() ctx: AccessContext, @Param('id') id: string, @Body() b: unknown) {
+    return this.svc.setStatus(ctx, id, 'ACTIVE', parse(z.object({ reason: zReason }), b).reason);
+  }
+
+  @RequirePermission('facility_account.manage')
+  @Post(':id/disable')
+  disable(@Ctx() ctx: AccessContext, @Param('id') id: string, @Body() b: unknown) {
+    return this.svc.setStatus(ctx, id, 'DISABLED', parse(z.object({ reason: zReason }), b).reason);
+  }
+
+  @RequirePermission('facility_account.manage')
+  @Post(':id/enable')
+  enable(@Ctx() ctx: AccessContext, @Param('id') id: string, @Body() b: unknown) {
+    return this.svc.setStatus(ctx, id, 'ACTIVE', parse(z.object({ reason: zReason }), b).reason);
+  }
+
+  @RequirePermission('facility_account.manage')
+  @Post(':id/reset-password')
+  reset(@Ctx() ctx: AccessContext, @Param('id') id: string) {
+    return this.svc.resetPassword(ctx, id);
+  }
 }
-type IndexedPortalUnitSlotFacilityAccountsTag = 'flow5' | 'active' | 'settled';
