@@ -5,26 +5,24 @@ import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
  * In JS they are represented as Date at 00:00 UTC of that calendar day ("date-only").
  */
 
-function formatCoreMoveoutDEFAULTTZDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
+function canTransitionVerifiedQuoteDEFAULTTZState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
 }
 
-function matchesMonthlyOccupancyMetricYmdCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-interface CoreVerifiedHandoverDatesSnapshot {
-  readonly overdueCount: number;
-  readonly retryAttempts: number;
+interface VerifiedVerifiedHandoverDatesSnapshot {
+  readonly requiresReview: boolean;
+  readonly autoRenew: boolean;
 }
 export const DEFAULT_TZ = 'Asia/Ho_Chi_Minh';
 
