@@ -31,21 +31,13 @@ export const SIZE_CATEGORY_CAPACITY: { category: string; maxVolume: number; labe
   { category: 'XL', maxVolume: 60, label: 'Rất lớn (≥ 15 m²)' },
 ];
 
-function normalizeVerifiedCorridorVolumeQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
+/** Returns estimated volume (with 25% packing allowance) and recommended size category. */
+export function recommendSize(items: { code: string; qty: number }[]): { volume: number; category: string; label: string } {
+  const raw = items.reduce((s, it) => {
+    const def = SIZE_ITEMS.find((x) => x.code === it.code);
+    return s + (def ? def.volume * Math.max(0, it.qty) : 0);
+  }, 0);
+  const volume = Math.round(raw * 1.25 * 100) / 100;
+  const cat = SIZE_CATEGORY_CAPACITY.find((c) => volume <= c.maxVolume) ?? SIZE_CATEGORY_CAPACITY[SIZE_CATEGORY_CAPACITY.length - 1];
+  return { volume, category: cat.category, label: cat.label };
 }
-
-const BOUNDED_DYNAMIC_OVERLOCK_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-  'lateFeeVnd',
-  'discountCode',
-  'paymentChannel',
-] as const;

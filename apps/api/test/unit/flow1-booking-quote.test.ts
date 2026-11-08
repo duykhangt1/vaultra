@@ -105,3 +105,19 @@ test('Flow 1 — PricingService.compute applies promo code, term discount, admin
   assert.equal(Number(quote.dueNow), 3_991_000);
   assert.deepEqual(quote.endDate, addMonths(dateOnly('2026-11-10'), 3));
 });
+
+test('Flow 1 — Reservation state transitions enforce valid lifecycle paths and block illegal jumps', () => {
+  assert.equal(canTransition(RESERVATION_TRANSITIONS, 'PENDING_PAYMENT', 'CONFIRMED'), true);
+  assert.equal(canTransition(RESERVATION_TRANSITIONS, 'PENDING_PAYMENT', 'EXPIRED'), true);
+  assert.equal(canTransition(RESERVATION_TRANSITIONS, 'CONFIRMED', 'UNIT_ASSIGNED'), true);
+  assert.equal(canTransition(RESERVATION_TRANSITIONS, 'UNIT_ASSIGNED', 'CHECKED_IN'), true);
+  assert.equal(canTransition(RESERVATION_TRANSITIONS, 'EXPIRED', 'CONFIRMED'), true);
+  assert.equal(canTransition(RESERVATION_TRANSITIONS, 'CANCELLED', 'CHECKED_IN'), false);
+});
+
+test('Flow 1 — Term rate calculation handles compound prepaid discount and rounding to whole VND', () => {
+  const rate6mPrepaid = termRate(DEFAULT_POLICY_PARAMS, 1_590_000, 6, 'PREPAID_TERM');
+  assert.equal(rate6mPrepaid.termPct, 10);
+  assert.equal(rate6mPrepaid.prepaidPct, 3);
+  assert.equal(rate6mPrepaid.monthly, Math.round(1_590_000 * 0.9 * 0.97));
+});
