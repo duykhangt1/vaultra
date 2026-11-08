@@ -47,3 +47,40 @@ function Gate({ children }: { children: (id: string) => React.ReactNode }) {
   const { id } = useFacility();
   return id ? <>{children(id)}</> : <EmptyState title="Chưa được phân công cơ sở" hint="Liên hệ quản trị để được gán vào một cơ sở." />;
 }
+
+export default function ManageRoutes() {
+  return (
+    <Routes>
+      <Route element={<Shell workspace="/manage" nav={nav} bottom={bottom} title="Quản lý cơ sở" />}>
+        <Route index element={<Cockpit />} />
+        <Route path="floor" element={<FloorEditor />} />
+        <Route path="unit-types" element={<UnitTypes />} />
+        <Route path="units" element={<UnitsPage />} />
+        <Route path="reservations" element={<ManageReservations />} />
+        <Route path="contracts" element={<ManageContracts key="contracts" />} />
+        <Route path="contracts/:id" element={<ManageContractDetail />} />
+        <Route path="renewals" element={<ManageContracts key="renewals" renewals />} />
+        <Route path="delinquency" element={<Delinquency />} />
+        <Route path="billing" element={<Payments />} />
+        <Route path="moveouts" element={<MoveOuts base="/manage" />} />
+        <Route path="moveout/:id" element={<MoveOutWizard base="/manage" />} />
+        <Route path="approvals" element={<Approvals />} />
+        <Route path="customers" element={<CustomersPage base="/manage/customers" />} />
+        <Route path="customers/:id" element={<CustomerDetail back="/manage/customers" />} />
+        <Route path="staff" element={<StaffList />} />
+        <Route path="accounts" element={<Accounts />} />
+        <Route path="schedule" element={<Schedule />} />
+        <Route path="tasks" element={<Gate>{(id) => <TasksPage facilityId={id} manage />}</Gate>} />
+        <Route path="maintenance" element={<Maintenance />} />
+        <Route path="tickets" element={<TicketList base="/manage/tickets" staff />} />
+        <Route path="tickets/:id" element={<TicketDetail back="/manage/tickets" staff />} />
+        <Route path="kb" element={<KbPage />} />
+        <Route path="reports" element={<ReportsPage />} />
+        <Route path="settings" element={<FacilitySettings />} />
+        <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="account" element={<AccountPage />} />
+        <Route path="*" element={<Navigate to="/manage" replace />} />
+      </Route>
+    </Routes>
+  );
+}
