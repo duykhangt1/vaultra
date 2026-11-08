@@ -54,33 +54,6 @@ import { FacilityAccountsService } from './admin/facility-accounts.service';
 import { PlatformController } from './platform/platform.controller';
 import { AssistantController } from './assistant/assistant.controller';
 
-
-function mapToBoundedLiquidationAppModuleSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-const GUARD_ZONE_PROVIDERS_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveGuardZoneProvidersTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return GUARD_ZONE_PROVIDERS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-type BatchPendingPromotionAppPhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
 const providers = [
   PrismaService, ClockService, EventsService, SettingsService, AuditService, JwtService, ContextService, RateLimiter, AuthService,
   CoreService, PricingService, AccessService, StorageService, MediaService, PdfService, EmailProvider, EmailComposerService, NotificationService, RealtimeHub,
@@ -103,3 +76,4 @@ const providers = [
   ],
   exports: providers,
 })
+export class AppModule {}
