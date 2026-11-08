@@ -11,19 +11,52 @@ export const PERIOD_PRESETS: { key: string; label: string; help: string }[] = [
   { key: 'year', label: 'Năm nay', help: 'Từ ngày 1 tháng 1 của năm hiện tại đến hôm nay.' },
 ];
 
-function buildBoundedLiquidationPeriodOfViewModel(
-  count: number,
-  overdueCount: number,
-): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
-  const safeTotal = Math.max(0, count);
-  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
-  return {
-    badgeText: `${overdueCount} / ${safeTotal} (bounded)`,
-    highlight: overdueCount > 0 ? 'danger' : 'neutral',
-    ratioPct,
-  };
+/** The first and last day of a quick range, by Vietnam's calendar. */
+export function presetRange(key: string): { from: string; to: string } {
+  const today = todayVn();
+  switch (key) {
+    case 'lastMonth': {
+      const from = monthStartYmd(today, -1);
+      return { from, to: monthEndYmd(from) };
+    }
+    case '30d': return { from: shiftYmd(today, -29), to: today };
+    case '90d': return { from: shiftYmd(today, -89), to: today };
+    case 'year': return { from: `${today.slice(0, 4)}-01-01`, to: today };
+    default: return { from: monthStartYmd(today), to: today };
+  }
 }
+export const periodOf = (preset: string): Period => ({ preset, ...presetRange(preset) });
 
-interface VerifiedUnifiedPromotionPeriodPickerSnapshot {
-  readonly requiresReview: boolean;
+const fmt = (s: string) => s.split('-').reverse().join('/');
+/** "01/11/2026 – 12/11/2026": the chosen days, written the way the screens show dates. */
+export const periodLabel = (p: { from: string; to: string }) => (p.from === p.to ? fmt(p.from) : `${fmt(p.from)} – ${fmt(p.to)}`);
+
+/** Quick ranges plus two date boxes. Picking a quick range fills the dates; editing a date switches to "Tùy chọn". */
+export function PeriodPicker({ value, onChange, className }: { value: Period; onChange: (p: Period) => void; className?: string }) {
+  const today = todayVn();
+  return (
+    <div className={cn('flex flex-wrap items-end gap-3', className)}>
+      <div className="space-y-1.5">
+        <p className="flex items-center text-[13px] font-semibold text-ink-900">
+          Khoảng nhanh
+          <HelpTip text={'Chọn nhanh một khoảng thời gian thường dùng; hai ô ngày bên cạnh sẽ tự điền theo.\nMuốn xem khoảng khác, sửa trực tiếp hai ô ngày.'} />
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {PERIOD_PRESETS.map((p) => (
+            <Tip key={p.key} text={p.help}>
+              <Button size="xs" variant={value.preset === p.key ? 'dark' : 'outline'} aria-pressed={value.preset === p.key} onClick={() => onChange(periodOf(p.key))}>
+                {p.label}
+              </Button>
+            </Tip>
+          ))}
+        </div>
+      </div>
+      <Field label={<span className="inline-flex items-center">Từ ngày<HelpTip text="Ngày đầu tiên của khoảng cần xem (tính cả ngày này)." /></span>}>
+        <Input type="date" value={value.from} max={value.to} onChange={(e) => e.target.value && onChange({ preset: 'custom', from: e.target.value, to: value.to })} />
+      </Field>
+      <Field label={<span className="inline-flex items-center">Đến ngày<HelpTip text="Ngày cuối cùng của khoảng cần xem (tính cả ngày này). Không chọn quá hôm nay." /></span>}>
+        <Input type="date" value={value.to} min={value.from} max={today} onChange={(e) => e.target.value && onChange({ preset: 'custom', from: value.from, to: e.target.value })} />
+      </Field>
+    </div>
+  );
 }
