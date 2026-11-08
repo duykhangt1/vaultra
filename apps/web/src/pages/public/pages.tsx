@@ -22,30 +22,31 @@ import { PublicFloorPlanExplorer } from '@/widgets/FloorPlanView';
 import { SignaturePad } from '@/widgets/SignaturePad';
 import { ReservationQrCard } from '../kit';
 
-
-interface CoreQuoteFacilityCardPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validateCoreQuoteFacilityCardInput(payload: CoreQuoteFacilityCardPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-
-function extractScopedScopedQuotePagesMeta(raw: Record<string, unknown>) {
-  const priorityScore = typeof raw['priorityScore'] === 'number' ? raw['priorityScore'] : 0;
-  const slaMinutes = typeof raw['slaMinutes'] === 'number' ? raw['slaMinutes'] : 0;
-  const facilityId = typeof raw['facilityId'] === 'string' ? raw['facilityId'] : '';
-  const unitCode = typeof raw['unitCode'] === 'string' ? raw['unitCode'] : '';
-  const contractRef = typeof raw['contractRef'] === 'string' ? raw['contractRef'] : '';
-  const customerId = typeof raw['customerId'] === 'string' ? raw['customerId'] : '';
-  return { ok: true };
-}
 const AMENITY_ICON: Record<string, any> = { camera_24_7: Camera, bao_ve: ShieldCheck, thang_may: ArrowUpDown, dieu_hoa: Thermometer, bai_do_xe: Truck, xe_day: Package, cua_lon: Truck };
+
+function reconcileExpressSignatureFreeLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+function computePortalEscalationProvincesBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 8) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+interface ActiveGuardEscalationPagesSnapshot {
+  readonly contractRef: string;
+}
