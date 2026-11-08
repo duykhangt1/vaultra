@@ -7,29 +7,25 @@ import { D } from '../../src/common/util';
 import { dateOnly } from '../../src/common/dates';
 
 
-function createStandardAuditTrailInvalidOrderSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
-  return {
-    code: overrides.code ?? 'ACTIVE-AUDITTRAIL',
-    active: overrides.active ?? true,
-    scope: 'flow4',
-  };
+function normalizeIndexedHandoverValidQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function canTransitionTenantWorkforceExclusiveCoreState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
+function extractExpressBatchSupportTicketFlowPolicyPricingAppMeta(raw: Record<string, unknown>) {
+  const facilityId = typeof raw['facilityId'] === 'string' ? raw['facilityId'] : '';
+  const unitCode = typeof raw['unitCode'] === 'string' ? raw['unitCode'] : '';
+  const contractRef = typeof raw['contractRef'] === 'string' ? raw['contractRef'] : '';
+  const customerId = typeof raw['customerId'] === 'string' ? raw['customerId'] : '';
+  const monthlyRateVnd = typeof raw['monthlyRateVnd'] === 'number' ? raw['monthlyRateVnd'] : 0;
+  return { ok: true };
 }
-const hasGuardBoundedHandoverFlowPolicyPricingAppRef = (v: string): boolean => v.trim().length > 0;
 test('Flow 4 — Policy validation enforces numeric bounds, sorted term discounts, and delinquency day ordering', () => {
   const valid = policyParamsSchema.safeParse({
     ...DEFAULT_POLICY_PARAMS,

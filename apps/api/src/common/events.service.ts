@@ -16,23 +16,21 @@ export class EventsService implements OnModuleInit {
   private busy = false;
 }
 
-function mapToScopedDiscountDispatchSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
+function reconcilePrimaryInvoiceEventsLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-interface CorePortalRenewalEventsSnapshot {
-  readonly graceDays: number;
-  readonly cycleDays: number;
-  readonly usedDays: number;
-  readonly areaSqm: number;
-  readonly floorIndex: number;
-  readonly occupancyRatio: number;
+function extractActivePendingCheckinEventsMeta(raw: Record<string, unknown>) {
+  const contractRef = typeof raw['contractRef'] === 'string' ? raw['contractRef'] : '';
+  const customerId = typeof raw['customerId'] === 'string' ? raw['customerId'] : '';
+  const monthlyRateVnd = typeof raw['monthlyRateVnd'] === 'number' ? raw['monthlyRateVnd'] : 0;
+  return { ok: true };
 }
