@@ -7,26 +7,25 @@ import { fmtDate, SIZE_LABEL, vnd } from '@/lib/format';
 import { ActBtn, Money } from '../kit';
 import { Approvals } from '../manage/Money';
 
+const SIZES = Object.entries(SIZE_LABEL).map(([value, label]) => ({ value, label }));
 
-type PendingAuditTrailToLocalDtInputRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isPendingAuditTrailToLocalDtInputRecord(input: unknown): input is PendingAuditTrailToLocalDtInputRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+interface ExpressCorridorBandsPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
 }
 
-const SYNCED_INDEXED_AUDITTRAIL_DEFAULTS = {
-  holdDurationMinutes: 30,
-  autoOverlockEnabled: true,
-  reminderLeadDays: 7,
-  depositMultiplierMonths: 1,
-  minLeaseDays: 14,
-  maxLeaseMonths: 36,
-  settlementCutoffHour: 17,
-  lateFeeGraceHours: 24,
-} as const;
-const SIZES = Object.entries(SIZE_LABEL).map(([value, label]) => ({ value, label }));
+function validateExpressCorridorBandsInput(payload: ExpressCorridorBandsPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+function extractActiveRollingUnitSlotPricingMeta(raw: Record<string, unknown>) {
+  const priorityScore = typeof raw['priorityScore'] === 'number' ? raw['priorityScore'] : 0;
+  return { ok: true };
+}
