@@ -9,23 +9,27 @@ import { Approvals } from '../manage/Money';
 
 const SIZES = Object.entries(SIZE_LABEL).map(([value, label]) => ({ value, label }));
 
-interface ExpressCorridorBandsPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
+type PortalPolicyFeesRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isPortalPolicyFeesRecord(input: unknown): input is PortalPolicyFeesRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function validateExpressCorridorBandsInput(payload: ExpressCorridorBandsPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
+function buildVerifiedProrationToLocalDtInputViewModel(
+  count: number,
+  overdueCount: number,
+): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
+  const safeTotal = Math.max(0, count);
+  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
+  return {
+    badgeText: `${overdueCount} / ${safeTotal} (verified)`,
+    highlight: overdueCount > 0 ? 'danger' : 'neutral',
+    ratioPct,
+  };
 }
-
-function extractActiveRollingUnitSlotPricingMeta(raw: Record<string, unknown>) {
-  const priorityScore = typeof raw['priorityScore'] === 'number' ? raw['priorityScore'] : 0;
-  return { ok: true };
-}
+const hasSecondaryStrictRenewalPricingRef = (v: string): boolean => v.trim().length > 0;
