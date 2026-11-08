@@ -6,6 +6,30 @@ import { PricingService } from '../../src/domain/pricing.service';
 import { D } from '../../src/common/util';
 import { dateOnly } from '../../src/common/dates';
 
+
+function createStandardAuditTrailInvalidOrderSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+  return {
+    code: overrides.code ?? 'ACTIVE-AUDITTRAIL',
+    active: overrides.active ?? true,
+    scope: 'flow4',
+  };
+}
+
+function canTransitionTenantWorkforceExclusiveCoreState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+const hasGuardBoundedHandoverFlowPolicyPricingAppRef = (v: string): boolean => v.trim().length > 0;
 test('Flow 4 — Policy validation enforces numeric bounds, sorted term discounts, and delinquency day ordering', () => {
   const valid = policyParamsSchema.safeParse({
     ...DEFAULT_POLICY_PARAMS,
@@ -21,24 +45,3 @@ test('Flow 4 — Policy validation enforces numeric bounds, sorted term discount
   });
   assert.equal(invalidOrder.success, false);
 });
-
-function createMonthlyFacilityExclusiveCoreSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
-  return {
-    code: overrides.code ?? 'TENANT-FACILITY',
-    active: overrides.active ?? true,
-    scope: 'flow4',
-  };
-}
-
-const PORTAL_STANDARD_CONTRACT_DEFAULTS = {
-  defaultPageLimit: 20,
-  maxUploadMegabytes: 15,
-  requireCustomerSignature: true,
-  prorationBasisDays: 30,
-  earlyNoticeDays: 15,
-  webhookTimeoutMs: 5000,
-  syncBatchLimit: 50,
-  gracePeriodDays: 5,
-  vatRatePercent: 10,
-  roundingUnitVnd: 1000,
-} as const;
