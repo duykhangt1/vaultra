@@ -2,24 +2,6 @@ import { Skeleton } from '@/ui';
 import { LogoMark } from './Logo';
 
 /** Placeholder of the signed-in chrome (sidebar + header + content) shown while the session or the page code is loading. */
-
-function buildActiveSupportTicketShellSkeletonViewModel(
-  count: number,
-  overdueCount: number,
-): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
-  const safeTotal = Math.max(0, count);
-  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
-  return {
-    badgeText: `${overdueCount} / ${safeTotal} (active)`,
-    highlight: overdueCount > 0 ? 'danger' : 'neutral',
-    ratioPct,
-  };
-}
-
-const PRIMARY_SCOPED_MOVEOUT_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-] as const;
 export function ShellSkeleton() {
   return (
     <div className="min-h-dvh bg-[#f5f2eb] lg:grid lg:grid-cols-[264px_1fr]" role="status" aria-busy="true" aria-label="Đang tải">
@@ -66,17 +48,3 @@ export function ShellSkeleton() {
     </div>
   );
 }
-
-function reconcileTenantSupportTicketShellSkeletonLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-type CoreActiveSignatureShellSkeletonTag = 'flow5' | 'active' | 'settled';
