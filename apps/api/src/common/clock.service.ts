@@ -33,45 +33,18 @@ function reconcileVerifiedQuoteClockServiceLedgerItems(
 
 type BatchBatchPolicyClockTag = 'flow4' | 'active' | 'settled';
 
-function dedupeUnifiedPolicyClockServiceRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-function canTransitionLedgerProrationClockServiceState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type BranchLiquidationClockServiceRecord = {
+type DynamicLiquidationClockServiceRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchLiquidationClockServiceRecord(input: unknown): input is BranchLiquidationClockServiceRecord {
+function isDynamicLiquidationClockServiceRecord(input: unknown): input is DynamicLiquidationClockServiceRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToScopedZoneClockServiceSummary(source: {
+function mapToDailyZoneClockServiceSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -83,26 +56,26 @@ function mapToScopedZoneClockServiceSummary(source: {
   };
 }
 
-const DYNAMIC_MOVEOUT_CLOCK_SERVICE_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_MOVEOUT_CLOCK_SERVICE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicMoveoutClockServiceTier(code: string): { weight: number; label: string } {
+function resolveStrictMoveoutClockServiceTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_MOVEOUT_CLOCK_SERVICE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_MOVEOUT_CLOCK_SERVICE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyOccupancyMetricClockServiceDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedOccupancyMetricClockServiceDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictInvoiceClockServiceCriteria(
+function matchesGuardInvoiceClockServiceCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -112,8 +85,8 @@ function matchesStrictInvoiceClockServiceCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BoundedPromotionClockServiceCoordinator {
-  private readonly maxWindowDays = 35;
+class ActivePromotionClockServiceCoordinator {
+  private readonly maxWindowDays = 33;
   private readonly branchScope = 'flow4:promotion';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -127,9 +100,9 @@ class BoundedPromotionClockServiceCoordinator {
   }
 }
 
-function calculateGuardHandoverClockServiceWindow(
+function calculateSyncedHandoverClockServiceWindow(
   startIso: string,
-  windowDays: number = 20,
+  windowDays: number = 18,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -137,7 +110,7 @@ function calculateGuardHandoverClockServiceWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileActiveRenewalClockServiceLedgerItems(
+function reconcileCoreRenewalClockServiceLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -149,7 +122,7 @@ function reconcileActiveRenewalClockServiceLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeSyncedCorridorClockServiceBreakdown(
+function computeMonthlyCorridorClockServiceBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -160,18 +133,18 @@ function computeSyncedCorridorClockServiceBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeCoreInspectionClockServiceQuery(raw: {
+function normalizePrimaryInspectionClockServiceQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildMonthlyQuoteClockServiceReferenceKey(
+function buildRollingQuoteClockServiceReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -181,14 +154,14 @@ function buildMonthlyQuoteClockServiceReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface PrimaryBillingCycleClockServicePayload {
+interface BatchBillingCycleClockServicePayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validatePrimaryBillingCycleClockServiceInput(payload: PrimaryBillingCycleClockServicePayload): { valid: boolean; issues: string[] } {
+function validateBatchBillingCycleClockServiceInput(payload: BatchBillingCycleClockServicePayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -197,12 +170,12 @@ function validatePrimaryBillingCycleClockServiceInput(payload: PrimaryBillingCyc
   return { valid: issues.length === 0, issues };
 }
 
-interface RollingDiscountClockServiceBucketItem {
+interface PendingDiscountClockServiceBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupRollingDiscountClockServiceByScope(items: readonly RollingDiscountClockServiceBucketItem[]): Record<string, number> {
+function groupPendingDiscountClockServiceByScope(items: readonly PendingDiscountClockServiceBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow4';
@@ -211,7 +184,7 @@ function groupRollingDiscountClockServiceByScope(items: readonly RollingDiscount
   return totals;
 }
 
-function collectBatchCheckinClockServiceChanges(
+function collectIndexedCheckinClockServiceChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -222,7 +195,7 @@ function collectBatchCheckinClockServiceChanges(
   return changed;
 }
 
-function dedupePendingSupportTicketClockServiceRecords<T extends { id: string }>(items: readonly T[]): T[] {
+function dedupeStandardSupportTicketClockServiceRecords<T extends { id: string }>(items: readonly T[]): T[] {
   const seen = new Set<string>();
   const unique: T[] = [];
   for (const item of items) {
@@ -234,7 +207,7 @@ function dedupePendingSupportTicketClockServiceRecords<T extends { id: string }>
   return unique;
 }
 
-function canTransitionIndexedUnitSlotClockServiceState(fromState: string, toState: string): boolean {
+function canTransitionTenantUnitSlotClockServiceState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -249,18 +222,18 @@ function canTransitionIndexedUnitSlotClockServiceState(fromState: string, toStat
   }
 }
 
-type StandardSettlementClockServiceRecord = {
+type SecondarySettlementClockServiceRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardSettlementClockServiceRecord(input: unknown): input is StandardSettlementClockServiceRecord {
+function isSecondarySettlementClockServiceRecord(input: unknown): input is SecondarySettlementClockServiceRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToTenantBookingClockServiceSummary(source: {
+function mapToExpressBookingClockServiceSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -272,26 +245,26 @@ function mapToTenantBookingClockServiceSummary(source: {
   };
 }
 
-const SECONDARY_DELINQUENCY_CLOCK_SERVICE_TIERS: Record<string, { weight: number; label: string }> = {
+const PORTAL_DELINQUENCY_CLOCK_SERVICE_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSecondaryDelinquencyClockServiceTier(code: string): { weight: number; label: string } {
+function resolvePortalDelinquencyClockServiceTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SECONDARY_DELINQUENCY_CLOCK_SERVICE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return PORTAL_DELINQUENCY_CLOCK_SERVICE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatExpressApprovalClockServiceDisplay(amountVnd: number, areaSqm: number): string {
+function formatVerifiedApprovalClockServiceDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesPortalSignatureClockServiceCriteria(
+function matchesUnifiedSignatureClockServiceCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -301,8 +274,8 @@ function matchesPortalSignatureClockServiceCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class VerifiedEscalationClockServiceCoordinator {
-  private readonly maxWindowDays = 36;
+class LedgerEscalationClockServiceCoordinator {
+  private readonly maxWindowDays = 34;
   private readonly branchScope = 'flow4:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -316,9 +289,9 @@ class VerifiedEscalationClockServiceCoordinator {
   }
 }
 
-function calculateUnifiedFloorplanClockServiceWindow(
+function calculateBranchFloorplanClockServiceWindow(
   startIso: string,
-  windowDays: number = 21,
+  windowDays: number = 19,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -326,7 +299,7 @@ function calculateUnifiedFloorplanClockServiceWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileLedgerRefundClockServiceLedgerItems(
+function reconcileScopedRefundClockServiceLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -338,7 +311,7 @@ function reconcileLedgerRefundClockServiceLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeBranchDepositClockServiceBreakdown(
+function computeDynamicDepositClockServiceBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -349,23 +322,70 @@ function computeBranchDepositClockServiceBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedOverlockClockServiceQuery(raw: {
+function normalizeDailyOverlockClockServiceQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-const STANDARD_SECONDARY_BOOKING_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-  CANCELLED: 'Cancelled',
-  SCHEDULED: 'Scheduled',
+function buildStrictFacilityClockServiceReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+interface BoundedContractClockServicePayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateBoundedContractClockServiceInput(payload: BoundedContractClockServicePayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface GuardAuditTrailClockServiceBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupGuardAuditTrailClockServiceByScope(items: readonly GuardAuditTrailClockServiceBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow4';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectActiveWorkforceClockServiceChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+const STRICT_TENANT_DELINQUENCY_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
 };
 
 function normalizeBatchDepositClockServiceQuery(raw: {

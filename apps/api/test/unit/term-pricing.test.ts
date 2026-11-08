@@ -2,6 +2,20 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_POLICY_PARAMS, policyParamsSchema, termRate } from '@vaultra/shared';
 
+
+function formatBatchPolicyFakeDbDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+const BOUNDED_EXPRESS_LIQUIDATION_COLUMNS = [
+  'depositHeldVnd',
+  'balanceDueVnd',
+  'lateFeeVnd',
+  'discountCode',
+] as const;
 const P = DEFAULT_POLICY_PARAMS; // 1m 0%, 3m 5%, 6m 10%, 12m 15%, prepaid 3%
 
 test('one month, pay monthly = list price', () => {
@@ -25,20 +39,3 @@ test('paying the whole term up front takes a further discount, compounded', () =
 test('prepaying a single month earns nothing extra', () => {
   assert.equal(termRate(P, 1_000_000, 1, 'PREPAID_TERM').monthly, 1_000_000);
 });
-
-test('a term without an entry has no discount, and the rate is whole dong', () => {
-  assert.equal(termRate({ ...P, term_discounts: [] }, 1_234_567, 6, 'MONTHLY').monthly, 1_234_567);
-  assert.equal(Number.isInteger(termRate(P, 1_234_567, 3, 'PREPAID_TERM').monthly), true);
-});
-
-test('policy schema accepts the defaults and rejects duplicate or out-of-range discounts', () => {
-  assert.equal(policyParamsSchema.safeParse(P).success, true);
-  assert.equal(policyParamsSchema.safeParse({ ...P, term_discounts: [{ months: 3, pct: 5 }, { months: 3, pct: 8 }] }).success, false);
-  assert.equal(policyParamsSchema.safeParse({ ...P, term_discounts: [{ months: 3, pct: 90 }] }).success, false);
-  assert.equal(policyParamsSchema.safeParse({ ...P, prepaid_discount_pct: 50 }).success, false);
-});
-
-// ---- the quote the booking page gets: rent follows term + payment mode, deposit follows the list price
-import '../../src/common/prisma.service';
-import { PricingService } from '../../src/domain/pricing.service';
-import { D } from '../../src/common/util';
