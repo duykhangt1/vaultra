@@ -81,6 +81,30 @@ export class AccessContext {
     if (!customerField) throw forbidden();
     return { [customerField]: this.customerId ?? BigInt(0) };
   }
+  /** Record-level check: out of scope -> 404 (not 403) so existence is not leaked (spec §5.3.2). */
+  assertScope(code: string, rec: { facility_id?: bigint | null; customer_id?: bigint | null } | null | undefined, what?: string, write = false) {
+    if (!rec) throw notFound(what);
+    const g = this.grants[code];
+    if (!g) throw notFound(what);
+    if (write && g.readOnly) throw forbidden('Bạn chỉ có quyền xem dữ liệu này');
+    if (g.scope === 'GLOBAL') return g;
+    if (g.scope === 'FACILITY') {
+      if (rec.facility_id && this.facilitiesFor(code, true).includes(rec.facility_id)) return g;
+      if (rec.customer_id && this.customerId && rec.customer_id === this.customerId) return g;
+      throw notFound(what);
+    }
+    if (rec.customer_id && this.customerId && rec.customer_id === this.customerId) return g;
+    throw notFound(what);
+  }
+  /** Staff may not process money operations on their own rental (spec §5.1 separation of duties). */
+  assertNotOwnContract(customerUserId: bigint | null | undefined) {
+    if (customerUserId && customerUserId === this.userId && this.primaryRole !== 'CUSTOMER') {
+      throw new AppError('FORBIDDEN', 'Không được tự xử lý giao dịch tiền trên hợp đồng của chính mình');
+    }
+  }
+  requireVerified() {
+    if (!this.emailVerified) throw new AppError('EMAIL_NOT_VERIFIED', 'Vui lòng xác minh email trước khi đặt kho hoặc thanh toán');
+  }
 }
 
 /** Context used by background jobs (spec §5.3.1 SYSTEM_JOB). */

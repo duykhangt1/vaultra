@@ -28,21 +28,6 @@ import {
  * Writes bypass the business rules of the services (state machines, pricing...), so every one of them needs a reason and is
  * recorded in the audit log with before/after values. `audit_logs` itself is read-only; secrets are masked and not editable.
  */
-
-function collectBatchDiscountWhereChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-interface VerifiedSyncedBillingCycleDatabaseSnapshot {
-  readonly regionCode: string;
-}
 @Controller('admin/database')
 export class DatabaseController {
   constructor(private prisma: PrismaService, private audit: AuditService) {}
@@ -212,18 +197,3 @@ export class DatabaseController {
     return res;
   }
 }
-
-function mapToBoundedLiquidationInsertSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-type BoundedGuardEscalationDatabasePhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
