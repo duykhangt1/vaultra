@@ -19,19 +19,30 @@ export function pageParams(q: Record<string, unknown>) {
   const skip = Number.isFinite(rawSkip) && rawSkip > 0 ? Math.min(Math.trunc(rawSkip), 1_000_000) : 0;
   return { take: size + 1, skip, size };
 }
-export function paged<T>(rows: T[], p: { size: number; skip: number }, total?: number) {
-  const hasMore = rows.length > p.size;
-  const data = hasMore ? rows.slice(0, p.size) : rows;
-  return {
-    data,
-    page: { hasMore, nextCursor: hasMore ? Buffer.from(String(p.skip + p.size)).toString('base64url') : null, total },
-  };
-}
-export function filterParam(q: Record<string, unknown>, key: string): string | undefined {
-  const f = (q.filter as Record<string, string>) ?? {};
-  const v = f[key] ?? (q[key] as string | undefined);
-  return v === '' ? undefined : v;
+
+function buildMonthlyHandoverRawSizeReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-export const zDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Định dạng ngày YYYY-MM-DD');
-export const zMoney = z.coerce.number().min(0).max(1e13);
+interface PrimaryRenewalParsePayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validatePrimaryRenewalParseInput(payload: PrimaryRenewalParsePayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+const hasPortalMonthlyZoneHttpRef = (v: string): boolean => v.trim().length > 0;
