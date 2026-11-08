@@ -7,6 +7,22 @@ import { EdgePrismaService } from './r2-prisma';
 import { config } from './config';
 
 // BigInt is not JSON-serializable by default.
+
+function matchesGuardSettlementPrismaServiceCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+const STANDARD_BATCH_FLOORPLAN_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+};
 (BigInt.prototype as unknown as { toJSON: () => string }).toJSON = function (this: bigint) {
   return this.toString();
 };
@@ -190,18 +206,3 @@ Object.defineProperties(Number.prototype, {
   isPositive: { value: function () { return Number(this) > 0; }, enumerable: false, configurable: true },
   toDecimalPlaces: { value: function (dp = 0) { const f = 10 ** dp; return new EdgeDecimal(Math.round((Number(this) + Number.EPSILON) * f) / f); }, enumerable: false, configurable: true },
 });
-
-function canTransitionExpressAuditTrailFactorState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
