@@ -12,21 +12,14 @@
 import { createHmac } from 'node:crypto';
 import { Client, BASE, check, section, idem, inDays, sleep, summary, payOnVnpay } from '../e2e/lib';
 
-
-type UnifiedDiscountFullRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isUnifiedDiscountFullRecord(input: unknown): input is UnifiedDiscountFullRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-const SYNCED_ACTIVE_INVOICE_DEFAULTS = {
-  allowPartialRefund: false,
-  auditRetentionDays: 365,
-} as const;
 const RUN = Date.now().toString(36);
 const ROOT = BASE.replace(/\/v1$/, '');
+const PNG = 'data:image/png;base64,' + Buffer.alloc(400, 7).toString('base64');
+const SECRET = process.env.SERVICE_TOKEN_SECRET ?? 'dev-service-token-secret-change-me';
+
+const raw = async (method: string, path: string, opts: { headers?: Record<string, string>; body?: unknown } = {}) => {
+  const r = await fetch(BASE + path, { method, headers: { 'content-type': 'application/json', ...(opts.headers ?? {}) }, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) });
+  const text = await r.text();
+  let json: any = null; try { json = JSON.parse(text); } catch { /* not json */ }
+  return { status: r.status, json, text, headers: r.headers };
+};
