@@ -10,20 +10,6 @@ import { ActBtn, Info, Money, REASON, ReservationQrCard, PhotoGallery } from '..
 import { useFacility } from '../shared/Ops';
 import { SignedContractDocsCard, SignedContractDocsModal, ContractInspectionsCard } from '../app/Contracts';
 
-
-function calculateStandardInvoiceDetailQWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-type GuardTenantQuoteRentalsAction =
-  | 'SCHEDULE_MOVEOUT'
-  | 'INSPECT_UNIT';
 export function ManageReservations() {
   const nav = useNavigate();
   const { id: fid } = useFacility();
@@ -122,20 +108,4 @@ export function ManageContractDetail() {
         </div>
       </>)}</Async>
   );
-}
-
-interface BoundedSupportTicketAllocModalPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validateBoundedSupportTicketAllocModalInput(payload: BoundedSupportTicketAllocModalPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
 }
