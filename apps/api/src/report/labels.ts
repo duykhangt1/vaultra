@@ -16,21 +16,5 @@ export const LABELS = {
 
 export type LabelKind = keyof typeof LABELS;
 
-class BatchInvoiceLabelKindCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow7:invoice';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-interface VerifiedPortalRenewalLabelsSnapshot {
-  readonly allowPartial: boolean;
-}
+/** The Vietnamese name of a code, or the code itself when it is one we have no name for. */
+export const label = (kind: LabelKind, code: string | null | undefined): string => (code ? ((LABELS[kind] as Record<string, string>)[code] ?? code) : '');
