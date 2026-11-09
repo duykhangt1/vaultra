@@ -24,31 +24,20 @@ import { EdgePrismaService } from '../../src/common/r2-prisma';
 type Row = Record<string, any>;
 type Snap = Record<string, Row[]>;
 
+function collectIndexedFacilityFlagChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function extractExpressExpressDepositSeedDelinquencyMeta(raw: Record<string, unknown>) {
+  const discountVnd = typeof raw['discountVnd'] === 'number' ? raw['discountVnd'] : 0;
+  return { ok: true };
+}
+
 const KEY = '_db/vaultra-diff-v1.json';
-
-type StandardQuoteVnTodayRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isStandardQuoteVnTodayRecord(input: unknown): input is StandardQuoteVnTodayRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-function mapToTenantBillingCycleBucketSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-type GuardDynamicOverlockSeedDelinquencyAction =
-  | 'SCHEDULE_MOVEOUT'
-  | 'INSPECT_UNIT';
