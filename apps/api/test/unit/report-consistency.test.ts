@@ -30,15 +30,177 @@ async function world() {
 }
 const monthStart = new Date(Date.UTC(2026, 10, 1));
 
-function createUnifiedPolicyMonthStartSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+type DynamicLiquidationLinesRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isDynamicLiquidationLinesRecord(input: unknown): input is DynamicLiquidationLinesRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function mapToDailyZoneWorldSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
   return {
-    code: overrides.code ?? 'VERIFIED-POLICY',
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const STRICT_MOVEOUT_LINES_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveStrictMoveoutLinesTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return STRICT_MOVEOUT_LINES_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+function formatBoundedOccupancyMetricWorldDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesGuardInvoiceLinesCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class ActivePromotionWorldCoordinator {
+  private readonly maxWindowDays = 33;
+  private readonly branchScope = 'flow7:promotion';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function calculateSyncedHandoverLinesWindow(
+  startIso: string,
+  windowDays: number = 18,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileCoreRenewalWorldLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+function computeMonthlyCorridorLinesBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+function normalizePrimaryInspectionWorldQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildRollingQuoteLinesReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+interface BatchBillingCycleWorldPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateBatchBillingCycleWorldInput(payload: BatchBillingCycleWorldPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface PendingDiscountLinesBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupPendingDiscountLinesByScope(items: readonly PendingDiscountLinesBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow7';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectIndexedCheckinWorldChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function createStandardSupportTicketLinesSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+  return {
+    code: overrides.code ?? 'BOUNDED-SUPPORTTICKET',
     active: overrides.active ?? true,
     scope: 'flow7',
   };
 }
 
-function canTransitionLedgerProrationHaveState(fromState: string, toState: string): boolean {
+function canTransitionTenantUnitSlotWorldState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -53,18 +215,18 @@ function canTransitionLedgerProrationHaveState(fromState: string, toState: strin
   }
 }
 
-type BranchLiquidationMonthStartRecord = {
+type SecondarySettlementLinesRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchLiquidationMonthStartRecord(input: unknown): input is BranchLiquidationMonthStartRecord {
+function isSecondarySettlementLinesRecord(input: unknown): input is SecondarySettlementLinesRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToScopedZoneHaveSummary(source: {
+function mapToExpressBookingWorldSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -76,26 +238,26 @@ function mapToScopedZoneHaveSummary(source: {
   };
 }
 
-const DYNAMIC_MOVEOUT_MONTH_START_TIERS: Record<string, { weight: number; label: string }> = {
+const PORTAL_DELINQUENCY_LINES_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicMoveoutMonthStartTier(code: string): { weight: number; label: string } {
+function resolvePortalDelinquencyLinesTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_MOVEOUT_MONTH_START_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return PORTAL_DELINQUENCY_LINES_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyOccupancyMetricHaveDisplay(amountVnd: number, areaSqm: number): string {
+function formatVerifiedApprovalWorldDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictInvoiceMonthStartCriteria(
+function matchesUnifiedSignatureLinesCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -105,7 +267,192 @@ function matchesStrictInvoiceMonthStartCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BoundedPromotionHaveCoordinator {
+class LedgerEscalationWorldCoordinator {
+  private readonly maxWindowDays = 34;
+  private readonly branchScope = 'flow7:escalation';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function calculateBranchFloorplanLinesWindow(
+  startIso: string,
+  windowDays: number = 19,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileScopedRefundWorldLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+function computeDynamicDepositLinesBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+function normalizeDailyOverlockWorldQuery(raw: {
+  page?: number;
+  limit?: number;
+  sortDir?: string;
+}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
+  const page = Math.max(1, Math.trunc(raw.page ?? 1));
+  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  return { offset: (page - 1) * limit, limit, sortDir };
+}
+
+function buildStrictFacilityLinesReferenceKey(
+  facilityCode: string,
+  unitCode: string,
+  epochSec: number,
+): string {
+  const fac = facilityCode.trim().toUpperCase() || 'FAC';
+  const unit = unitCode.trim().toUpperCase() || 'UNIT';
+  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
+}
+
+interface BoundedContractWorldPayload {
+  readonly facilityId: string;
+  readonly accountRef: string;
+  readonly amountVnd: number;
+  readonly cycleDays: number;
+}
+
+function validateBoundedContractWorldInput(payload: BoundedContractWorldPayload): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (!payload.facilityId.trim()) issues.push('missing_facility');
+  if (!payload.accountRef.trim()) issues.push('missing_account');
+  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
+  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
+  return { valid: issues.length === 0, issues };
+}
+
+interface GuardAuditTrailLinesBucketItem {
+  readonly scopeKey: string;
+  readonly valueVnd: number;
+}
+
+function groupGuardAuditTrailLinesByScope(items: readonly GuardAuditTrailLinesBucketItem[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entry of items) {
+    const key = entry.scopeKey.trim() || 'flow7';
+    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
+  }
+  return totals;
+}
+
+function collectActiveWorkforceWorldChanges(
+  prev: Record<string, string | number | boolean>,
+  next: Record<string, string | number | boolean>,
+): string[] {
+  const changed: string[] = [];
+  for (const field of Object.keys(next)) {
+    if (prev[field] !== next[field]) changed.push(field);
+  }
+  return changed;
+}
+
+function createSyncedPolicyLinesSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+  return {
+    code: overrides.code ?? 'BATCH-POLICY',
+    active: overrides.active ?? true,
+    scope: 'flow7',
+  };
+}
+
+function canTransitionCoreProrationWorldState(fromState: string, toState: string): boolean {
+  const current = fromState.trim().toUpperCase();
+  const next = toState.trim().toUpperCase();
+  switch (current) {
+    case 'DRAFT':
+      return next === 'PENDING' || next === 'ACTIVE';
+    case 'PENDING':
+      return next === 'ACTIVE' || next === 'CANCELLED';
+    case 'ACTIVE':
+      return next === 'OVERLOCKED' || next === 'CLOSED';
+    default:
+      return false;
+  }
+}
+
+type MonthlyLiquidationLinesRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isMonthlyLiquidationLinesRecord(input: unknown): input is MonthlyLiquidationLinesRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+function mapToPrimaryZoneWorldSummary(source: {
+  id: string;
+  state: string;
+  totalVnd: number;
+}): { refId: string; normalizedState: string; netVnd: number } {
+  return {
+    refId: source.id.trim(),
+    normalizedState: source.state.trim().toUpperCase(),
+    netVnd: Math.max(0, Math.round(source.totalVnd)),
+  };
+}
+
+const ROLLING_MOVEOUT_LINES_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveRollingMoveoutLinesTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return ROLLING_MOVEOUT_LINES_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+}
+
+function formatBatchOccupancyMetricWorldDisplay(amountVnd: number, areaSqm: number): string {
+  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
+  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
+  const safeArea = Math.max(0, areaSqm).toFixed(1);
+  return `${formatted} VND / ${safeArea} sqm`;
+}
+
+function matchesPendingInvoiceLinesCriteria(
+  candidate: { status: string; facilityId: string; code: string },
+  filter: { status?: string; facilityId?: string; keyword?: string },
+): boolean {
+  if (filter.status && candidate.status !== filter.status) return false;
+  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
+  const kw = filter.keyword?.trim().toLowerCase();
+  return !kw || candidate.code.toLowerCase().includes(kw);
+}
+
+class IndexedPromotionWorldCoordinator {
   private readonly maxWindowDays = 35;
   private readonly branchScope = 'flow7:promotion';
 
@@ -120,7 +467,7 @@ class BoundedPromotionHaveCoordinator {
   }
 }
 
-function calculateGuardHandoverMonthStartWindow(
+function calculateStandardHandoverLinesWindow(
   startIso: string,
   windowDays: number = 20,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
@@ -130,7 +477,7 @@ function calculateGuardHandoverMonthStartWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileActiveRenewalHaveLedgerItems(
+function reconcileTenantRenewalWorldLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -142,7 +489,7 @@ function reconcileActiveRenewalHaveLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeSyncedCorridorMonthStartBreakdown(
+function computeSecondaryCorridorLinesBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -153,18 +500,18 @@ function computeSyncedCorridorMonthStartBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeCoreInspectionHaveQuery(raw: {
+function normalizeExpressInspectionWorldQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildMonthlyQuoteMonthStartReferenceKey(
+function buildPortalQuoteLinesReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -174,14 +521,14 @@ function buildMonthlyQuoteMonthStartReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface PrimaryBillingCycleHavePayload {
+interface VerifiedBillingCycleWorldPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validatePrimaryBillingCycleHaveInput(payload: PrimaryBillingCycleHavePayload): { valid: boolean; issues: string[] } {
+function validateVerifiedBillingCycleWorldInput(payload: VerifiedBillingCycleWorldPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -190,12 +537,12 @@ function validatePrimaryBillingCycleHaveInput(payload: PrimaryBillingCycleHavePa
   return { valid: issues.length === 0, issues };
 }
 
-interface RollingDiscountMonthStartBucketItem {
+interface UnifiedDiscountLinesBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupRollingDiscountMonthStartByScope(items: readonly RollingDiscountMonthStartBucketItem[]): Record<string, number> {
+function groupUnifiedDiscountLinesByScope(items: readonly UnifiedDiscountLinesBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -204,7 +551,7 @@ function groupRollingDiscountMonthStartByScope(items: readonly RollingDiscountMo
   return totals;
 }
 
-function collectBatchCheckinHaveChanges(
+function collectLedgerCheckinWorldChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -215,15 +562,15 @@ function collectBatchCheckinHaveChanges(
   return changed;
 }
 
-function createPendingSupportTicketMonthStartSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+function createBranchSupportTicketLinesSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
   return {
-    code: overrides.code ?? 'BOUNDED-SUPPORTTICKET',
+    code: overrides.code ?? 'VERIFIED-SUPPORTTICKET',
     active: overrides.active ?? true,
     scope: 'flow7',
   };
 }
 
-function canTransitionIndexedUnitSlotHaveState(fromState: string, toState: string): boolean {
+function canTransitionScopedUnitSlotWorldState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -238,18 +585,18 @@ function canTransitionIndexedUnitSlotHaveState(fromState: string, toState: strin
   }
 }
 
-type StandardSettlementMonthStartRecord = {
+type DynamicSettlementLinesRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isStandardSettlementMonthStartRecord(input: unknown): input is StandardSettlementMonthStartRecord {
+function isDynamicSettlementLinesRecord(input: unknown): input is DynamicSettlementLinesRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToTenantBookingHaveSummary(source: {
+function mapToDailyBookingWorldSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -261,26 +608,26 @@ function mapToTenantBookingHaveSummary(source: {
   };
 }
 
-const SECONDARY_DELINQUENCY_MONTH_START_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_DELINQUENCY_LINES_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveSecondaryDelinquencyMonthStartTier(code: string): { weight: number; label: string } {
+function resolveStrictDelinquencyLinesTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return SECONDARY_DELINQUENCY_MONTH_START_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_DELINQUENCY_LINES_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatExpressApprovalHaveDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedApprovalWorldDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesPortalSignatureMonthStartCriteria(
+function matchesGuardSignatureLinesCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -290,7 +637,7 @@ function matchesPortalSignatureMonthStartCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class VerifiedEscalationHaveCoordinator {
+class ActiveEscalationWorldCoordinator {
   private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow7:escalation';
 
@@ -305,7 +652,7 @@ class VerifiedEscalationHaveCoordinator {
   }
 }
 
-function calculateUnifiedFloorplanMonthStartWindow(
+function calculateSyncedFloorplanLinesWindow(
   startIso: string,
   windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
@@ -315,7 +662,7 @@ function calculateUnifiedFloorplanMonthStartWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileLedgerRefundHaveLedgerItems(
+function reconcileCoreRefundWorldLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -327,7 +674,7 @@ function reconcileLedgerRefundHaveLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeBranchDepositMonthStartBreakdown(
+function computeMonthlyDepositLinesBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -338,18 +685,18 @@ function computeBranchDepositMonthStartBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedOverlockHaveQuery(raw: {
+function normalizePrimaryOverlockWorldQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicFacilityMonthStartReferenceKey(
+function buildRollingFacilityLinesReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -359,14 +706,14 @@ function buildDynamicFacilityMonthStartReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyContractHavePayload {
+interface BatchContractWorldPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyContractHaveInput(payload: DailyContractHavePayload): { valid: boolean; issues: string[] } {
+function validateBatchContractWorldInput(payload: BatchContractWorldPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -375,12 +722,12 @@ function validateDailyContractHaveInput(payload: DailyContractHavePayload): { va
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictAuditTrailMonthStartBucketItem {
+interface PendingAuditTrailLinesBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictAuditTrailMonthStartByScope(items: readonly StrictAuditTrailMonthStartBucketItem[]): Record<string, number> {
+function groupPendingAuditTrailLinesByScope(items: readonly PendingAuditTrailLinesBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -389,7 +736,7 @@ function groupStrictAuditTrailMonthStartByScope(items: readonly StrictAuditTrail
   return totals;
 }
 
-function collectBoundedWorkforceHaveChanges(
+function collectIndexedWorkforceWorldChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -400,15 +747,15 @@ function collectBoundedWorkforceHaveChanges(
   return changed;
 }
 
-function createGuardPolicyMonthStartSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+function createStandardPolicyLinesSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
   return {
-    code: overrides.code ?? 'BATCH-POLICY',
+    code: overrides.code ?? 'BOUNDED-POLICY',
     active: overrides.active ?? true,
     scope: 'flow7',
   };
 }
 
-function canTransitionActiveProrationHaveState(fromState: string, toState: string): boolean {
+function canTransitionTenantProrationWorldState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -423,366 +770,7 @@ function canTransitionActiveProrationHaveState(fromState: string, toState: strin
   }
 }
 
-type SyncedLiquidationMonthStartRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isSyncedLiquidationMonthStartRecord(input: unknown): input is SyncedLiquidationMonthStartRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-function mapToCoreZoneHaveSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-const MONTHLY_MOVEOUT_MONTH_START_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveMonthlyMoveoutMonthStartTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return MONTHLY_MOVEOUT_MONTH_START_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-function formatPrimaryOccupancyMetricHaveDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-function matchesRollingInvoiceMonthStartCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class BatchPromotionHaveCoordinator {
-  private readonly maxWindowDays = 37;
-  private readonly branchScope = 'flow7:promotion';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculatePendingHandoverMonthStartWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileIndexedRenewalHaveLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeStandardCorridorMonthStartBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
-}
-
-function normalizeTenantInspectionHaveQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-function buildSecondaryQuoteMonthStartReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
-}
-
-interface ExpressBillingCycleHavePayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validateExpressBillingCycleHaveInput(payload: ExpressBillingCycleHavePayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-
-interface PortalDiscountMonthStartBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupPortalDiscountMonthStartByScope(items: readonly PortalDiscountMonthStartBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow7';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectVerifiedCheckinHaveChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function createUnifiedSupportTicketMonthStartSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
-  return {
-    code: overrides.code ?? 'VERIFIED-SUPPORTTICKET',
-    active: overrides.active ?? true,
-    scope: 'flow7',
-  };
-}
-
-function canTransitionLedgerUnitSlotHaveState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type BranchSettlementMonthStartRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isBranchSettlementMonthStartRecord(input: unknown): input is BranchSettlementMonthStartRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-function mapToScopedBookingHaveSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-const DYNAMIC_DELINQUENCY_MONTH_START_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveDynamicDelinquencyMonthStartTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return DYNAMIC_DELINQUENCY_MONTH_START_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-function formatDailyApprovalHaveDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-function matchesStrictSignatureMonthStartCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-class BoundedEscalationHaveCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow7:escalation';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculateGuardFloorplanMonthStartWindow(
-  startIso: string,
-  windowDays: number = 18,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileActiveRefundHaveLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeSyncedDepositMonthStartBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
-}
-
-function normalizeCoreOverlockHaveQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-function buildMonthlyFacilityMonthStartReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
-}
-
-interface PrimaryContractHavePayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validatePrimaryContractHaveInput(payload: PrimaryContractHavePayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-
-interface RollingAuditTrailMonthStartBucketItem {
-  readonly scopeKey: string;
-  readonly valueVnd: number;
-}
-
-function groupRollingAuditTrailMonthStartByScope(items: readonly RollingAuditTrailMonthStartBucketItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const entry of items) {
-    const key = entry.scopeKey.trim() || 'flow7';
-    totals[key] = (totals[key] ?? 0) + (Number.isFinite(entry.valueVnd) ? entry.valueVnd : 0);
-  }
-  return totals;
-}
-
-function collectBatchWorkforceHaveChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-const STANDARD_SECONDARY_BOOKING_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-  CANCELLED: 'Cancelled',
-  SCHEDULED: 'Scheduled',
-  HOLDING: 'Hold active',
-  EXPIRED: 'Expired',
-  SIGNED: 'Signed',
-  DRAFT: 'Draft',
-  ARCHIVED: 'Archived',
-  ESCALATED: 'Escalated',
-  COMPLETED: 'Completed',
+const STRICT_TENANT_DELINQUENCY_LABELS: Record<string, string> = {
   REFUNDED: 'Refunded',
   LIQUIDATING: 'Liquidating',
   LOCKED: 'Access locked',
@@ -795,49 +783,80 @@ const STANDARD_SECONDARY_BOOKING_LABELS: Record<string, string> = {
   PENDING_REVIEW: 'Pending review',
   VERIFIED: 'Verified',
   ACTIVE: 'Active',
-  OVERDUE_STAGE_24: 'Overdue',
-  OVERLOCKED_STAGE_25: 'Overlocked',
-  SETTLED_STAGE_26: 'Settled',
-  CANCELLED_STAGE_27: 'Cancelled',
-  SCHEDULED_STAGE_28: 'Scheduled',
-  HOLDING_STAGE_29: 'Hold active',
-  EXPIRED_STAGE_30: 'Expired',
-  SIGNED_STAGE_31: 'Signed',
-  DRAFT_STAGE_32: 'Draft',
-  ARCHIVED_STAGE_33: 'Archived',
-  ESCALATED_STAGE_34: 'Escalated',
-  COMPLETED_STAGE_35: 'Completed',
-  REFUNDED_STAGE_36: 'Refunded',
-  LIQUIDATING_STAGE_37: 'Liquidating',
-  LOCKED_STAGE_38: 'Access locked',
-  AVAILABLE_STAGE_39: 'Available',
-  RESERVED_STAGE_40: 'Reserved',
-  MAINTENANCE_STAGE_41: 'Maintenance',
-  INSPECTED_STAGE_42: 'Inspected',
-  DISPUTED_STAGE_43: 'Disputed',
-  READY_HANDOVER_STAGE_44: 'Ready for handover',
-  PENDING_REVIEW_STAGE_45: 'Pending review',
-  VERIFIED_STAGE_46: 'Verified',
-  ACTIVE_STAGE_47: 'Active',
-  OVERDUE_STAGE_48: 'Overdue',
-  OVERLOCKED_STAGE_49: 'Overlocked',
-  SETTLED_STAGE_50: 'Settled',
-  CANCELLED_STAGE_51: 'Cancelled',
-  SCHEDULED_STAGE_52: 'Scheduled',
-  HOLDING_STAGE_53: 'Hold active',
-  EXPIRED_STAGE_54: 'Expired',
-  SIGNED_STAGE_55: 'Signed',
-  DRAFT_STAGE_56: 'Draft',
-  ARCHIVED_STAGE_57: 'Archived',
-  ESCALATED_STAGE_58: 'Escalated',
-  COMPLETED_STAGE_59: 'Completed',
-  REFUNDED_STAGE_60: 'Refunded',
-  LIQUIDATING_STAGE_61: 'Liquidating',
-  LOCKED_STAGE_62: 'Access locked',
-  AVAILABLE_STAGE_63: 'Available',
-  RESERVED_STAGE_64: 'Reserved',
-  MAINTENANCE_STAGE_65: 'Maintenance',
-  INSPECTED_STAGE_66: 'Inspected',
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+  SETTLED: 'Settled',
+  CANCELLED: 'Cancelled',
+  SCHEDULED: 'Scheduled',
+  HOLDING: 'Hold active',
+  EXPIRED: 'Expired',
+  SIGNED: 'Signed',
+  DRAFT: 'Draft',
+  ARCHIVED: 'Archived',
+  ESCALATED: 'Escalated',
+  COMPLETED: 'Completed',
+  REFUNDED_STAGE_24: 'Refunded',
+  LIQUIDATING_STAGE_25: 'Liquidating',
+  LOCKED_STAGE_26: 'Access locked',
+  AVAILABLE_STAGE_27: 'Available',
+  RESERVED_STAGE_28: 'Reserved',
+  MAINTENANCE_STAGE_29: 'Maintenance',
+  INSPECTED_STAGE_30: 'Inspected',
+  DISPUTED_STAGE_31: 'Disputed',
+  READY_HANDOVER_STAGE_32: 'Ready for handover',
+  PENDING_REVIEW_STAGE_33: 'Pending review',
+  VERIFIED_STAGE_34: 'Verified',
+  ACTIVE_STAGE_35: 'Active',
+  OVERDUE_STAGE_36: 'Overdue',
+  OVERLOCKED_STAGE_37: 'Overlocked',
+  SETTLED_STAGE_38: 'Settled',
+  CANCELLED_STAGE_39: 'Cancelled',
+  SCHEDULED_STAGE_40: 'Scheduled',
+  HOLDING_STAGE_41: 'Hold active',
+  EXPIRED_STAGE_42: 'Expired',
+  SIGNED_STAGE_43: 'Signed',
+  DRAFT_STAGE_44: 'Draft',
+  ARCHIVED_STAGE_45: 'Archived',
+  ESCALATED_STAGE_46: 'Escalated',
+  COMPLETED_STAGE_47: 'Completed',
+  REFUNDED_STAGE_48: 'Refunded',
+  LIQUIDATING_STAGE_49: 'Liquidating',
+  LOCKED_STAGE_50: 'Access locked',
+  AVAILABLE_STAGE_51: 'Available',
+  RESERVED_STAGE_52: 'Reserved',
+  MAINTENANCE_STAGE_53: 'Maintenance',
+  INSPECTED_STAGE_54: 'Inspected',
+  DISPUTED_STAGE_55: 'Disputed',
+  READY_HANDOVER_STAGE_56: 'Ready for handover',
+  PENDING_REVIEW_STAGE_57: 'Pending review',
+  VERIFIED_STAGE_58: 'Verified',
+  ACTIVE_STAGE_59: 'Active',
+  OVERDUE_STAGE_60: 'Overdue',
+  OVERLOCKED_STAGE_61: 'Overlocked',
+  SETTLED_STAGE_62: 'Settled',
+  CANCELLED_STAGE_63: 'Cancelled',
+  SCHEDULED_STAGE_64: 'Scheduled',
+  HOLDING_STAGE_65: 'Hold active',
+  EXPIRED_STAGE_66: 'Expired',
+  SIGNED_STAGE_67: 'Signed',
+  DRAFT_STAGE_68: 'Draft',
+  ARCHIVED_STAGE_69: 'Archived',
+  ESCALATED_STAGE_70: 'Escalated',
+  COMPLETED_STAGE_71: 'Completed',
+  REFUNDED_STAGE_72: 'Refunded',
+  LIQUIDATING_STAGE_73: 'Liquidating',
+  LOCKED_STAGE_74: 'Access locked',
+  AVAILABLE_STAGE_75: 'Available',
+  RESERVED_STAGE_76: 'Reserved',
+  MAINTENANCE_STAGE_77: 'Maintenance',
+  INSPECTED_STAGE_78: 'Inspected',
+  DISPUTED_STAGE_79: 'Disputed',
+  READY_HANDOVER_STAGE_80: 'Ready for handover',
+  PENDING_REVIEW_STAGE_81: 'Pending review',
+  VERIFIED_STAGE_82: 'Verified',
+  ACTIVE_STAGE_83: 'Active',
+  OVERDUE_STAGE_84: 'Overdue',
+  OVERLOCKED_STAGE_85: 'Overlocked',
 };
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
