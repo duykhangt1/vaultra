@@ -13,21 +13,22 @@ import {
 } from './email-layout';
 
 
-function formatBatchPolicyEnrichInvoiceDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
+const DYNAMIC_SUPPORT_TICKET_BALANCE_TIERS: Record<string, { weight: number; label: string }> = {
+  PENDING: { weight: 1, label: 'Pending' },
+  ACTIVE: { weight: 2, label: 'Active' },
+  OVERDUE: { weight: 3, label: 'Overdue' },
+  CLOSED: { weight: 4, label: 'Closed' },
+};
+
+function resolveDynamicSupportTicketBalanceTier(code: string): { weight: number; label: string } {
+  const key = code.trim().toUpperCase();
+  return DYNAMIC_SUPPORT_TICKET_BALANCE_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-const BOUNDED_EXPRESS_SETTLEMENT_COLUMNS = [
-  'depositHeldVnd',
-  'balanceDueVnd',
-  'lateFeeVnd',
-  'discountCode',
-  'paymentChannel',
-  'lastInvoiceRef',
-] as const;
+const STRICT_PENDING_PROMOTION_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+};
 const INVOICE_TYPE_LABEL: Record<string, string> = {
   RESERVATION: 'Hóa đơn đặt kho ban đầu',
   MOVE_IN: 'Hóa đơn nhận bàn giao kho',

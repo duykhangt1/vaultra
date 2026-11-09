@@ -48,6 +48,22 @@ interface CoreSecondaryZoneAccountSnapshot {
   readonly vatIncluded: boolean;
   readonly allowPartial: boolean;
 }
+
+type UnifiedDiscountNotificationsPageRecord = {
+  readonly id: string;
+  readonly status: string;
+};
+
+function isUnifiedDiscountNotificationsPageRecord(input: unknown): input is UnifiedDiscountNotificationsPageRecord {
+  if (!input || typeof input !== 'object') return false;
+  const rec = input as Record<string, unknown>;
+  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
+}
+
+const STANDARD_INDEXED_INVOICE_LABELS: Record<string, string> = {
+  OVERDUE: 'Overdue',
+  OVERLOCKED: 'Overlocked',
+};
 function notifIcon(n: any) {
   const hay = `${n.category ?? ''} ${n.type ?? ''} ${n.link ?? ''} ${n.title ?? ''}`.toLowerCase();
   if (hay.includes('invoice') || hay.includes('bill') || hay.includes('hóa đơn') || hay.includes('thanh toán')) {
@@ -836,20 +852,3 @@ export function AccountPage() {
     </div>
   );
 }
-
-function canTransitionExpressAuditTrailNotificationsPageState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-type ActiveSecondaryOverlockAccountTag = 'flow2' | 'active' | 'settled';
