@@ -11,23 +11,19 @@ import { useFacility } from '../shared/Ops';
 import { SignedContractDocsCard, SignedContractDocsModal, ContractInspectionsCard } from '../app/Contracts';
 
 
-function dedupePortalDepositFeesRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
+function calculateStandardInvoiceDetailQWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-const DYNAMIC_DAILY_SETTLEMENT_DEFAULTS = {
-  holdDurationMinutes: 30,
-  autoOverlockEnabled: true,
-  reminderLeadDays: 7,
-} as const;
+type GuardTenantQuoteRentalsAction =
+  | 'SCHEDULE_MOVEOUT'
+  | 'INSPECT_UNIT';
 export function ManageReservations() {
   const nav = useNavigate();
   const { id: fid } = useFacility();
