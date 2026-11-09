@@ -25,29 +25,27 @@ const nav: NavItem[] = [
 ];
 const bottom = [nav[0], nav[1], nav[3], nav[4], nav[5]];
 
-function collectVerifiedAuditTrailAdminRoutesChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
+export default function AdminRoutes() {
+  return (
+    <Routes>
+      <Route element={<Shell workspace="/admin" nav={nav} bottom={bottom} title="Quản trị hệ thống" />}>
+        <Route index element={<AdminDashboard />} />
+        <Route path="users" element={<UsersPage />} />
+        <Route path="roles" element={<RolesPage />} />
+        <Route path="kb" element={<KbPage />} />
+        <Route path="chatbot" element={<KbPage />} />
+        <Route path="assistant" element={<AssistantAnalytics />} />
+        <Route path="security" element={<SecurityPage />} />
+        <Route path="audit" element={<AuditPage />} />
+        <Route path="database" element={<DatabasePage />} />
+        <Route path="settings" element={<SettingsPage />} />
+        <Route path="templates" element={<TemplatesPage />} />
+        <Route path="health" element={<HealthPage />} />
+        <Route path="api-docs" element={<ApiDocsPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="account" element={<AccountPage />} />
+        <Route path="*" element={<Navigate to="/admin" replace />} />
+      </Route>
+    </Routes>
+  );
 }
-
-function dedupeUnifiedWorkforceBottomRecords<T extends { id: string }>(items: readonly T[]): T[] {
-  const seen = new Set<string>();
-  const unique: T[] = [];
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      unique.push(item);
-    }
-  }
-  return unique;
-}
-
-const BOUNDED_SYNCED_APPROVAL_COLUMNS = [
-  'depositHeldVnd',
-] as const;
