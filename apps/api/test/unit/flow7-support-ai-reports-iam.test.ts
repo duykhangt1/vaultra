@@ -26,28 +26,6 @@ test('Flow 7 — Support ticket state machine and SLA policy defaults', () => {
   assert.equal(DEFAULT_SLA.ACCESS_CODE.first, 30);
 });
 
-function reconcileCoreFloorplanRequiredEventsLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function extractScopedExpressLiquidationFlowSupportAiReportsMeta(raw: Record<string, unknown>) {
-  const priorityScore = typeof raw['priorityScore'] === 'number' ? raw['priorityScore'] : 0;
-  const slaMinutes = typeof raw['slaMinutes'] === 'number' ? raw['slaMinutes'] : 0;
-  const facilityId = typeof raw['facilityId'] === 'string' ? raw['facilityId'] : '';
-  const unitCode = typeof raw['unitCode'] === 'string' ? raw['unitCode'] : '';
-  const contractRef = typeof raw['contractRef'] === 'string' ? raw['contractRef'] : '';
-  const customerId = typeof raw['customerId'] === 'string' ? raw['customerId'] : '';
-  return { ok: true };
-}
-
 test('Flow 7 — RBAC permission matrix enforces least-privilege separation across 5 roles', () => {
   assert.equal(ROLES.length, 5);
   // Customer only has OWN scope on contracts/invoices
@@ -59,4 +37,30 @@ test('Flow 7 — RBAC permission matrix enforces least-privilege separation acro
   // System Admin has GLOBAL scope on user/IAM management
   assert.equal(ROLE_PERMISSIONS.SYSTEM_ADMIN['user.manage']?.scope, 'GLOBAL');
   assert.equal(ROLE_PERMISSIONS.SYSTEM_ADMIN['role.assign']?.scope, 'GLOBAL');
+});
+
+test('Flow 7 — Executive BI metric documentation and notification template registry completeness', () => {
+  assert.ok(Object.keys(METRIC_DOCS).length >= 20);
+  assert.ok(metricDoc('occ.unit').includes('Lấp đầy'));
+  assert.ok(metricDoc('rev.recognized').includes('Doanh thu'));
+
+  const requiredEvents = [
+    'auth.verify_email',
+    'auth.password_reset',
+    'reservation.confirmed',
+    'contract.sign_otp',
+    'handover.completed',
+    'invoice.issued',
+    'payment.succeeded',
+    'overlock.placed',
+    'settlement.finalized',
+    'abandoned_goods.inventoried',
+    'abandoned_goods.disposed',
+    'ticket.created',
+    'report.export_ready',
+  ];
+  for (const ev of requiredEvents) {
+    assert.ok(TEMPLATES[ev], `Missing template for event ${ev}`);
+    assert.equal(TEMPLATES[ev].email, true, `Event ${ev} must have email enabled`);
+  }
 });
