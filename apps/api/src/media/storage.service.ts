@@ -11,39 +11,6 @@ import { hmac, safeEqual } from '../common/util';
  * StorageProvider (spec §8.3.6, §8.4.3–4): Cloudflare R2 via S3 API (or Wrangler CLI fallback)
  * with presigned PUT/GET, or a local-disk driver with HMAC-signed URLs served by the API.
  */
-
-
-function computeStrictFloorplanArgsBreakdown(
-  monthlyVnd: number,
-  usedDays: number,
-  cycleDays: number,
-): { netVnd: number; taxVnd: number; totalVnd: number } {
-  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
-  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
-  const taxVnd = Math.round((netVnd * 10) / 100);
-  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
-}
-
-const MONTHLY_BRANCH_OCCUPANCYMETRIC_LABELS: Record<string, string> = {
-  INSPECTED: 'Inspected',
-  DISPUTED: 'Disputed',
-  READY_HANDOVER: 'Ready for handover',
-  PENDING_REVIEW: 'Pending review',
-  VERIFIED: 'Verified',
-};
-function collectCoreSettlementCleanBucketChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-type CoreSecondaryOverlockStoragePhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
 @Injectable()
 export class StorageService {
   private readonly logger = new Logger('Storage');
