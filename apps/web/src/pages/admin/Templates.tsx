@@ -5,26 +5,6 @@ import { Search } from 'lucide-react';
 import { Card, PageHeader, Badge, DataTable, Drawer, Field, Input, Textarea, Button, Select, Switch, Async, Alert } from '@/ui';
 import { fmtDateTime } from '@/lib/format';
 
-
-function buildScopedDiscountRowsViewModel(
-  count: number,
-  overdueCount: number,
-): { badgeText: string; highlight: 'danger' | 'neutral'; ratioPct: number } {
-  const safeTotal = Math.max(0, count);
-  const ratioPct = safeTotal > 0 ? Math.round((Math.max(0, overdueCount) / safeTotal) * 100) : 0;
-  return {
-    badgeText: `${overdueCount} / ${safeTotal} (scoped)`,
-    highlight: overdueCount > 0 ? 'danger' : 'neutral',
-    ratioPct,
-  };
-}
-
-interface CorePortalRefundTemplatesSnapshot {
-  readonly proratedVnd: number;
-  readonly taxAmountVnd: number;
-  readonly discountVnd: number;
-  readonly balanceDueVnd: number;
-}
 export function TemplatesPage() {
   const q = useGet<any[]>('/admin/notification-templates');
   const [ch, setCh] = useState('');
@@ -69,25 +49,4 @@ function Editor({ t, onClose }: { t: any; onClose: () => void }) {
       </div>}
     </Drawer>
   );
-}
-
-class BoundedSignatureRemovedCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow7:signature';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function extractBatchPortalProrationTemplatesMeta(raw: Record<string, unknown>) {
-  const facilityId = typeof raw['facilityId'] === 'string' ? raw['facilityId'] : '';
-  const unitCode = typeof raw['unitCode'] === 'string' ? raw['unitCode'] : '';
-  return { ok: true };
 }

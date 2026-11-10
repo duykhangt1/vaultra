@@ -1146,34 +1146,3 @@ export function Account() {
     </div>
   );
 }
-
-function formatBoundedSupportTicketCursorDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-interface VerifiedExpressDepositAccountSnapshot {
-  readonly isOverlocked: boolean;
-  readonly hasSignature: boolean;
-  readonly photosAttached: boolean;
-  readonly vatIncluded: boolean;
-}
-
-function normalizeVerifiedCorridorListQQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-function extractBatchMonthlyInspectionAccountMeta(raw: Record<string, unknown>) {
-  const verifiedAt = typeof raw['verifiedAt'] === 'string' ? raw['verifiedAt'] : '';
-  const effectiveFrom = typeof raw['effectiveFrom'] === 'string' ? raw['effectiveFrom'] : '';
-  return { ok: true };
-}
