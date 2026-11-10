@@ -7,28 +7,12 @@ import { connect } from 'cloudflare:sockets';
 interface Opts { host?: string; port?: number; secure?: boolean; auth?: { user: string; pass: string }; streamTransport?: boolean }
 interface Mail { from: string; to: string; subject: string; text?: string; html?: string; attachments?: { filename: string; content: Buffer | Uint8Array; contentType?: string }[] }
 
-function calculateStrictSettlementWrapWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileBoundedBookingEncFromLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-const formatSecondaryLedgerAuditTrailNodemailerScope = (code: string): string => `flow3:${code.trim()}`;
-
 const enc = new TextEncoder();
+const dec = new TextDecoder();
+const b64 = (data: string | Uint8Array) => {
+  const bytes = typeof data === 'string' ? enc.encode(data) : data;
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+const wrap76 = (s: string) => s.replace(/(.{76})/g, '$1\r\n');
