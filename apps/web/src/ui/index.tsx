@@ -191,3 +191,389 @@ const ALERT_ICON: Record<Tone, React.ReactNode> = {
   brass: <InfoIcon className="size-4 shrink-0 text-brass-700" />,
   purple: <InfoIcon className="size-4 shrink-0 text-[#7e22ce]" />,
 };
+
+export function Alert({ tone = 'info', title, children, action, className }: { tone?: Tone; title?: React.ReactNode; children?: React.ReactNode; action?: React.ReactNode; className?: string }) {
+  return (
+    <div
+      role="alert"
+      className={cn(
+        'flex items-start gap-3 rounded-xl border border-l-[3px] px-4 py-3.5 text-sm shadow-[0_1px_2px_rgb(14_27_44/0.04)]',
+        tone === 'bad' && 'border-bad-600/25 border-l-bad-600 bg-gradient-to-r from-bad-100/90 to-white text-ink-950',
+        tone === 'warn' && 'border-warn-600/25 border-l-warn-600 bg-gradient-to-r from-warn-100/85 to-white text-ink-950',
+        tone === 'ok' && 'border-ok-600/25 border-l-ok-600 bg-gradient-to-r from-ok-100/85 to-white text-ink-950',
+        tone === 'brass' && 'border-brass-500/30 border-l-brass-500 bg-gradient-to-r from-brass-100/85 to-white text-ink-950',
+        tone === 'purple' && 'border-[#7e22ce]/25 border-l-[#7e22ce] bg-gradient-to-r from-[#f3e8ff]/85 to-white text-ink-950',
+        (tone === 'info' || tone === 'neutral') && 'border-info-600/20 border-l-info-600 bg-gradient-to-r from-info-100/75 to-white text-ink-950',
+        className,
+      )}
+    >
+      <span className="mt-0.5">{ALERT_ICON[tone]}</span>
+      <div className="min-w-0 flex-1">
+        {title && <p className="font-bold tracking-tight text-ink-950">{title}</p>}
+        {children && <div className="mt-0.5 text-[13px] leading-relaxed text-ink-800">{children}</div>}
+      </div>
+      {action && <div className="shrink-0 self-center">{action}</div>}
+    </div>
+  );
+}
+
+const BACK_LABEL: Record<string, string> = { contracts: 'Hợp đồng', billing: 'Hóa đơn', reservations: 'Đặt chỗ', support: 'Hỗ trợ', tickets: 'Phiếu hỗ trợ', customers: 'Khách hàng', moveouts: 'Trả kho', app: 'Tổng quan', staff: 'Hôm nay', manage: 'Tổng quan', ops: 'Tổng quan', admin: 'Tổng quan' };
+/** `back` may be a ready-made element or just a path: a path renders as "← <where it goes>". */
+function BackLink({ to }: { to: string }) {
+  const label = BACK_LABEL[to.split('/').filter(Boolean).pop() ?? ''] ?? 'Quay lại';
+  return (
+    <Link to={to} className="mb-2.5 inline-flex items-center gap-1.5 rounded-lg border border-steel-200/85 bg-white/85 px-2.5 py-1 text-xs font-semibold text-steel-600 shadow-2xs transition hover:border-ink-900/30 hover:bg-white hover:text-ink-950">
+      <ArrowLeft className="size-3.5 text-brass-700" />
+      {label}
+    </Link>
+  );
+}
+
+export function PageHeader({ title, sub, actions, back, eyebrow, className }: { title: React.ReactNode; sub?: React.ReactNode; actions?: React.ReactNode; back?: React.ReactNode; eyebrow?: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn('mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-ink-950/[0.08] pb-4', className)}>
+      <div className="min-w-0">
+        {typeof back === 'string' ? <BackLink to={back} /> : back}
+        {eyebrow ? (
+          <p className="eyebrow mb-1.5 inline-flex items-center gap-2 text-brass-700">
+            <span className="h-0.5 w-5 rounded-full bg-brass-500" aria-hidden />
+            {eyebrow}
+          </p>
+        ) : null}
+        <div className={cn(!eyebrow && 'relative pl-3.5 before:absolute before:bottom-1 before:left-0 before:top-1 before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-brass-500 before:to-brass-700/70')}>
+          <h1 className="display text-[26px] tracking-tight text-ink-950 sm:text-[32px]">{title}</h1>
+          {sub && <p className="mt-1 max-w-2xl text-[13.5px] leading-relaxed text-steel-500">{sub}</p>}
+        </div>
+      </div>
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+export function Stat({ label, value, sub, tone, icon, loading }: { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: Tone; icon?: React.ReactNode; loading?: boolean }) {
+  return (
+    <Card className="relative overflow-hidden p-5">
+      <div className={cn('absolute inset-x-0 top-0 h-[3px]', tone === 'bad' ? 'bg-bad-600' : tone === 'warn' ? 'bg-warn-600' : tone === 'ok' ? 'bg-ok-600' : 'bg-brass-500')} aria-hidden />
+      <div className="flex items-center justify-between gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-steel-500">
+        <span>{label}</span>
+        {icon && <span className="grid size-7 place-items-center rounded-lg bg-[#f6f3ec] text-brass-700">{icon}</span>}
+      </div>
+      {loading ? <Skeleton className="mt-2.5 h-8 w-24" /> : <p className={cn('mt-2 display text-[26px] font-bold leading-none tracking-tight text-ink-950 num', tone === 'bad' && 'text-bad-600', tone === 'ok' && 'text-ok-600', tone === 'warn' && 'text-warn-600')}>{value}</p>}
+      {sub && <p className="mt-2 inline-flex max-w-full truncate rounded-md bg-[#f7f4ed] px-2 py-0.5 text-xs font-medium text-steel-600">{sub}</p>}
+    </Card>
+  );
+}
+
+export function KV({ items, cols = 2 }: { items: [React.ReactNode, React.ReactNode][]; cols?: 1 | 2 | 3 }) {
+  return (
+    <dl className={cn('grid gap-x-8 gap-y-3.5 text-sm', cols === 1 ? 'grid-cols-1' : cols === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3')}>
+      {items.map(([k, v], i) => (
+        <div key={i} className="min-w-0 border-b border-steel-100/90 pb-2.5 last:border-0">
+          <dt className="text-[11px] font-bold uppercase tracking-wider text-steel-500">{k}</dt>
+          <dd className="mt-0.5 break-words font-medium text-ink-950">{v ?? '—'}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+export function Timeline({ items }: { items: { title: React.ReactNode; sub?: React.ReactNode; at?: React.ReactNode; tone?: Tone }[] }) {
+  return (
+    <ol className="relative space-y-4 border-l-2 border-steel-200/90 pl-5">
+      {items.map((it, i) => (
+        <li key={i} className="relative">
+          <span className={cn('absolute -left-[26px] top-1 size-2.5 rounded-full ring-4 ring-white', it.tone === 'ok' ? 'bg-ok-600' : it.tone === 'bad' ? 'bg-bad-600' : it.tone === 'warn' ? 'bg-warn-600' : 'bg-brass-500')} />
+          <p className="text-sm font-semibold text-ink-950">{it.title}</p>
+          {it.sub && <p className="mt-0.5 text-[13px] leading-relaxed text-steel-500">{it.sub}</p>}
+          {it.at && <p className="mt-0.5 font-mono text-[11px] text-steel-400">{it.at}</p>}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+export function Stepper({ steps, current, onStep }: { steps: string[]; current: number; onStep?: (i: number) => void }) {
+  return (
+    <ol className="flex items-center gap-2 overflow-x-auto pb-1">
+      {steps.map((s, i) => {
+        const clickable = !!onStep && i !== current && current < steps.length - 1 && i < steps.length - 1;
+        return (
+          <li key={s} className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              disabled={!clickable}
+              onClick={() => clickable && onStep(i)}
+              className={cn('flex items-center gap-2 text-left', clickable && 'cursor-pointer hover:opacity-80')}
+            >
+              <span className={cn('grid size-7 place-items-center rounded-full text-xs font-bold shadow-2xs', i < current ? 'bg-ok-600 text-white' : i === current ? 'bg-ink-950 text-brass-400 ring-2 ring-brass-400/40' : 'bg-steel-100 text-steel-400')}>{i < current ? <Check className="size-4" /> : i + 1}</span>
+              <span className={cn('text-[13px] font-semibold', i === current ? 'text-ink-950' : i < current ? 'text-ink-700' : 'text-steel-400')}>{s}</span>
+            </button>
+            {i < steps.length - 1 && <span className={cn('mx-1 h-px w-5', i < current ? 'bg-brass-500' : 'bg-steel-300')} />}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+export function Progress({ value, tone = 'brass' }: { value: number; tone?: 'brass' | 'ok' | 'bad' }) {
+  return <div className="h-2 overflow-hidden rounded-full bg-steel-100"><div className={cn('h-full rounded-full transition-all duration-300', tone === 'ok' ? 'bg-ok-600' : tone === 'bad' ? 'bg-bad-600' : 'bg-brass-500')} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></div>;
+}
+
+/* ───────────────────────────── overlays ───────────────────────────── */
+export function Modal({ open, onClose, title, description, children, footer, size = 'md' }: { open: boolean; onClose: () => void; title: React.ReactNode; description?: React.ReactNode; children: React.ReactNode; footer?: React.ReactNode; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
+  return (
+    <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-ink-950/60 backdrop-blur-[3px]" />
+        <Dialog.Content className={cn('fixed left-1/2 top-1/2 z-50 flex max-h-[92dvh] w-[calc(100vw-1.5rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-steel-200/85 bg-white shadow-[0_24px_64px_-12px_rgb(8_18_31/0.42)] focus:outline-none', size === 'sm' ? 'max-w-sm' : size === 'md' ? 'max-w-lg' : size === 'lg' ? 'max-w-2xl' : 'max-w-4xl')}>
+          <div className="h-[3px] w-full bg-gradient-to-r from-ink-950 via-brass-500 to-ink-950" aria-hidden />
+          <div className="flex items-start justify-between gap-4 border-b border-steel-200/80 bg-gradient-to-b from-[#fcfbf8] to-white px-6 py-4">
+            <div>
+              <Dialog.Title className="text-[17px] font-bold tracking-tight text-ink-950">{title}</Dialog.Title>
+              {description ? <Dialog.Description className="mt-0.5 text-[13px] leading-relaxed text-steel-500">{description}</Dialog.Description> : <Dialog.Description className="sr-only">{typeof title === 'string' ? title : 'Hộp thoại'}</Dialog.Description>}
+            </div>
+            <Dialog.Close aria-label="Đóng" className="cursor-pointer rounded-lg p-1.5 text-steel-400 transition hover:bg-steel-100 hover:text-ink-950"><X className="size-5" /></Dialog.Close>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">{children}</div>
+          {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-steel-200/80 bg-[#faf8f4]/85 px-6 py-3.5">{footer}</div>}
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+export function Drawer({ open, onClose, title, children, footer, width = 480 }: { open: boolean; onClose: () => void; title: React.ReactNode; children: React.ReactNode; footer?: React.ReactNode; width?: number }) {
+  return (
+    <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-ink-950/50 backdrop-blur-[2px]" />
+        <Dialog.Content style={{ maxWidth: width }} className="fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-steel-200/80 bg-white shadow-[var(--shadow-pop)] focus:outline-none">
+          <div className="flex items-center justify-between border-b border-steel-200/80 bg-gradient-to-b from-[#fcfbf8] to-white px-6 py-4">
+            <Dialog.Title className="text-[17px] font-bold tracking-tight text-ink-950">{title}</Dialog.Title>
+            <Dialog.Close aria-label="Đóng" className="cursor-pointer rounded-lg p-1.5 text-steel-400 transition hover:bg-steel-100 hover:text-ink-950"><X className="size-5" /></Dialog.Close>
+          </div>
+          <Dialog.Description className="sr-only">Bảng chi tiết</Dialog.Description>
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">{children}</div>
+          {footer && <div className="flex justify-end gap-2 border-t border-steel-200/80 bg-[#faf8f4]/85 px-6 py-3.5">{footer}</div>}
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+/** Confirmation dialog; `reason` makes a justification mandatory (audit-friendly destructive actions). */
+export function Confirm({ open, onClose, onConfirm, title, description, confirmLabel = 'Xác nhận', danger, reason, loading, children }: { open: boolean; onClose: () => void; onConfirm: (reason?: string) => void; title: string; description?: React.ReactNode; confirmLabel?: string; danger?: boolean; reason?: boolean | string; loading?: boolean; children?: React.ReactNode }) {
+  const [r, setR] = React.useState('');
+  React.useEffect(() => { if (open) setR(''); }, [open]);
+  const need = !!reason && r.trim().length < 5;
+  return (
+    <Modal open={open} onClose={onClose} title={title} description={description} size="sm" footer={<><Button variant="ghost" onClick={onClose}>Để sau</Button><Button variant={danger ? 'danger' : 'dark'} loading={loading} disabled={need} onClick={() => onConfirm(reason ? r.trim() : undefined)}>{confirmLabel}</Button></>}>
+      {children}
+      {reason && <Field label={typeof reason === 'string' ? reason : 'Lý do'} required hint="Tối thiểu 5 ký tự — được lưu trong nhật ký kiểm toán."><Textarea value={r} onChange={(e) => setR(e.target.value)} autoFocus /></Field>}
+    </Modal>
+  );
+}
+
+export function Tabs({ tabs, value, onChange, className }: { tabs: { value: string; label: React.ReactNode; count?: number }[]; value: string; onChange: (v: string) => void; className?: string }) {
+  const list = React.useRef<HTMLDivElement>(null);
+  const [edge, setEdge] = React.useState({ left: false, right: false });
+  const measure = React.useCallback(() => {
+    const el = list.current;
+    if (el) setEdge({ left: el.scrollLeft > 2, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2 });
+  }, []);
+  // a long row of tabs scrolls sideways: with the mouse wheel, with the arrows, and it keeps the selected tab in view
+  React.useEffect(() => {
+    const el = list.current;
+    if (!el) return;
+    measure();
+    const onWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('scroll', measure, { passive: true });
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    return () => { el.removeEventListener('wheel', onWheel); el.removeEventListener('scroll', measure); ro?.disconnect(); };
+  }, [measure, tabs.length]);
+  React.useEffect(() => {
+    const el = list.current;
+    const on = el?.querySelector<HTMLElement>('[data-state=active]');
+    if (!el || !on) return;
+    if (on.offsetLeft < el.scrollLeft + 28 || on.offsetLeft + on.offsetWidth > el.scrollLeft + el.clientWidth - 28) el.scrollTo({ left: on.offsetLeft - (el.clientWidth - on.offsetWidth) / 2, behavior: 'smooth' });
+  }, [value]);
+  const arrow = 'absolute inset-y-1 z-10 grid w-7 cursor-pointer place-items-center rounded-lg border border-steel-200/85 bg-white/95 text-ink-900 shadow-sm transition hover:bg-paper';
+  return (
+    <TabsPrimitive.Root value={value} onValueChange={onChange}>
+      <div className="relative w-fit max-w-full">
+        {edge.left && <button type="button" aria-label="Cuộn sang trái" className={cn(arrow, 'left-1')} onClick={() => list.current?.scrollBy({ left: -260, behavior: 'smooth' })}><ChevronLeft className="size-4" /></button>}
+        {edge.right && <button type="button" aria-label="Cuộn sang phải" className={cn(arrow, 'right-1')} onClick={() => list.current?.scrollBy({ left: 260, behavior: 'smooth' })}><ChevronRight className="size-4" /></button>}
+        <TabsPrimitive.List ref={list} className={cn('flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-steel-200/85 bg-white/85 p-1 shadow-[0_1px_2px_rgb(14_27_44/0.04)] backdrop-blur-xs no-scrollbar', className)}>
+        {tabs.map((t) => (
+          <TabsPrimitive.Trigger
+            key={t.value}
+            value={t.value}
+            className="group relative inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-semibold text-steel-600 transition-all hover:text-ink-950 data-[state=active]:bg-ink-950 data-[state=active]:text-white data-[state=active]:shadow-xs"
+          >
+            <span className="hidden size-1.5 rounded-full bg-brass-400 group-data-[state=active]:inline-block" aria-hidden />
+            {t.label}
+            {t.count !== undefined && (
+              <span className="ml-0.5 rounded-full bg-steel-100 px-1.5 py-px font-mono text-[11px] font-bold text-steel-600 transition-colors group-data-[state=active]:bg-brass-500 group-data-[state=active]:text-ink-950 num">
+                {t.count}
+              </span>
+            )}
+          </TabsPrimitive.Trigger>
+        ))}
+        </TabsPrimitive.List>
+      </div>
+    </TabsPrimitive.Root>
+  );
+}
+
+export function Menu({ trigger, items }: { trigger: React.ReactNode; items: ({ label: React.ReactNode; onSelect?: () => void; danger?: boolean; icon?: React.ReactNode; disabled?: boolean } | 'sep')[] }) {
+  return (
+    <Dropdown.Root>
+      <Dropdown.Trigger asChild>{trigger}</Dropdown.Trigger>
+      <Dropdown.Portal>
+        <Dropdown.Content align="end" sideOffset={6} className="z-[60] min-w-52 rounded-xl border border-steel-200/90 bg-white/98 p-1.5 shadow-[0_18px_44px_-10px_rgb(8_18_31/0.28)] backdrop-blur-md">
+          {items.map((it, i) => it === 'sep' ? <Dropdown.Separator key={i} className="my-1 h-px bg-steel-100" /> : (
+            <Dropdown.Item key={i} disabled={it.disabled} onSelect={it.onSelect} className={cn('flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-[13.5px] font-medium text-ink-900 outline-none transition-colors data-[disabled]:opacity-40 data-[highlighted]:bg-[#f6f3ec]', it.danger && 'text-bad-600 data-[highlighted]:bg-bad-100/60')}>{it.icon}{it.label}</Dropdown.Item>
+          ))}
+        </Dropdown.Content>
+      </Dropdown.Portal>
+    </Dropdown.Root>
+  );
+}
+
+/** Small (i) icon that explains a field on hover or keyboard focus. */
+export function HelpTip({ text, label = 'Xem giải thích', onDark }: { text: string; label?: string; onDark?: boolean }) {
+  return (
+    <Tip text={text}>
+      <button type="button" aria-label={label} className={cn('ml-1 inline-flex size-4 shrink-0 cursor-help items-center justify-center rounded-full align-middle transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-brass-500', onDark ? 'text-steel-300 hover:text-white focus-visible:text-white' : 'text-steel-400 hover:text-ink-900 focus-visible:text-ink-900')}>
+        <InfoIcon className="size-3.5" aria-hidden />
+      </button>
+    </Tip>
+  );
+}
+
+export function Tip({ text, children }: { text: string; children: React.ReactNode }) {
+  return (
+    <Tooltip.Provider delayDuration={200}>
+      <Tooltip.Root><Tooltip.Trigger asChild>{children}</Tooltip.Trigger><Tooltip.Portal><Tooltip.Content sideOffset={6} className="z-[70] max-w-xs whitespace-pre-line rounded-lg bg-ink-950 px-2.5 py-1.5 text-xs font-medium leading-relaxed text-white shadow-lg ring-1 ring-white/10">{text}</Tooltip.Content></Tooltip.Portal></Tooltip.Root>
+    </Tooltip.Provider>
+  );
+}
+
+/* ───────────────────────────── data table ───────────────────────────── */
+export type Col<T> = { key: string; header: React.ReactNode; cell: (r: T) => React.ReactNode; className?: string; hideBelow?: 'sm' | 'md' | 'lg' };
+const HIDE = { sm: 'hidden sm:table-cell', md: 'hidden md:table-cell', lg: 'hidden lg:table-cell' };
+
+type DataTableProps<T> = { rows?: T[]; cols: Col<T>[]; loading?: boolean; error?: ApiError | null; onRetry?: () => void; onRow?: (r: T) => void; empty?: React.ReactNode; rowKey: (r: T) => string; dense?: boolean };
+/** With `pageSize` the table shows that many rows at a time and a "Trước / Sau" footer (pageKey resets it to page 1, e.g. when a tab changes). */
+export function DataTable<T>({ pageSize, pageKey = '', ...props }: DataTableProps<T> & { pageSize?: number; pageKey?: string }) {
+  const paged = usePaged(pageSize ? props.rows : undefined, pageKey, pageSize ?? 10);
+  if (!pageSize) return <DataTableBase {...props} />;
+  return (
+    <>
+      <DataTableBase {...props} rows={props.rows === undefined ? undefined : paged.rows} />
+      {paged.footer}
+    </>
+  );
+}
+
+function DataTableBase<T>({ rows, cols, loading, error, onRetry, onRow, empty, rowKey, dense }: DataTableProps<T>) {
+  if (error) return <ErrorState error={error} onRetry={onRetry} />;
+  // No data yet (and no error) is still loading: never flash "empty" for a query that is idle, paused or waiting for its filters.
+  loading = loading || rows === undefined;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left text-sm">
+        <thead>
+          <tr className="border-b border-steel-200/85 bg-[#faf8f4] text-[11px] font-bold uppercase tracking-[0.08em] text-steel-500">
+            {cols.map((c) => <th key={c.key} className={cn('whitespace-nowrap px-4 py-3 font-bold', c.hideBelow && HIDE[c.hideBelow], c.className)}>{c.header}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {loading && Array.from({ length: 5 }).map((_, i) => <tr key={i} className="border-b border-steel-100/90 last:border-0">{cols.map((c, j) => <td key={c.key} className={cn('px-4 py-3.5', c.hideBelow && HIDE[c.hideBelow])}><Skeleton className={cn('h-4', (i + j) % 2 === 0 ? 'w-4/5' : 'w-3/5')} /></td>)}</tr>)}
+          {!loading && rows?.map((r) => (
+            <tr key={rowKey(r)} onClick={onRow ? () => onRow(r) : undefined} className={cn('border-b border-steel-100/90 last:border-0 transition-colors', onRow ? 'cursor-pointer hover:bg-brass-100/25' : 'hover:bg-[#faf8f4]/60')}>
+              {cols.map((c) => <td key={c.key} className={cn('px-4 align-middle text-[13.5px] text-ink-900', dense ? 'py-2.5' : 'py-3.5', c.hideBelow && HIDE[c.hideBelow], c.className)}>{c.cell(r)}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {!loading && !rows?.length && (empty ?? <EmptyState />)}
+    </div>
+  );
+}
+
+/** Server-paginated table over `{data, page:{hasMore,nextCursor,total}}` endpoints (cursor pagination, spec §11.1). */
+export function PagedTable<T>({ path, query, cols, onRow, rowKey, empty, size = 20, toolbar, refetchInterval }: { path: string; query?: Record<string, any>; cols: Col<T>[]; onRow?: (r: T) => void; rowKey?: (r: T) => string; empty?: React.ReactNode; size?: number; toolbar?: React.ReactNode; refetchInterval?: number }) {
+  const [cursors, setCursors] = React.useState<(string | undefined)[]>([undefined]);
+  const qKey = JSON.stringify(query);
+  React.useEffect(() => setCursors([undefined]), [qKey, path]);
+  const cursor = cursors[cursors.length - 1];
+  const { data, isLoading, isFetching, isPlaceholderData, error, refetch } = useGet<{ data: T[]; page?: { hasMore: boolean; nextCursor: string | null; total?: number } } | T[]>(path, { ...query, 'page[size]': size, 'page[cursor]': cursor }, { keepPrevious: true, refetchInterval });
+  const page = cursors.length;
+  const rows = Array.isArray(data) ? data : data?.data;
+  const pg = Array.isArray(data) ? undefined : data?.page;
+  return (
+    <div>
+      {toolbar}
+      <DataTable rows={rows} cols={cols} loading={isLoading || isPlaceholderData} error={error} onRetry={refetch} onRow={onRow} empty={empty} rowKey={rowKey ?? ((r: any) => r.id ?? r.code ?? JSON.stringify(r))} />
+      {(page > 1 || pg?.hasMore) && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-b-2xl border-t border-steel-200/80 bg-[#fcfbf8] px-4 py-3 text-xs font-medium text-steel-500">
+          <span className="inline-flex items-center gap-1.5 num">
+            {pg?.total !== undefined && <><b className="font-semibold text-ink-900">{pg.total}</b> kết quả <span className="text-steel-300">·</span></>}
+            <span>Trang <b className="font-semibold text-ink-900">{page}</b></span>
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="xs" disabled={page === 1 || isFetching} onClick={() => setCursors((c) => c.slice(0, -1))} icon={<ChevronLeft className="size-3.5" />}>Trước</Button>
+            <Button variant="outline" size="xs" disabled={!pg?.hasMore || isFetching} onClick={() => setCursors((c) => [...c, pg?.nextCursor ?? undefined])}>Sau<ChevronRight className="size-3.5" /></Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Client-side pagination for endpoints that return the whole list (e.g. /delinquency).
+ * `resetKey` should change whenever the filters change so the user lands back on page 1.
+ */
+export function usePaged<T>(rows: T[] | undefined, resetKey = '', size = 10) {
+  const [page, setPage] = React.useState(1);
+  React.useEffect(() => setPage(1), [resetKey]);
+  const total = rows?.length ?? 0;
+  const pages = Math.max(1, Math.ceil(total / size));
+  const cur = Math.min(page, pages); // data can shrink (refetch / filter) while the user is on a later page
+  const slice = rows ? rows.slice((cur - 1) * size, cur * size) : undefined;
+  const footer = total > size ? (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-b-2xl border-t border-steel-200/80 bg-[#fcfbf8] px-4 py-3 text-xs font-medium text-steel-500">
+      <span className="inline-flex items-center gap-1.5 num">
+        <b className="font-semibold text-ink-900">{(cur - 1) * size + 1}–{Math.min(cur * size, total)}</b> / {total} kết quả <span className="text-steel-300">·</span> Trang <b className="font-semibold text-ink-900">{cur}</b> / {pages}
+      </span>
+      <div className="flex gap-2">
+        <Button variant="outline" size="xs" disabled={cur === 1} onClick={() => setPage(cur - 1)} icon={<ChevronLeft className="size-3.5" />}>Trước</Button>
+        <Button variant="outline" size="xs" disabled={cur === pages} onClick={() => setPage(cur + 1)}>Sau<ChevronRight className="size-3.5" /></Button>
+      </div>
+    </div>
+  ) : null;
+  return { rows: slice, footer };
+}
+
+export function FilterBar({ children }: { children: React.ReactNode }) {
+  return <div className="flex flex-wrap items-center gap-2.5 rounded-t-2xl border-b border-steel-200/80 bg-[#fcfbf8] px-4 py-3">{children}</div>;
+}
+
+/** Wrap page content with the canonical loading / error / empty states (spec §14.4). */
+export function Async<T>({ q, children, skeleton }: { q: { data?: T; isLoading: boolean; error: ApiError | null; refetch: () => any }; children: (d: T) => React.ReactNode; skeleton?: React.ReactNode }) {
+  if (q.isLoading) return <>{skeleton ?? <div className="space-y-4"><div className="grid gap-4 sm:grid-cols-3"><Skeleton className="h-28 rounded-2xl" /><Skeleton className="h-28 rounded-2xl" /><Skeleton className="h-28 rounded-2xl" /></div><Skeleton className="h-48 rounded-2xl" /></div>}</>;
+  if (q.error) return <Card><ErrorState error={q.error} onRetry={q.refetch} /></Card>;
+  if (q.data === undefined) return null;
+  return <>{children(q.data)}</>;
+}
+
+export { useGet };
