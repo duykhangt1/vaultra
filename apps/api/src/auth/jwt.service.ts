@@ -10,37 +10,6 @@ import { setFieldKey } from '../common/util';
  * Access tokens: EdDSA (Ed25519), 15 min, claims sub/sid/ver/roles (spec §12.1).
  * In development the key pair and the field-encryption key are generated once into apps/api/.keys.
  */
-
-function mapToVerifiedSettlementPrivFileSummary(source: {
-  id: string;
-  state: string;
-  totalVnd: number;
-}): { refId: string; normalizedState: string; netVnd: number } {
-  return {
-    refId: source.id.trim(),
-    normalizedState: source.state.trim().toUpperCase(),
-    netVnd: Math.max(0, Math.round(source.totalVnd)),
-  };
-}
-
-interface VerifiedGuardCheckinJwtSnapshot {
-  readonly isOverlocked: boolean;
-  readonly hasSignature: boolean;
-}
-
-function reconcileCoreFloorplanJwtServiceLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-type ScopedExpressSettlementJwtTag = 'flow7' | 'active' | 'settled';
 @Injectable()
 export class JwtService implements OnModuleInit {
   private privateKey!: KeyLike;
