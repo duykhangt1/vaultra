@@ -80,4 +80,88 @@ export class SupportController {
   detail(@Ctx() ctx: AccessContext, @Param('id') id: string) {
     return this.svc.detail(ctx, id);
   }
+
+  @RequirePermission('support.create')
+  @Post('tickets/:id/messages')
+  message(@Ctx() ctx: AccessContext, @Param('id') id: string, @Body() body: unknown) {
+    const d = parse(z.object({ body: z.string().trim().min(1).max(4000), isInternal: z.boolean().optional(), attachmentIds: z.array(z.string().length(26)).max(10).optional() }), body);
+    return this.svc.message(ctx, id, d);
+  }
+
+  @RequirePermission('support.create')
+  @Post('tickets/:id/:action')
+  async act(@Ctx() ctx: AccessContext, @Param('id') id: string, @Param('action') action: string, @Body() body: unknown) {
+    const allowed = ['claim', 'assign', 'priority', 'start', 'wait-customer', 'escalate', 'resolve', 'close', 'reopen', 'rate', 'cancel', 'merge'];
+    if (!allowed.includes(action)) throw notFound('Hành động');
+    const d = parse(
+      z.object({
+        assigneeId: z.string().length(26).optional(),
+        priority: PRIORITY.optional(),
+        note: z.string().max(1000).optional(),
+        reason: z.string().max(500).optional(),
+        resolutionCode: z.string().max(40).optional(),
+        resolutionNote: z.string().max(1000).optional(),
+        stars: z.number().int().min(1).max(5).optional(),
+        comment: z.string().max(1000).optional(),
+        intoTicketId: z.string().length(26).optional(),
+      }).passthrough(),
+      body,
+    );
+    return this.svc.action(ctx, id, action, d as Record<string, unknown>);
+  }
+
+  /** Linked actions (spec §6.7 step 6): reissue PIN, work order, fee waiver, refund — each under its own permission. */
+  @RequirePermission('support.handle')
+  @Post('tickets/:id/actions/:kind')
+  async linked(@Ctx() ctx: AccessContext, @Param('id') id: string, @Param('kind') kind: string, @Body() body: unknown) {
+    const t = await this.prisma.supportTicket.findUnique({ where: { public_id: id } });
+    ctx.assertScope('support.handle', t, 'Ticket', true);
+    switch (kind) {
+      case 'reissue-pin': {
+        ctx.require('access.manage');
+        if (!t!.contract_id) throw notFound('Hợp đồng gắn với ticket');
+        const out = await this.access.rotatePin(ctx, t!.contract_id);
+        await this.prisma.tx((tx) => this.svc.logLinked(tx, t!.id, ctx.userId, 'reissue-pin', {}));
+        return { ok: true, note: 'Mã PIN mới đã được tạo; khách xem trong ứng dụng', credential: out };
+      }
+      case 'work-order': {
+        const d = parse(z.object({ category: z.enum(['DOOR', 'LOCK', 'ELECTRICAL', 'LEAK', 'PEST', 'CLEANING', 'FIRE_SAFETY', 'STRUCTURE', 'OTHER']), description: z.string().trim().min(5).max(1000), priority: PRIORITY.default('MEDIUM') }), body);
+        return this.prisma.tx(async (tx) => {
+          const wo = await this.work.createWorkOrder(tx, ctx, { facilityId: t!.facility_id, unitId: t!.unit_id, category: d.category, description: d.description, priority: d.priority, ticketId: t!.id });
+          await this.svc.logLinked(tx, t!.id, ctx.userId, 'work-order', { code: (wo as { code?: string }).code });
+          return wo;
+        });
+      }
+      case 'charge': {
+        // e.g. lock change / card reissue billed from the fee catalog, linked to the ticket (§6.7 step 5)
+        if (!t!.contract_id) throw notFound('Hợp đồng gắn với ticket');
+        const d = parse(z.object({ feeTypeId: z.string().min(1), amount: zMoney.optional(), quantity: z.number().int().min(1).max(20).optional(), note: z.string().max(255).optional() }), body);
+        const c = await this.prisma.contract.findUniqueOrThrow({ where: { id: t!.contract_id } });
+        return this.prisma.tx(async (tx) => {
+          const inv = await this.billing.addCharge(ctx, c.public_id, { ...d, ticketId: t!.id }, tx);
+          await this.svc.logLinked(tx, t!.id, ctx.userId, 'charge', { invoice: inv.code });
+          return inv;
+        });
+      }
+      case 'fee-waiver': {
+        const d = parse(z.object({ invoiceItemId: z.string().min(1), amount: zMoney, reason: zReason }), body);
+        const w = await this.billing.requestWaiver(ctx, { ...d, ticketId: t!.id });
+        await this.prisma.tx((tx) => this.svc.logLinked(tx, t!.id, ctx.userId, 'fee-waiver', {}));
+        return w;
+      }
+      case 'refund': {
+        ctx.require('refund.request');
+        const d = parse(z.object({ paymentId: z.string().length(26), amount: zMoney, note: zReason }), body);
+        const pay = await this.prisma.payment.findUnique({ where: { public_id: d.paymentId } });
+        if (!pay || pay.customer_id !== t!.customer_id) throw forbidden('Giao dịch không thuộc khách của ticket');
+        return this.prisma.tx(async (tx) => {
+          const r = await this.payments.createRefund(tx, { customerId: pay.customer_id, facilityId: pay.facility_id, paymentId: pay.id, reason: 'GOODWILL', amount: vnd(d.amount), requestedBy: ctx.userId, note: d.note, ticketId: t!.id });
+          await this.svc.logLinked(tx, t!.id, ctx.userId, 'refund', { refund: r.public_id });
+          return r;
+        });
+      }
+      default:
+        throw notFound('Hành động');
+    }
+  }
 }
