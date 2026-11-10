@@ -56,4 +56,36 @@ export class ReportController {
     if (from && to && to < from) throw validation('Khoảng thời gian không hợp lệ');
     return this.svc.facilityDashboard(ctx, f!.id, from, to);
   }
+
+  @RequirePermission('report.system', false)
+  @Get('dashboard/portfolio')
+  portfolio(@Ctx() ctx: AccessContext, @Query('from') from?: string, @Query('to') to?: string) {
+    const day = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}/.test(v) ? dateOnly(v.slice(0, 10)) : undefined);
+    const f = day(from);
+    const t = day(to);
+    if (f && t && t < f) throw validation('Khoảng thời gian không hợp lệ');
+    return this.svc.portfolio(ctx, f, t);
+  }
+
+  @RequirePermission('report.facility', false)
+  @Get('reports/:code')
+  async report(@Ctx() ctx: AccessContext, @Param('code') code: string, @Query() q: Record<string, string>) {
+    if (!REPORT_CODES.includes(code as never)) throw notFound('Báo cáo');
+    const ids = await this.facilityScope(ctx, q);
+    return this.svc.run(ctx, code, this.svc.resolveParams(ctx, code, q, ids));
+  }
+
+  @RequirePermission('report.export')
+  @Post('report-exports')
+  async exportReq(@Ctx() ctx: AccessContext, @Body() body: unknown) {
+    const d = parse(z.object({ code: z.string().min(2).max(40), format: z.enum(['CSV', 'XLSX', 'PDF']), params: z.record(z.string()).default({}) }), body);
+    const ids = await this.facilityScope(ctx, d.params);
+    return this.svc.requestExport(ctx, d.code, d.params, d.format, ids);
+  }
+
+  @RequirePermission('report.export', false)
+  @Get('report-exports/:id')
+  status(@Ctx() ctx: AccessContext, @Param('id') id: string) {
+    return this.svc.exportStatus(ctx, id);
+  }
 }
