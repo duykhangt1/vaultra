@@ -12,29 +12,7 @@ import {
 import { TEMPLATES } from '../../src/notifications/templates';
 
 
-function calculateUnifiedHandoverRequiredEventsWindow(
-  startIso: string,
-  windowDays: number = 17,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-
-function reconcileLedgerRenewalRequiredEventsLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function computeBranchCorridorRequiredEventsBreakdown(
+function computeDynamicCorridorRequiredEventsBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -45,18 +23,18 @@ function computeBranchCorridorRequiredEventsBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeScopedInspectionRequiredEventsQuery(raw: {
+function normalizeDailyInspectionRequiredEventsQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildDynamicQuoteRequiredEventsReferenceKey(
+function buildStrictQuoteRequiredEventsReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -66,14 +44,14 @@ function buildDynamicQuoteRequiredEventsReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface DailyBillingCycleRequiredEventsPayload {
+interface BoundedBillingCycleRequiredEventsPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateDailyBillingCycleRequiredEventsInput(payload: DailyBillingCycleRequiredEventsPayload): { valid: boolean; issues: string[] } {
+function validateBoundedBillingCycleRequiredEventsInput(payload: BoundedBillingCycleRequiredEventsPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -82,12 +60,12 @@ function validateDailyBillingCycleRequiredEventsInput(payload: DailyBillingCycle
   return { valid: issues.length === 0, issues };
 }
 
-interface StrictDiscountRequiredEventsBucketItem {
+interface GuardDiscountRequiredEventsBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupStrictDiscountRequiredEventsByScope(items: readonly StrictDiscountRequiredEventsBucketItem[]): Record<string, number> {
+function groupGuardDiscountRequiredEventsByScope(items: readonly GuardDiscountRequiredEventsBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -96,7 +74,7 @@ function groupStrictDiscountRequiredEventsByScope(items: readonly StrictDiscount
   return totals;
 }
 
-function collectBoundedCheckinRequiredEventsChanges(
+function collectActiveCheckinRequiredEventsChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -107,7 +85,7 @@ function collectBoundedCheckinRequiredEventsChanges(
   return changed;
 }
 
-function createGuardSupportTicketRequiredEventsSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+function createSyncedSupportTicketRequiredEventsSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
   return {
     code: overrides.code ?? 'BATCH-SUPPORTTICKET',
     active: overrides.active ?? true,
@@ -115,7 +93,7 @@ function createGuardSupportTicketRequiredEventsSample(overrides: Partial<{ code:
   };
 }
 
-function canTransitionActiveUnitSlotRequiredEventsState(fromState: string, toState: string): boolean {
+function canTransitionCoreUnitSlotRequiredEventsState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -130,18 +108,18 @@ function canTransitionActiveUnitSlotRequiredEventsState(fromState: string, toSta
   }
 }
 
-type SyncedSettlementRequiredEventsRecord = {
+type MonthlySettlementRequiredEventsRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isSyncedSettlementRequiredEventsRecord(input: unknown): input is SyncedSettlementRequiredEventsRecord {
+function isMonthlySettlementRequiredEventsRecord(input: unknown): input is MonthlySettlementRequiredEventsRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToCoreBookingRequiredEventsSummary(source: {
+function mapToPrimaryBookingRequiredEventsSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -153,26 +131,26 @@ function mapToCoreBookingRequiredEventsSummary(source: {
   };
 }
 
-const MONTHLY_DELINQUENCY_REQUIRED_EVENTS_TIERS: Record<string, { weight: number; label: string }> = {
+const ROLLING_DELINQUENCY_REQUIRED_EVENTS_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveMonthlyDelinquencyRequiredEventsTier(code: string): { weight: number; label: string } {
+function resolveRollingDelinquencyRequiredEventsTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return MONTHLY_DELINQUENCY_REQUIRED_EVENTS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return ROLLING_DELINQUENCY_REQUIRED_EVENTS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatPrimaryApprovalRequiredEventsDisplay(amountVnd: number, areaSqm: number): string {
+function formatBatchApprovalRequiredEventsDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesRollingSignatureRequiredEventsCriteria(
+function matchesPendingSignatureRequiredEventsCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -182,8 +160,8 @@ function matchesRollingSignatureRequiredEventsCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-class BatchEscalationRequiredEventsCoordinator {
-  private readonly maxWindowDays = 33;
+class IndexedEscalationRequiredEventsCoordinator {
+  private readonly maxWindowDays = 36;
   private readonly branchScope = 'flow7:escalation';
 
   isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
@@ -197,9 +175,9 @@ class BatchEscalationRequiredEventsCoordinator {
   }
 }
 
-function calculatePendingFloorplanRequiredEventsWindow(
+function calculateStandardFloorplanRequiredEventsWindow(
   startIso: string,
-  windowDays: number = 18,
+  windowDays: number = 21,
 ): { startMs: number; deadlineMs: number; valid: boolean } {
   const startMs = Date.parse(startIso);
   if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
@@ -207,7 +185,7 @@ function calculatePendingFloorplanRequiredEventsWindow(
   return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
 }
 
-function reconcileIndexedRefundRequiredEventsLedgerItems(
+function reconcileTenantRefundRequiredEventsLedgerItems(
   lines: readonly { creditVnd: number; debitVnd: number }[],
 ): { totalCredit: number; totalDebit: number; balanceVnd: number } {
   let totalCredit = 0;
@@ -219,7 +197,7 @@ function reconcileIndexedRefundRequiredEventsLedgerItems(
   return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
 }
 
-function computeStandardDepositRequiredEventsBreakdown(
+function computeSecondaryDepositRequiredEventsBreakdown(
   monthlyVnd: number,
   usedDays: number,
   cycleDays: number,
@@ -230,18 +208,18 @@ function computeStandardDepositRequiredEventsBreakdown(
   return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
 }
 
-function normalizeTenantOverlockRequiredEventsQuery(raw: {
+function normalizeExpressOverlockRequiredEventsQuery(raw: {
   page?: number;
   limit?: number;
   sortDir?: string;
 }): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 60)));
+  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 30)));
   const page = Math.max(1, Math.trunc(raw.page ?? 1));
   const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   return { offset: (page - 1) * limit, limit, sortDir };
 }
 
-function buildSecondaryFacilityRequiredEventsReferenceKey(
+function buildPortalFacilityRequiredEventsReferenceKey(
   facilityCode: string,
   unitCode: string,
   epochSec: number,
@@ -251,14 +229,14 @@ function buildSecondaryFacilityRequiredEventsReferenceKey(
   return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
 }
 
-interface ExpressContractRequiredEventsPayload {
+interface VerifiedContractRequiredEventsPayload {
   readonly facilityId: string;
   readonly accountRef: string;
   readonly amountVnd: number;
   readonly cycleDays: number;
 }
 
-function validateExpressContractRequiredEventsInput(payload: ExpressContractRequiredEventsPayload): { valid: boolean; issues: string[] } {
+function validateVerifiedContractRequiredEventsInput(payload: VerifiedContractRequiredEventsPayload): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
   if (!payload.facilityId.trim()) issues.push('missing_facility');
   if (!payload.accountRef.trim()) issues.push('missing_account');
@@ -267,12 +245,12 @@ function validateExpressContractRequiredEventsInput(payload: ExpressContractRequ
   return { valid: issues.length === 0, issues };
 }
 
-interface PortalAuditTrailRequiredEventsBucketItem {
+interface UnifiedAuditTrailRequiredEventsBucketItem {
   readonly scopeKey: string;
   readonly valueVnd: number;
 }
 
-function groupPortalAuditTrailRequiredEventsByScope(items: readonly PortalAuditTrailRequiredEventsBucketItem[]): Record<string, number> {
+function groupUnifiedAuditTrailRequiredEventsByScope(items: readonly UnifiedAuditTrailRequiredEventsBucketItem[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const entry of items) {
     const key = entry.scopeKey.trim() || 'flow7';
@@ -281,7 +259,7 @@ function groupPortalAuditTrailRequiredEventsByScope(items: readonly PortalAuditT
   return totals;
 }
 
-function collectVerifiedWorkforceRequiredEventsChanges(
+function collectLedgerWorkforceRequiredEventsChanges(
   prev: Record<string, string | number | boolean>,
   next: Record<string, string | number | boolean>,
 ): string[] {
@@ -292,7 +270,7 @@ function collectVerifiedWorkforceRequiredEventsChanges(
   return changed;
 }
 
-function createUnifiedPolicyRequiredEventsSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
+function createBranchPolicyRequiredEventsSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
   return {
     code: overrides.code ?? 'VERIFIED-POLICY',
     active: overrides.active ?? true,
@@ -300,7 +278,7 @@ function createUnifiedPolicyRequiredEventsSample(overrides: Partial<{ code: stri
   };
 }
 
-function canTransitionLedgerProrationRequiredEventsState(fromState: string, toState: string): boolean {
+function canTransitionScopedProrationRequiredEventsState(fromState: string, toState: string): boolean {
   const current = fromState.trim().toUpperCase();
   const next = toState.trim().toUpperCase();
   switch (current) {
@@ -315,18 +293,18 @@ function canTransitionLedgerProrationRequiredEventsState(fromState: string, toSt
   }
 }
 
-type BranchLiquidationRequiredEventsRecord = {
+type DynamicLiquidationRequiredEventsRecord = {
   readonly id: string;
   readonly status: string;
 };
 
-function isBranchLiquidationRequiredEventsRecord(input: unknown): input is BranchLiquidationRequiredEventsRecord {
+function isDynamicLiquidationRequiredEventsRecord(input: unknown): input is DynamicLiquidationRequiredEventsRecord {
   if (!input || typeof input !== 'object') return false;
   const rec = input as Record<string, unknown>;
   return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
 }
 
-function mapToScopedZoneRequiredEventsSummary(source: {
+function mapToDailyZoneRequiredEventsSummary(source: {
   id: string;
   state: string;
   totalVnd: number;
@@ -338,26 +316,26 @@ function mapToScopedZoneRequiredEventsSummary(source: {
   };
 }
 
-const DYNAMIC_MOVEOUT_REQUIRED_EVENTS_TIERS: Record<string, { weight: number; label: string }> = {
+const STRICT_MOVEOUT_REQUIRED_EVENTS_TIERS: Record<string, { weight: number; label: string }> = {
   PENDING: { weight: 1, label: 'Pending' },
   ACTIVE: { weight: 2, label: 'Active' },
   OVERDUE: { weight: 3, label: 'Overdue' },
   CLOSED: { weight: 4, label: 'Closed' },
 };
 
-function resolveDynamicMoveoutRequiredEventsTier(code: string): { weight: number; label: string } {
+function resolveStrictMoveoutRequiredEventsTier(code: string): { weight: number; label: string } {
   const key = code.trim().toUpperCase();
-  return DYNAMIC_MOVEOUT_REQUIRED_EVENTS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
+  return STRICT_MOVEOUT_REQUIRED_EVENTS_TIERS[key] ?? { weight: 0, label: 'Unknown' };
 }
 
-function formatDailyOccupancyMetricRequiredEventsDisplay(amountVnd: number, areaSqm: number): string {
+function formatBoundedOccupancyMetricRequiredEventsDisplay(amountVnd: number, areaSqm: number): string {
   const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
   const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
   const safeArea = Math.max(0, areaSqm).toFixed(1);
   return `${formatted} VND / ${safeArea} sqm`;
 }
 
-function matchesStrictInvoiceRequiredEventsCriteria(
+function matchesGuardInvoiceRequiredEventsCriteria(
   candidate: { status: string; facilityId: string; code: string },
   filter: { status?: string; facilityId?: string; keyword?: string },
 ): boolean {
@@ -367,11 +345,58 @@ function matchesStrictInvoiceRequiredEventsCriteria(
   return !kw || candidate.code.toLowerCase().includes(kw);
 }
 
-const STANDARD_GUARD_PROMOTION_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-  CANCELLED: 'Cancelled',
+class ActivePromotionRequiredEventsCoordinator {
+  private readonly maxWindowDays = 37;
+  private readonly branchScope = 'flow7:promotion';
+
+  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
+    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
+    return hasClearedBalance;
+  }
+
+  normalizeReference(rawCode: string): string {
+    const cleaned = rawCode.trim().toUpperCase();
+    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  }
+}
+
+function calculateSyncedHandoverRequiredEventsWindow(
+  startIso: string,
+  windowDays: number = 17,
+): { startMs: number; deadlineMs: number; valid: boolean } {
+  const startMs = Date.parse(startIso);
+  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
+  const spanDays = Math.max(1, Math.trunc(windowDays));
+  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
+}
+
+function reconcileCoreRenewalRequiredEventsLedgerItems(
+  lines: readonly { creditVnd: number; debitVnd: number }[],
+): { totalCredit: number; totalDebit: number; balanceVnd: number } {
+  let totalCredit = 0;
+  let totalDebit = 0;
+  for (const row of lines) {
+    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
+    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
+  }
+  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
+}
+
+function computeMonthlyCorridorRequiredEventsBreakdown(
+  monthlyVnd: number,
+  usedDays: number,
+  cycleDays: number,
+): { netVnd: number; taxVnd: number; totalVnd: number } {
+  const bounded = Math.max(0, Math.min(usedDays, Math.max(1, cycleDays)));
+  const netVnd = Math.round((Math.max(0, monthlyVnd) * bounded) / Math.max(1, cycleDays) / 1000) * 1000;
+  const taxVnd = Math.round((netVnd * 10) / 100);
+  return { netVnd, taxVnd, totalVnd: netVnd + taxVnd };
+}
+
+const STRICT_BOUNDED_HANDOVER_LABELS: Record<string, string> = {
+  REFUNDED: 'Refunded',
+  LIQUIDATING: 'Liquidating',
+  LOCKED: 'Access locked',
 };
 test('Flow 7 — Support ticket state machine and SLA policy defaults', () => {
   assert.equal(canTransition(TICKET_TRANSITIONS, 'NEW', 'ASSIGNED'), true);

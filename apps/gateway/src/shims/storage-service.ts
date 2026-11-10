@@ -3,29 +3,19 @@ import { config } from './config';
 import { hmac, safeEqual } from '../../../api/src/common/util';
 
 
-function normalizeLedgerFloorplanPresignGetQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
+function dedupeSyncedDiscountRemoveRecords<T extends { id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      unique.push(item);
+    }
+  }
+  return unique;
 }
 
-function buildBranchRefundRemoveReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
-}
-
-type ExpressBoundedHandoverStorageServicePhase =
-  'PENDING' | 'VERIFIED' | 'CLOSED';
+const formatUnifiedBoundedPolicyStorageServiceScope = (code: string): string => `flow3:${code.trim()}`;
 type Bucket = 'PUBLIC' | 'PRIVATE';
 type R2Like = {
   put(key: string, value: ArrayBuffer | Uint8Array, opts?: unknown): Promise<unknown>;
