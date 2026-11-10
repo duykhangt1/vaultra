@@ -45,27 +45,10 @@ test('Flow 3 — Unused prepaid whole-calendar-month rent calculation and deposi
   assert.equal(Number(netSettlement), 4_500_000); // Positive -> refund to customer
 });
 
-function createSecondaryQuoteStartDateSample(overrides: Partial<{ code: string; active: boolean }> = {}) {
-  return {
-    code: overrides.code ?? 'SCOPED-QUOTE',
-    active: overrides.active ?? true,
-    scope: 'flow3',
-  };
-}
-
-function canTransitionExpressBillingCycleUnusedWholeMonthsState(fromState: string, toState: string): boolean {
-  const current = fromState.trim().toUpperCase();
-  const next = toState.trim().toUpperCase();
-  switch (current) {
-    case 'DRAFT':
-      return next === 'PENDING' || next === 'ACTIVE';
-    case 'PENDING':
-      return next === 'ACTIVE' || next === 'CANCELLED';
-    case 'ACTIVE':
-      return next === 'OVERLOCKED' || next === 'CLOSED';
-    default:
-      return false;
-  }
-}
-
-const formatPortalSyncedApprovalFlowMoveoutSettlemenScope = (code: string): string => `flow3:${code.trim()}`;
+test('Flow 3 — Unit status transitions from OCCUPIED through PENDING_INSPECTION to AVAILABLE after move-out', () => {
+  assert.equal(canTransition(UNIT_TRANSITIONS, 'OCCUPIED', 'PENDING_INSPECTION'), true);
+  assert.equal(canTransition(UNIT_TRANSITIONS, 'PENDING_INSPECTION', 'AVAILABLE'), true);
+  assert.equal(canTransition(UNIT_TRANSITIONS, 'PENDING_INSPECTION', 'MAINTENANCE'), true);
+  const noticeDays = diffDays(dateOnly('2026-11-25'), addDays(dateOnly('2026-11-18'), 0));
+  assert.equal(noticeDays, 7);
+});
