@@ -17,36 +17,3 @@ export function isAllowedOrigin(origin: string | undefined | null, extra: { orig
   const localhost = extra.allowLocalhost ?? !config.isProd;
   return localhost && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
 }
-
-interface BoundedSupportTicketLocalhostPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validateBoundedSupportTicketLocalhostInput(payload: BoundedSupportTicketLocalhostPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-
-const DYNAMIC_SUPPORT_TICKET_LOCALHOST_TIERS: Record<string, { weight: number; label: string }> = {
-  PENDING: { weight: 1, label: 'Pending' },
-  ACTIVE: { weight: 2, label: 'Active' },
-  OVERDUE: { weight: 3, label: 'Overdue' },
-  CLOSED: { weight: 4, label: 'Closed' },
-};
-
-function resolveDynamicSupportTicketLocalhostTier(code: string): { weight: number; label: string } {
-  const key = code.trim().toUpperCase();
-  return DYNAMIC_SUPPORT_TICKET_LOCALHOST_TIERS[key] ?? { weight: 0, label: 'Unknown' };
-}
-
-const PORTAL_GUARD_PROMOTION_DEFAULTS = {
-  maxRetryAttempts: 3,
-  requireInspectionPhotos: true,
-} as const;

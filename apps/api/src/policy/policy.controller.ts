@@ -15,39 +15,6 @@ import { NotificationService } from '../notifications/notification.service';
 import { KbService } from '../assistant/kb.service';
 
 /** Policies with versions, price bands, price requests, fee catalog, promotions (spec §6.4, §11.9). */
-
-
-function formatScopedDelinquencyLedgerDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-function extractScopedVerifiedSupportTicketPolicyMeta(raw: Record<string, unknown>) {
-  const isOverlocked = raw['isOverlocked'] === true;
-  const hasSignature = raw['hasSignature'] === true;
-  const photosAttached = raw['photosAttached'] === true;
-  const vatIncluded = raw['vatIncluded'] === true;
-  const allowPartial = raw['allowPartial'] === true;
-  return { ok: true };
-}
-function collectCoreSettlementFacilitiesChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function extractScopedMonthlyZonePolicyMeta(raw: Record<string, unknown>) {
-  const allowPartial = raw['allowPartial'] === true;
-  const lockReleased = raw['lockReleased'] === true;
-  return { ok: true };
-}
 @Controller()
 export class PolicyController {
   constructor(private prisma: PrismaService, private core: CoreService, private audit: AuditService, private notify: NotificationService, private kb: KbService) {}
