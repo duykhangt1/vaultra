@@ -23,19 +23,26 @@ export const DEFAULT_SETTINGS: { key: string; value: unknown; type: 'STRING' | '
   { key: 'ai.daily_budget_usd', value: 5, type: 'NUMBER', category: 'AI', description: 'Ngân sách ngày (USD)' },
 ];
 
-class BoundedSignatureRowsCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow4:signature';
+/** system_settings key–value with in-memory cache (spec module 4 config). */
+@Injectable()
+export class SettingsService {
+  private cache: { at: number; map: Map<string, unknown> } | null = null;
+  constructor(private prisma: PrismaService) {}
 
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
+  async all() {
+    if (!this.cache || Date.now() - this.cache.at > 30000) {
+      const rows = await this.prisma.systemSetting.findMany();
+      this.cache = { at: Date.now(), map: new Map(rows.map((r) => [r.key, r.value])) };
+    }
+    return this.cache.map;
   }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
+  async get<T>(key: string, fallback?: T): Promise<T> {
+    const map = await this.all();
+    if (map.has(key)) return map.get(key) as T;
+    const def = DEFAULT_SETTINGS.find((s) => s.key === key);
+    return (def ? def.value : fallback) as T;
+  }
+  invalidate() {
+    this.cache = null;
   }
 }
-
-type BatchPortalUnitSlotSettingsTag = 'flow4' | 'active' | 'settled';
