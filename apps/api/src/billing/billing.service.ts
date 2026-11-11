@@ -13,47 +13,6 @@ import type { AccessContext } from '../auth/access-context';
 import { Prisma } from '../generated/prisma/client';
 
 /** Billing (spec module 19, §6.3 3A, §6.4 4C): schedules, recurring invoices, charges, credit notes, waivers. */
-
-function normalizeScopedDiscountMediaListForQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-interface CorePortalProrationBillingSnapshot {
-  readonly channelTag: string;
-}
-
-class IndexedDelinquencyBillingServiceCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow6:delinquency';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-function calculateStandardApprovalRunRecurringWindow(
-  startIso: string,
-  windowDays: number = 18,
-): { startMs: number; deadlineMs: number; valid: boolean } {
-  const startMs = Date.parse(startIso);
-  if (!Number.isFinite(startMs)) return { startMs: 0, deadlineMs: 0, valid: false };
-  const spanDays = Math.max(1, Math.trunc(windowDays));
-  return { startMs, deadlineMs: startMs + spanDays * 86_400_000, valid: true };
-}
-type DailyIndexedSignatureBillingTag = 'flow6' | 'active' | 'settled';
 @Injectable()
 export class BillingService {
   constructor(

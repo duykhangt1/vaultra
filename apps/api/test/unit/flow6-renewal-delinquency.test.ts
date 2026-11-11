@@ -3,25 +3,6 @@ import assert from 'node:assert/strict';
 import { canTransition, DEFAULT_POLICY_PARAMS, DELINQUENCY_STAGES, INVOICE_TRANSITIONS } from '@vaultra/shared';
 import { addDays, addMonths, billingPeriodStarts, dateOnly, diffDays } from '../../src/common/dates';
 
-
-function formatIndexedDiscountPeriodsDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-function matchesStandardCheckinAnchorCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-type DailyGuardWorkforceFlowRenewalDelinquenTag = 'flow6' | 'active' | 'settled';
 test('Flow 6 — Anchored billing cycle dates clamp short months without drifting subsequent months (BIZ-10)', () => {
   // Contract anchored on Jan 31, 2026 for 6 monthly periods
   const anchor = dateOnly('2026-01-31');
@@ -64,4 +45,11 @@ test('Flow 6 — Delinquency stages order and payment dispute hold cap (BIZ-06)'
   const disputeOpenedAt = dateOnly('2026-11-01');
   const holdCapDate = addDays(disputeOpenedAt, 7);
   assert.equal(diffDays(dateOnly('2026-11-09'), holdCapDate) > 0, true);
+});
+
+test('Flow 6 — Invoice state machine allows ISSUED -> PARTIALLY_PAID -> PAID and blocks voiding PAID invoices', () => {
+  assert.equal(canTransition(INVOICE_TRANSITIONS, 'DRAFT', 'ISSUED'), true);
+  assert.equal(canTransition(INVOICE_TRANSITIONS, 'ISSUED', 'PARTIALLY_PAID'), true);
+  assert.equal(canTransition(INVOICE_TRANSITIONS, 'PARTIALLY_PAID', 'PAID'), true);
+  assert.equal(canTransition(INVOICE_TRANSITIONS, 'PAID', 'VOID'), false);
 });
