@@ -9,28 +9,6 @@
  */
 export type Scope = 'NEW' | 'CONTRACT' | 'RENEWAL' | 'LIVE' | 'TEXT';
 
-function normalizeIndexedHandoverScopeQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-function buildStandardRenewalHELPReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
-}
-type PrimaryBoundedPolicyPolicyHelpTag = 'flow4' | 'active' | 'settled';
-
 export const SCOPE_LABEL: Record<Scope, string> = {
   NEW: 'Chỉ áp dụng cho đặt chỗ tạo SAU khi xuất bản. Đơn đã đặt giữ nguyên bản cũ.',
   CONTRACT: 'Chỉ áp dụng cho hợp đồng ký SAU khi xuất bản. Hợp đồng đang chạy giữ bản chính sách lúc ký.',
@@ -65,6 +43,45 @@ export const HELP: Record<string, { tip: string; scope: Scope }> = {
   admin_fee: { scope: 'NEW', tip: 'Phí hành chính thu một lần khi khách đặt thuê, tính vào báo giá. Đơn nhập số đồng, 0 = miễn phí.' },
   admin_fee_refundable: { scope: 'NEW', tip: 'Bật: khi khách hủy đặt chỗ thì phí hành chính được hoàn lại. Tắt: không hoàn, trừ khi nhân viên miễn phí cho khách.' },
   vat_rate: { scope: 'CONTRACT', tip: 'Thuế VAT tính theo phần trăm trên hóa đơn. Ví dụ: 8 = 8%. Báo giá lấy mức hiện hành, còn hóa đơn của hợp đồng đã ký dùng mức lúc ký.' },
+  prices_include_vat: { scope: 'CONTRACT', tip: 'Bật: giá niêm yết đã gồm VAT, VAT được tách ra từ giá. Tắt: VAT được cộng thêm lên trên giá niêm yết.' },
+
+  // Gia hạn & kết thúc
+  renewal_window_days: { scope: 'CONTRACT', tip: 'Số ngày trước ngày hết hạn thì mở cửa sổ gia hạn: khách nhận đề nghị gia hạn và thông báo nhắc. Ví dụ: 60 = mở trước 60 ngày.' },
+  renewal_fee: { scope: 'RENEWAL', tip: 'Phí cố định thu mỗi lần khách gia hạn hợp đồng. 0 = miễn phí.' },
+  renewal_price_rule: { scope: 'RENEWAL', tip: 'Giá thuê kỳ mới khi gia hạn: theo giá niêm yết hiện tại nhưng không tăng quá trần, giữ nguyên giá cũ, hoặc theo giá niêm yết hiện tại không giới hạn.' },
+  renewal_max_increase_pct: { scope: 'RENEWAL', tip: 'Trần tăng giá khi gia hạn so với giá đang thuê, tính theo phần trăm. Chỉ có tác dụng với quy tắc "Giá niêm yết, có trần tăng". Ví dụ: 10 = tăng tối đa 10%.' },
+  auto_renew_default: { scope: 'CONTRACT', tip: 'Hợp đồng mới ký có bật sẵn "Tự động gia hạn" hay không. Khách vẫn tự bật hoặc tắt được trong hợp đồng của mình.' },
+  auto_renew_term_months: { scope: 'CONTRACT', tip: 'Kỳ hạn dùng khi hệ thống tự gia hạn (hợp đồng bật tự động gia hạn, còn ≤ 7 ngày, không nợ). Phải nằm trong danh sách kỳ hạn cho phép, nếu không dùng kỳ đầu tiên.' },
+  price_change_notice_days: { scope: 'RENEWAL', tip: 'Nếu giá gia hạn cao hơn giá hiện tại, công ty phải báo khách trước ít nhất bấy nhiêu ngày. Dùng để tính thời điểm mở đề nghị và gửi thông báo đổi giá.' },
+  on_expiry_action: { scope: 'LIVE', tip: 'Việc xảy ra khi hợp đồng hết hạn mà khách chưa gia hạn hay trả kho: chuyển sang thuê theo tháng (holdover), hoặc bắt buộc trả kho.' },
+  move_out_notice_days: { scope: 'CONTRACT', tip: 'Khách tự yêu cầu trả kho phải chọn ngày trả cách hôm nay ít nhất bấy nhiêu ngày, nếu không yêu cầu bị từ chối. Nhân viên tạo yêu cầu thay khách thì không bị giới hạn này.' },
+  early_termination_refund: { scope: 'CONTRACT', tip: 'Khi khách trả kho trước hạn: không hoàn tiền thuê đã trả trước, hoặc hoàn các tháng nguyên chưa dùng.' },
+  early_termination_fee: { scope: 'CONTRACT', tip: 'Phí phạt khi khách trả kho trước ngày hết hạn, trừ vào tiền cọc lúc quyết toán. 0 = không phạt.' },
+
+  // Trả kho & bồi thường
+  dispute_days: { scope: 'CONTRACT', tip: 'Sau khi lập bảng quyết toán trả kho, khách có bấy nhiêu ngày để khiếu nại; hạn khiếu nại được ghi trên bảng quyết toán.' },
+  deposit_refund_days: { scope: 'TEXT', tip: 'Số ngày cam kết hoàn cọc sau khi trả kho. Hiện chỉ được in trong hợp đồng PDF và trợ lý AI, hệ thống không tự đếm ngày để hoàn cọc.' },
+  damage_approval_threshold: { scope: 'CONTRACT', tip: 'Tổng tiền bồi thường hư hại lớn hơn mức này thì khoản bồi thường phải được duyệt trước khi trừ vào cọc của khách. Bằng hoặc thấp hơn thì không cần duyệt.' },
+  min_handover_photos: { scope: 'NEW', tip: 'Số ảnh tối thiểu trong biên bản hiện trạng khi nhận kho; thiếu ảnh thì không bàn giao kho và không cấp mã PIN được. Khi trả kho, hệ thống yêu cầu tối đa 2 ảnh.' },
+
+  // Công nợ
+  invoice_lead_days: { scope: 'CONTRACT', tip: 'Hóa đơn tiền thuê hằng tháng được phát hành trước ngày đến hạn bấy nhiêu ngày. Ví dụ: 7 = phát hành trước 7 ngày.' },
+  grace_days: { scope: 'CONTRACT', tip: 'Số ngày ân hạn sau ngày đến hạn: trong thời gian này chưa tính phí trễ và chưa xử lý. Phải nhỏ hơn mốc "Khóa cửa".' },
+  late_fee_type: { scope: 'CONTRACT', tip: 'Cách tính phí trả muộn: số tiền cố định, phần trăm tiền thuê, hoặc lấy số lớn hơn trong hai cách.' },
+  late_fee_fixed: { scope: 'CONTRACT', tip: 'Số tiền phí trễ cố định (đồng). Dùng khi kiểu phí là "Cố định" hoặc "Lớn hơn của hai".' },
+  late_fee_pct: { scope: 'CONTRACT', tip: 'Phí trễ theo phần trăm tiền thuê một tháng. Dùng khi kiểu phí là "% tiền thuê" hoặc "Lớn hơn của hai". Ví dụ: 5 = 5%.' },
+  late_fee_cap: { scope: 'CONTRACT', tip: 'Trần của phí trễ (đồng): dù tính theo cách nào, phí trễ không vượt số này.' },
+  lockout_day: { scope: 'CONTRACT', tip: 'Quá hạn từ ngày thứ mấy thì khóa cửa kho (overlock), khách không vào được. Phải lớn hơn "Ngày ân hạn" và nhỏ hơn "Thông báo cuối".' },
+  overlock_fee: { scope: 'CONTRACT', tip: 'Phí thu khi phải khóa cửa kho do nợ, cộng vào hóa đơn của khách (đồng).' },
+  final_notice_day: { scope: 'CONTRACT', tip: 'Quá hạn từ ngày thứ mấy thì gửi thông báo cuối cùng trước khi xử lý vi phạm. Phải lớn hơn "Khóa cửa" và nhỏ hơn "Vi phạm hợp đồng".' },
+  default_day: { scope: 'CONTRACT', tip: 'Quá hạn từ ngày thứ mấy thì hợp đồng bị coi là vi phạm và chuyển sang quy trình thu hồi kho. Phải là mốc lớn nhất trong chuỗi công nợ.' },
+  abandoned_goods_hold_days: { scope: 'CONTRACT', tip: 'Sau khi thu hồi kho, công ty giữ hàng khách bỏ lại bấy nhiêu ngày trước khi được xử lý (bán, tiêu hủy).' },
+
+  // Ủy quyền & cảnh báo
+  fm_refund_limit: { scope: 'LIVE', tip: 'Hoàn tiền từ mức này trở lên thì Quản lý cơ sở không tự duyệt được mà phải chuyển lên Quản lý vận hành. Đơn vị đồng.' },
+  fm_waiver_limit: { scope: 'LIVE', tip: 'Mức tối đa Quản lý cơ sở được tự miễn hoặc giảm phí cho khách. Vượt mức phải tạo đề xuất để cấp trên duyệt. Đơn vị đồng.' },
+  occupancy_alert_pct: { scope: 'LIVE', tip: 'Cơ sở đang khai thác có tỷ lệ lấp đầy theo kho (kho đang thuê ÷ kho cho thuê được) thấp hơn mức này sẽ bị đánh dấu "Lấp đầy thấp" trong cảnh báo của trang Tổng quan. Ví dụ: 60 = dưới 60%. Cơ sở nháp hoặc ngừng hoạt động không bị cảnh báo. Chỉ đọc từ chính sách toàn hệ thống.' },
+  delinquency_alert_pct: { scope: 'LIVE', tip: 'Tỷ lệ nợ quá hạn = số tiền đã quá hạn thanh toán ÷ tổng dư nợ còn phải thu (gồm cả khoản chưa đến hạn) của cơ sở. Cao hơn mức này thì cơ sở bị đánh dấu "Công nợ cao" trong cảnh báo của trang Tổng quan. Chỉ đọc từ chính sách toàn hệ thống.' },
 };
 
 export const TERM_DISCOUNTS_HELP = {

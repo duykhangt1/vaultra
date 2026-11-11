@@ -7,22 +7,6 @@ import { EdgePrismaService } from './r2-prisma';
 import { config } from './config';
 
 // BigInt is not JSON-serializable by default.
-
-function matchesGuardSettlementPrismaServiceCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-
-const STANDARD_BATCH_FLOORPLAN_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-  SETTLED: 'Settled',
-};
 (BigInt.prototype as unknown as { toJSON: () => string }).toJSON = function (this: bigint) {
   return this.toString();
 };
@@ -206,3 +190,208 @@ Object.defineProperties(Number.prototype, {
   isPositive: { value: function () { return Number(this) > 0; }, enumerable: false, configurable: true },
   toDecimalPlaces: { value: function (dp = 0) { const f = 10 ** dp; return new EdgeDecimal(Math.round((Number(this) + Number.EPSILON) * f) / f); }, enumerable: false, configurable: true },
 });
+
+try {
+  Object.defineProperty(GeneratedPrisma, 'Decimal', {
+    value: EdgeDecimal,
+    writable: true,
+    configurable: true,
+  });
+} catch {
+  // ignore if namespace is frozen
+}
+
+export const Prisma = {
+  TransactionIsolationLevel: {
+    RepeatableRead: 'RepeatableRead',
+  },
+  Decimal: EdgeDecimal,
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({
+    sql: Array.isArray(strings) ? strings.join(' ? ') : String(strings),
+    strings: Array.isArray(strings) ? Array.from(strings) : [String(strings)],
+    values,
+  }),
+  empty: { sql: '', strings: [''], values: [] },
+  join: (values: unknown[], sep = ',') => ({ sql: values.map(() => '?').join(sep), strings: values.map(() => ''), values }),
+  raw: (s: string) => ({ sql: s, strings: [s], values: [] }),
+} as unknown as typeof PrismaNamespace;
+
+export type Tx = PrismaNamespace.TransactionClient;
+
+const R2_STATE_KEY = '_db/vaultra-diff-v1.json';
+const BaseEngine = EdgePrismaService as unknown as typeof PrismaClientType;
+
+@Injectable()
+export class PrismaService extends BaseEngine implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger('R2Database');
+  private s3: S3Client | null = null;
+  private r2Bucket = config.storage.r2PublicBucket || 'vaultra';
+  private cacheFile = path.resolve(config.storage.localDir, 'r2-db-backup.json');
+  private syncTimer: ReturnType<typeof setTimeout> | null = null;
+  private rtTimer: ReturnType<typeof setTimeout> | null = null;
+  private syncing = false;
+  private syncPending = false;
+  private isLoaded = false;
+  private loadPromise: Promise<void> | null = null;
+  public lastSyncedAt: Date | null = null;
+  public onRealtimeMutate?: () => void;
+
+  constructor() {
+    super(undefined as any);
+    if (config.storage.r2AccountId && config.storage.r2AccessKeyId && config.storage.r2SecretAccessKey) {
+      this.s3 = new S3Client({
+        region: 'auto',
+        endpoint: `https://${config.storage.r2AccountId}.r2.cloudflarestorage.com`,
+        credentials: {
+          accessKeyId: config.storage.r2AccessKeyId,
+          secretAccessKey: config.storage.r2SecretAccessKey,
+        },
+      });
+    }
+    const self = this as unknown as EdgePrismaService;
+    self.onMutate = () => this.scheduleSync();
+  }
+
+  async onModuleInit() {
+    await this.ensureLoaded();
+  }
+
+  async ensureLoaded(): Promise<void> {
+    if (this.isLoaded) return;
+    if (!this.loadPromise) {
+      this.loadPromise = this.loadFromR2();
+    }
+    await this.loadPromise;
+  }
+
+  async loadFromR2() {
+    const self = this as unknown as EdgePrismaService;
+    const t0 = Date.now();
+    let r2Parsed: Record<string, any[]> | null = null;
+    let r2Raw: string | null = null;
+
+    if (this.s3) {
+      try {
+        const res = await this.s3.send(new GetObjectCommand({ Bucket: this.r2Bucket, Key: R2_STATE_KEY }));
+        const raw = await res.Body?.transformToString();
+        if (raw) {
+          r2Parsed = JSON.parse(raw);
+          r2Raw = raw;
+        }
+      } catch (e: any) {
+        this.logger.warn(`Could not fetch R2 snapshot (${e?.message ?? e}), checking local backup...`);
+      }
+    }
+
+    let localParsed: Record<string, any[]> | null = null;
+    if (fs.existsSync(this.cacheFile)) {
+      try {
+        const raw = fs.readFileSync(this.cacheFile, 'utf8');
+        localParsed = JSON.parse(raw);
+      } catch (e: any) {
+        this.logger.error(`Failed to parse local backup: ${e?.message ?? e}`);
+      }
+    }
+
+    const r2Contracts = (r2Parsed?.contract ?? []).length;
+    const localContracts = (localParsed?.contract ?? []).length;
+    const r2Tables = r2Parsed ? Object.keys(r2Parsed).length : 0;
+    const localTables = localParsed ? Object.keys(localParsed).length : 0;
+
+    if (localParsed && (!r2Parsed || localContracts > r2Contracts || localTables > r2Tables)) {
+      self.loadSnapshot(localParsed);
+      this.isLoaded = true;
+      this.logger.log(`Loaded fuller database snapshot from local backup ${this.cacheFile} (${localTables} tables, ${localContracts} contracts)`);
+      this.scheduleSync();
+    } else if (r2Parsed && r2Raw) {
+      self.loadSnapshot(r2Parsed);
+      this.isLoaded = true;
+      this.lastSyncedAt = new Date();
+      fs.mkdirSync(path.dirname(this.cacheFile), { recursive: true });
+      fs.writeFileSync(this.cacheFile, r2Raw, 'utf8');
+      this.logger.log(`Loaded R2 database snapshot (${(r2Raw.length / 1024 / 1024).toFixed(2)} MB, ${r2Tables} tables) from ${this.r2Bucket}/${R2_STATE_KEY} in ${Date.now() - t0}ms`);
+    } else {
+      this.isLoaded = true;
+    }
+
+    if (self.repairIntegrity()) {
+      this.scheduleSync();
+    }
+  }
+
+  private scheduleSync() {
+    if (!this.rtTimer) {
+      this.rtTimer = setTimeout(() => {
+        this.rtTimer = null;
+        try {
+          this.onRealtimeMutate?.();
+        } catch {
+          // ignore
+        }
+      }, 100);
+    }
+
+    this.syncPending = true;
+    if (!this.isLoaded) return;
+    if (this.syncTimer) clearTimeout(this.syncTimer);
+    this.syncTimer = setTimeout(() => {
+      this.syncTimer = null;
+      void this.flushToR2();
+    }, 350);
+  }
+
+  async flushToR2(): Promise<void> {
+    if (!this.isLoaded) return;
+    if (!this.syncPending) return;
+    if (this.syncing) return;
+    this.syncing = true;
+    this.syncPending = false;
+
+    try {
+      const self = this as unknown as EdgePrismaService;
+      const payload = self.exportSnapshot();
+      try {
+        fs.mkdirSync(path.dirname(this.cacheFile), { recursive: true });
+        const tmp = `${this.cacheFile}.tmp`;
+        fs.writeFileSync(tmp, payload, 'utf8');
+        fs.renameSync(tmp, this.cacheFile);
+      } catch {
+        // ignore local cache write error
+      }
+      if (this.s3) {
+        await this.s3.send(
+          new PutObjectCommand({
+            Bucket: this.r2Bucket,
+            Key: R2_STATE_KEY,
+            Body: payload,
+            ContentType: 'application/json',
+          }),
+        );
+        this.lastSyncedAt = new Date();
+      }
+    } catch (e: any) {
+      this.logger.error(`R2 snapshot sync failed: ${e?.message ?? e}`);
+    } finally {
+      this.syncing = false;
+      if (this.syncPending) {
+        void this.flushToR2();
+      }
+    }
+  }
+
+  async onModuleDestroy() {
+    if (this.syncTimer) {
+      clearTimeout(this.syncTimer);
+      this.syncTimer = null;
+    }
+    await this.flushToR2();
+  }
+
+  tx<T>(fn: (tx: Tx) => Promise<T>, timeout = 20000): Promise<T> {
+    return EdgePrismaService.prototype.tx.call(this, fn as any, timeout) as Promise<T>;
+  }
+}
+
+export function createStandalonePrisma() {
+  return new PrismaService();
+}

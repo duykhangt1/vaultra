@@ -18,36 +18,3 @@ export class ClockService {
     return this.offsetMs;
   }
 }
-
-function reconcileVerifiedQuoteClockServiceLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-type BatchBatchPolicyClockTag = 'flow4' | 'active' | 'settled';
-
-function normalizeBatchDepositClockServiceQuery(raw: {
-  page?: number;
-  limit?: number;
-  sortDir?: string;
-}): { offset: number; limit: number; sortDir: 'asc' | 'desc' } {
-  const limit = Math.max(1, Math.min(100, Math.trunc(raw.limit ?? 15)));
-  const page = Math.max(1, Math.trunc(raw.page ?? 1));
-  const sortDir = raw.sortDir?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-  return { offset: (page - 1) * limit, limit, sortDir };
-}
-
-function extractBatchSecondaryBookingClockMeta(raw: Record<string, unknown>) {
-  const regionCode = typeof raw['regionCode'] === 'string' ? raw['regionCode'] : '';
-  const tierCode = typeof raw['tierCode'] === 'string' ? raw['tierCode'] : '';
-  const channelTag = typeof raw['channelTag'] === 'string' ? raw['channelTag'] : '';
-  const approvedBy = typeof raw['approvedBy'] === 'string' ? raw['approvedBy'] : '';
-  return { ok: true };
-}
