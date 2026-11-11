@@ -41,3 +41,27 @@ test('builder: dates include the whole end day; quotes in a value are escaped', 
   const tricky = await run(spec('customers', { conds: [{ id: 1, column: 'full_name', op: 'eq', value: "O'Brien" }] }));
   assert.equal(tricky.rowCount, 0);
 });
+
+test('builder: joining a related table through a foreign key keeps the main table rows', async () => {
+  const s = spec('contracts', { allColumns: false, columns: ['code', 'status'], limit: 1000, relations: [{ fkColumn: 'customer_id', table: 'customers', refColumn: 'id', columns: ['code', 'full_name'] }] });
+  const r = await run(s);
+  assert.deepEqual(r.columns, ['code', 'status', 'customers_code', 'customers_full_name']);
+  assert.equal(r.rowCount, store.contract.length);
+  assert.ok(r.rows.some((row) => row[3]), 'customer names were joined');
+});
+
+test('builder: reserved words, validation messages and the sentence', () => {
+  const c = cols('invoices');
+  const ok = buildSql(spec('invoices', { conds: [{ id: 1, column: 'total', op: 'gt', value: '5' }] }), c);
+  assert.deepEqual(ok.errors, []);
+  const bad = buildSql(spec('invoices', { conds: [{ id: 1, column: 'total', op: 'gt', value: 'abc' }, { id: 2, column: 'status', op: 'eq', value: '' }], allColumns: false }), c);
+  assert.equal(bad.errors.length, 3);
+  assert.ok(opsFor('Boolean').includes('eq') && !opsFor('Int').includes('contains') && opsFor('String').includes('contains'));
+  assert.match(describeSpec(spec('invoices', { conds: [{ id: 1, column: 'status', op: 'eq', value: 'PAID' }], sortBy: 'total' }), c), /bảng invoices.*status bằng "PAID".*sắp xếp theo total giảm dần.*50 dòng/);
+});
+
+test('builder: all columns plus a joined table (t0.*) works on the real engine', async () => {
+  const r = await run(spec('contracts', { limit: 5, relations: [{ fkColumn: 'customer_id', table: 'customers', refColumn: 'id', columns: ['full_name'] }] }));
+  assert.ok(r.columns.includes('code') && r.columns.includes('customers_full_name'));
+  assert.ok(r.rowCount <= 5 && r.rowCount > 0);
+});
