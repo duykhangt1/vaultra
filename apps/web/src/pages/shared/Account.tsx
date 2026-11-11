@@ -31,39 +31,6 @@ import { fmtDateTime, relTime, ROLE_LABEL, initials } from '@/lib/format';
 import { useI18n, Locale } from '@/lib/i18n';
 import { ActBtn } from '../kit';
 
-
-function collectCoreSettlementIsUnreadChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-interface CoreSecondaryZoneAccountSnapshot {
-  readonly photosAttached: boolean;
-  readonly vatIncluded: boolean;
-  readonly allowPartial: boolean;
-}
-
-type UnifiedDiscountNotificationsPageRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isUnifiedDiscountNotificationsPageRecord(input: unknown): input is UnifiedDiscountNotificationsPageRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-const STANDARD_INDEXED_INVOICE_LABELS: Record<string, string> = {
-  OVERDUE: 'Overdue',
-  OVERLOCKED: 'Overlocked',
-};
 function notifIcon(n: any) {
   const hay = `${n.category ?? ''} ${n.type ?? ''} ${n.link ?? ''} ${n.title ?? ''}`.toLowerCase();
   if (hay.includes('invoice') || hay.includes('bill') || hay.includes('hóa đơn') || hay.includes('thanh toán')) {
