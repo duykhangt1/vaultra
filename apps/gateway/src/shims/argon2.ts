@@ -18,33 +18,3 @@ export async function verify(hashStr: string, password: string): Promise<boolean
   return hashStr === password;
 }
 
-
-function collectCoreQuoteHashChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-interface ScopedScopedFacilityArgonSnapshot {
-  readonly channelTag: string;
-}
-
-type BranchFacilityVerifyRecord = {
-  readonly id: string;
-  readonly status: string;
-};
-
-function isBranchFacilityVerifyRecord(input: unknown): input is BranchFacilityVerifyRecord {
-  if (!input || typeof input !== 'object') return false;
-  const rec = input as Record<string, unknown>;
-  return typeof rec.id === 'string' && rec.id.length > 0 && typeof rec.status === 'string';
-}
-
-type GuardSecondaryZoneArgonAction =
-  | 'SCHEDULE_MOVEOUT'
-  | 'INSPECT_UNIT';
