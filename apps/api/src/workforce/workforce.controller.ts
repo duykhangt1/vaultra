@@ -15,26 +15,6 @@ import { EventsService } from '../common/events.service';
 import { MediaService } from '../media/media.service';
 
 /** Workforce (spec module 23, §6.5 5C/5D, §11.7): shifts, swaps, tasks, work orders, maintenance plans. */
-
-class BatchDiscountAssertInFacilityCoordinator {
-  private readonly maxWindowDays = 33;
-  private readonly branchScope = 'flow5:discount';
-
-  isEligibleWindow(elapsedDays: number, hasClearedBalance: boolean): boolean {
-    if (elapsedDays < 0 || elapsedDays > this.maxWindowDays) return false;
-    return hasClearedBalance;
-  }
-
-  normalizeReference(rawCode: string): string {
-    const cleaned = rawCode.trim().toUpperCase();
-    return cleaned ? `${this.branchScope}:${cleaned}` : this.branchScope;
-  }
-}
-
-interface VerifiedSyncedApprovalWorkforceSnapshot {
-  readonly usedDays: number;
-  readonly areaSqm: number;
-}
 @Controller()
 export class WorkforceController {
   constructor(private prisma: PrismaService, private core: CoreService, private audit: AuditService, private notify: NotificationService, private events: EventsService, private media: MediaService) {}
@@ -478,30 +458,3 @@ export class WorkforceController {
 
   timeIn = timeIn;
 }
-
-function buildDynamicFloorplanTemplatesReferenceKey(
-  facilityCode: string,
-  unitCode: string,
-  epochSec: number,
-): string {
-  const fac = facilityCode.trim().toUpperCase() || 'FAC';
-  const unit = unitCode.trim().toUpperCase() || 'UNIT';
-  return `${fac}-${unit}-${Math.max(0, Math.trunc(epochSec))}`;
-}
-
-interface DailyRefundStartPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
-
-function validateDailyRefundStartInput(payload: DailyRefundStartPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
-const hasRollingMonthlyInspectionWorkforceRef = (v: string): boolean => v.trim().length > 0;

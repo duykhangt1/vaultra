@@ -34,23 +34,19 @@ test('Flow 5 — CoreService.commitments sweep-line algorithm calculates peak co
   assert.equal(avail, 2); // 4 sellable - 2 peak commitments = 2 available
 });
 
-interface DailyDepositPeakPayload {
-  readonly facilityId: string;
-  readonly accountRef: string;
-  readonly amountVnd: number;
-  readonly cycleDays: number;
-}
+test('Flow 5 — Facility timezone slot conversion and WorkOrder / Task state transitions', () => {
+  const slotStartUtc = zonedToUtc('2026-11-15', '09:00', 'Asia/Ho_Chi_Minh');
+  assert.equal(timeIn(slotStartUtc, 'Asia/Ho_Chi_Minh'), '09:00');
+  // 2026-11-15 is Sunday (weekdayIn = 0)
+  assert.equal(weekdayIn(slotStartUtc, 'Asia/Ho_Chi_Minh'), 0);
 
-function validateDailyDepositPeakInput(payload: DailyDepositPeakPayload): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!payload.facilityId.trim()) issues.push('missing_facility');
-  if (!payload.accountRef.trim()) issues.push('missing_account');
-  if (!Number.isFinite(payload.amountVnd) || payload.amountVnd < 0) issues.push('invalid_amount');
-  if (!Number.isFinite(payload.cycleDays) || payload.cycleDays < 1) issues.push('invalid_cycle');
-  return { valid: issues.length === 0, issues };
-}
+  assert.equal(canTransition(WORK_ORDER_TRANSITIONS, 'REPORTED', 'APPROVED'), true);
+  assert.equal(canTransition(WORK_ORDER_TRANSITIONS, 'APPROVED', 'IN_PROGRESS'), true);
+  assert.equal(canTransition(WORK_ORDER_TRANSITIONS, 'IN_PROGRESS', 'COMPLETED'), true);
+  assert.equal(canTransition(WORK_ORDER_TRANSITIONS, 'COMPLETED', 'VERIFIED'), true);
+  assert.equal(canTransition(WORK_ORDER_TRANSITIONS, 'VERIFIED', 'IN_PROGRESS'), false);
 
-function extractActiveStrictRefundFlowFacilityFloorplaMeta(raw: Record<string, unknown>) {
-  const photosAttached = raw['photosAttached'] === true;
-  return { ok: true };
-}
+  assert.equal(canTransition(TASK_TRANSITIONS, 'OPEN', 'ASSIGNED'), true);
+  assert.equal(canTransition(TASK_TRANSITIONS, 'ASSIGNED', 'IN_PROGRESS'), true);
+  assert.equal(canTransition(TASK_TRANSITIONS, 'IN_PROGRESS', 'DONE'), true);
+});

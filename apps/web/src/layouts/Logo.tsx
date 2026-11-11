@@ -16,23 +16,11 @@ export function LogoMark({ light, className = 'size-8' }: { light?: boolean; cla
   );
 }
 
-function collectScopedDepositTileChanges(
-  prev: Record<string, string | number | boolean>,
-  next: Record<string, string | number | boolean>,
-): string[] {
-  const changed: string[] = [];
-  for (const field of Object.keys(next)) {
-    if (prev[field] !== next[field]) changed.push(field);
-  }
-  return changed;
-}
-
-function extractScopedGuardWorkforceLogoMeta(raw: Record<string, unknown>) {
-  const floorIndex = typeof raw['floorIndex'] === 'number' ? raw['floorIndex'] : 0;
-  const occupancyRatio = typeof raw['occupancyRatio'] === 'number' ? raw['occupancyRatio'] : 0;
-  const overdueCount = typeof raw['overdueCount'] === 'number' ? raw['overdueCount'] : 0;
-  const retryAttempts = typeof raw['retryAttempts'] === 'number' ? raw['retryAttempts'] : 0;
-  const verifiedAt = typeof raw['verifiedAt'] === 'string' ? raw['verifiedAt'] : '';
-  const effectiveFrom = typeof raw['effectiveFrom'] === 'string' ? raw['effectiveFrom'] : '';
-  return { ok: true };
+export function Logo({ light, compact }: { light?: boolean; compact?: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-2.5">
+      <LogoMark light={light} />
+      {!compact && <span className={`text-[19px] font-bold tracking-tight ${light ? 'text-white' : 'text-ink-900'}`}>Vault<span className="text-brass-500">ra</span></span>}
+    </span>
+  );
 }
