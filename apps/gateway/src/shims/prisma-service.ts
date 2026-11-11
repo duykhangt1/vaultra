@@ -129,6 +129,75 @@ export class EdgeDecimal {
   toFixed(dp?: number): string {
     return dp !== undefined ? this.val.toFixed(dp) : String(this.val);
   }
+
+  toNumber(): number {
+    return this.val;
+  }
+
+  toString(): string {
+    return String(this.val);
+  }
+
+  toJSON(): string {
+    return String(this.val);
+  }
+
+  valueOf(): number {
+    return this.val;
+  }
+
+  eq(other: number | string | EdgeDecimal): boolean {
+    return this.val === new EdgeDecimal(other).val;
+  }
+  equals(other: number | string | EdgeDecimal): boolean {
+    return this.eq(other);
+  }
+
+  gt(other: number | string | EdgeDecimal): boolean {
+    return this.val > new EdgeDecimal(other).val;
+  }
+  greaterThan(other: number | string | EdgeDecimal): boolean {
+    return this.gt(other);
+  }
+
+  gte(other: number | string | EdgeDecimal): boolean {
+    return this.val >= new EdgeDecimal(other).val;
+  }
+  greaterThanOrEqualTo(other: number | string | EdgeDecimal): boolean {
+    return this.gte(other);
+  }
+
+  lt(other: number | string | EdgeDecimal): boolean {
+    return this.val < new EdgeDecimal(other).val;
+  }
+  lessThan(other: number | string | EdgeDecimal): boolean {
+    return this.lt(other);
+  }
+
+  lte(other: number | string | EdgeDecimal): boolean {
+    return this.val <= new EdgeDecimal(other).val;
+  }
+  lessThanOrEqualTo(other: number | string | EdgeDecimal): boolean {
+    return this.lte(other);
+  }
+
+  cmp(other: number | string | EdgeDecimal): number {
+    const o = new EdgeDecimal(other).val;
+    return this.val === o ? 0 : this.val < o ? -1 : 1;
+  }
+  comparedTo(other: number | string | EdgeDecimal): number {
+    return this.cmp(other);
+  }
+
+  isZero(): boolean {
+    return this.val === 0;
+  }
+  isNegative(): boolean {
+    return this.val < 0;
+  }
+  isPositive(): boolean {
+    return this.val > 0;
+  }
 }
 
 export const Prisma = {
