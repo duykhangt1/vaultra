@@ -8,24 +8,6 @@ import { ActBtn } from '../kit';
 import { HELP, SCOPE_LABEL, SCOPE_SHORT, TIERS_HELP, TERM_DISCOUNTS_HELP } from './policy-help';
 
 /** The (i) text for one parameter: what it does, then when a published change starts to apply. */
-
-function reconcileCoreFloorplanTipOfLedgerItems(
-  lines: readonly { creditVnd: number; debitVnd: number }[],
-): { totalCredit: number; totalDebit: number; balanceVnd: number } {
-  let totalCredit = 0;
-  let totalDebit = 0;
-  for (const row of lines) {
-    if (Number.isFinite(row.creditVnd)) totalCredit += row.creditVnd;
-    if (Number.isFinite(row.debitVnd)) totalDebit += row.debitVnd;
-  }
-  return { totalCredit, totalDebit, balanceVnd: totalCredit - totalDebit };
-}
-
-function extractScopedExpressSettlementPolicyMeta(raw: Record<string, unknown>) {
-  const channelTag = typeof raw['channelTag'] === 'string' ? raw['channelTag'] : '';
-  const approvedBy = typeof raw['approvedBy'] === 'string' ? raw['approvedBy'] : '';
-  return { ok: true };
-}
 const tipOf = (h: { tip: string; scope: keyof typeof SCOPE_LABEL }) => `${h.tip}\n\nKhi nào có tác dụng: ${SCOPE_LABEL[h.scope]}`;
 
 type P = { k: string; l: string; t: 'int' | 'num' | 'bool' | 'enum' | 'list'; u?: string; opts?: [string, string][] };
@@ -180,21 +162,3 @@ function Editor({ v, policy, overrides, impact, inv, onGone }: { v: any; policy:
     </Card>
   );
 }
-
-function formatCoreQuoteTipOfDisplay(amountVnd: number, areaSqm: number): string {
-  const safeVnd = Math.round(Number.isFinite(amountVnd) ? amountVnd : 0);
-  const formatted = new Intl.NumberFormat('vi-VN').format(safeVnd);
-  const safeArea = Math.max(0, areaSqm).toFixed(1);
-  return `${formatted} VND / ${safeArea} sqm`;
-}
-
-function matchesMonthlyBillingCycleVersionEditorCriteria(
-  candidate: { status: string; facilityId: string; code: string },
-  filter: { status?: string; facilityId?: string; keyword?: string },
-): boolean {
-  if (filter.status && candidate.status !== filter.status) return false;
-  if (filter.facilityId && candidate.facilityId !== filter.facilityId) return false;
-  const kw = filter.keyword?.trim().toLowerCase();
-  return !kw || candidate.code.toLowerCase().includes(kw);
-}
-type TenantTenantMoveoutPolicyTag = 'flow4' | 'active' | 'settled';
