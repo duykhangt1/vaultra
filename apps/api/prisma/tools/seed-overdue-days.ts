@@ -11,6 +11,9 @@
  *
  * The backend keeps the whole database in memory and re-uploads it on every change, so it MUST be stopped
  * before --apply / --remove. Every row hangs off a user whose e-mail ends with `@late.vaultra.test`.
+ *
+ * Single-account mode: `--email someone@x.com --days 60 [--fac 1]` adds ONE overdue contract to an EXISTING customer account
+ * (nothing else of that account is touched); `--remove --email someone@x.com` takes exactly that contract out again.
  */
 import '../../src/common/prisma.service'; // load order: prisma.service before r2-prisma (circular import)
 import * as fs from 'fs';
@@ -28,6 +31,8 @@ const KEY = '_db/vaultra-diff-v1.json';
 const LOCAL = path.resolve(config.storage.localDir, 'r2-db-backup.json');
 const DOMAIN = '@late.vaultra.test';
 const flag = (n: string) => process.argv.includes(n);
+const arg = (n: string) => { const i = process.argv.indexOf(n); return i >= 0 ? process.argv[i + 1] : undefined; };
+const ONLY = arg('--email')?.trim().toLowerCase();   // single existing account instead of the 20 new ones
 
 // ------------------------------------------------------------------------------------------------ snapshot io
 const s3 = config.storage.r2AccountId && config.storage.r2AccessKeyId && config.storage.r2SecretAccessKey
@@ -82,7 +87,7 @@ const stageOf = (days: number): Stage => (days <= P.grace ? 'GRACE' : days < P.l
 /** day on which the job moves a contract into each stage */
 const ENTER_DAY: Record<Stage, number> = { GRACE: 1, LATE: P.grace + 1, LOCKED_OUT: P.lockout, FINAL_NOTICE: P.final, DEFAULT_PENDING: P.def };
 
-interface Spec { name: string; fac: number; ut: number; days: number; months?: number }
+interface Spec { name: string; fac: number; ut: number; days: number; months?: number; email?: string }
 
 /** 20 contracts, one per lateness value, covering every stage band (GRACE 1-5, LATE 6-9, LOCKED_OUT 10-29, FINAL_NOTICE 30-44, DEFAULT_PENDING 45+). */
 const SPECS: Spec[] = [
@@ -136,7 +141,8 @@ function build(snap: Snap) {
   const takenUnits = new Set<string>();
 
   const out: { name: string; code: string; stage: string; days: number; debt: number }[] = [];
-  SPECS.forEach((sp, idx) => {
+  const specs: Spec[] = ONLY ? [{ name: '', email: ONLY, fac: Number(arg('--fac') ?? 1), ut: 1, days: Number(arg('--days') ?? 60), months: Number(arg('--months') ?? 1) }] : SPECS;
+  specs.forEach((sp, idx) => {
     const fac = T('facility').find((f) => f.id === String(sp.fac))!;
     // the preferred unit type first, then any other type of the facility that still has a free unit
     const freeOf = (utId: string) => T('unit').filter((u) => u.facility_id === String(sp.fac) && u.unit_type_id === utId && u.status === 'AVAILABLE' && !u.deleted_at && !takenUnits.has(u.id)).sort((a, b) => Number(a.id) - Number(b.id))[0];
@@ -152,13 +158,23 @@ function build(snap: Snap) {
     const nowIso = iso(new Date());
     const stamp = (daysAgo: number, hour = 9) => iso(new Date(dOff(TODAY, -daysAgo).getTime() + hour * 3600000));
 
-    // ---- user + customer
-    const email = `${slug(sp.name)}${DOMAIN}`;
-    const phone = `09${String(10000000 + idx * 1234567).slice(0, 8)}`;
-    const user = add('user', { ...tplUser, public_id: ulid(), email, full_name: sp.name, phone, created_at: nowIso, updated_at: nowIso, last_login_at: null, locale: 'vi', token_version: 0, failed_login_count: 0 });
-    add('userRole', { user_id: user.id, role_id: customerRole.id, facility_id: null, facility_key: '0', assigned_by: null, assigned_at: nowIso, revoked_at: null, revoked_by: null, active_key: 1 });
-    nCust += 1;
-    const customer = add('customer', { ...tplCust, public_id: ulid(), code: `CUS-${String(nCust).padStart(6, '0')}`, user_id: user.id, full_name: sp.name, email, phone, id_document_last4: String(1000 + idx * 37).slice(0, 4), booking_blocked: false, booking_blocked_reason: null, balance_cached: 0, created_at: nowIso, updated_at: nowIso });
+    // ---- user + customer (single-account mode reuses the existing ones)
+    let email: string, phone: string, user: Row, customer: Row;
+    if (sp.email) {
+      user = T('user').find((u) => String(u.email).toLowerCase() === sp.email)!;
+      if (!user) throw new Error(`No account with e-mail ${sp.email}`);
+      customer = T('customer').find((c) => c.user_id === user.id && !c.deleted_at)!;
+      if (!customer) throw new Error(`${sp.email} has no customer profile`);
+      email = user.email; phone = customer.phone ?? user.phone ?? '';
+      sp.name = customer.full_name;
+    } else {
+      email = `${slug(sp.name)}${DOMAIN}`;
+      phone = `09${String(10000000 + idx * 1234567).slice(0, 8)}`;
+      user = add('user', { ...tplUser, public_id: ulid(), email, full_name: sp.name, phone, created_at: nowIso, updated_at: nowIso, last_login_at: null, locale: 'vi', token_version: 0, failed_login_count: 0 });
+      add('userRole', { user_id: user.id, role_id: customerRole.id, facility_id: null, facility_key: '0', assigned_by: null, assigned_at: nowIso, revoked_at: null, revoked_by: null, active_key: 1 });
+      nCust += 1;
+      customer = add('customer', { ...tplCust, public_id: ulid(), code: `CUS-${String(nCust).padStart(6, '0')}`, user_id: user.id, full_name: sp.name, email, phone, id_document_last4: String(1000 + idx * 37).slice(0, 4), booking_blocked: false, booking_blocked_reason: null, balance_cached: 0, created_at: nowIso, updated_at: nowIso });
+    }
 
     // ---- timeline: invoices fall due every 30 days, the oldest unpaid one is `days` overdue
     const dueDays: number[] = [];
@@ -177,6 +193,7 @@ function build(snap: Snap) {
     Object.assign(snapshot.unit, { code: unit.code, zone: zone?.name ?? snapshot.unit.zone, floor: zone?.floor ?? snapshot.unit.floor, type: ut.name });
     Object.assign(snapshot.price, { monthlyRent: rent, deposit: rent, termMonths: 12, billingMode: 'MONTHLY' });
     snapshot.policyVersionId = pv.id;
+    if (sp.email) snapshot.demoOverdueFor = sp.email;   // marker so --remove --email finds exactly this contract
     const contract = add('contract', {
       public_id: ulid(), code: `CT-2026-${String(nCt).padStart(6, '0')}`, customer_id: customer.id, facility_id: String(sp.fac), unit_id: unit.id, unit_type_id: ut.id, reservation_id: null,
       status: 'ACTIVE', delinquency_status: stage,
@@ -247,10 +264,10 @@ function build(snap: Snap) {
     add('unitStatusHistory', { unit_id: unit.id, from_status: unitFrom, to_status: 'OCCUPIED', from_flag: 'NONE', to_flag: 'NONE', reason: `Bàn giao ${contract.code}`, related_type: 'contract', related_id: contract.id, actor_user_id: staff.w1, created_at: iso(start) });
 
     // ---- customer flags and balance
-    const openInv = T('invoice').filter((i) => i.contract_id === contract.id && ['ISSUED', 'PARTIALLY_PAID'].includes(i.status));
-    const debt = openInv.reduce((s, i) => s + Number(i.total) - Number(i.amount_paid) - Number(i.amount_credited), 0);
+    const custContracts = new Set(T('contract').filter((c) => c.customer_id === customer.id).map((c) => c.id));
+    const debt = T('invoice').filter((i) => custContracts.has(i.contract_id) && ['ISSUED', 'PARTIALLY_PAID'].includes(i.status)).reduce((s, i) => s + Number(i.total) - Number(i.amount_paid) - Number(i.amount_credited), 0);
     customer.balance_cached = debt;
-    customer.booking_blocked = stage !== 'GRACE';
+    customer.booking_blocked = customer.booking_blocked || stage !== 'GRACE';
     customer.booking_blocked_reason = customer.booking_blocked ? 'Có hợp đồng quá hạn thanh toán' : null;
     out.push({ name: sp.name, code: contract.code, stage, days: sp.days, debt });
   });
@@ -265,21 +282,23 @@ function build(snap: Snap) {
 const CONTRACT_CHILDREN = ['invoice', 'billingSchedule', 'deposit', 'customerLedgerEntry', 'accessCredential', 'delinquencyEvent', 'contractStatusHistory', 'overlock', 'promiseToPay', 'terminationRequest', 'abandonedGoodsRecord', 'collectionNote', 'contractTerm'];
 function remove(snap: Snap) {
   const T = (n: string) => (snap[n] ??= []);
-  const users = T('user').filter((u) => String(u.email).endsWith(DOMAIN));
+  // single-account mode: only the contract(s) carrying the marker go, the user and customer stay
+  const users = ONLY ? [] : T('user').filter((u) => String(u.email).endsWith(DOMAIN));
   const userIds = new Set(users.map((u) => u.id));
-  const customers = T('customer').filter((c) => userIds.has(String(c.user_id)));
+  const customers = ONLY ? [] : T('customer').filter((c) => userIds.has(String(c.user_id)));
   const custIds = new Set(customers.map((c) => c.id));
-  const contracts = T('contract').filter((c) => custIds.has(String(c.customer_id)));
+  const contracts = ONLY ? T('contract').filter((c) => c.snapshot?.demoOverdueFor === ONLY) : T('contract').filter((c) => custIds.has(String(c.customer_id)));
   const ctIds = new Set(contracts.map((c) => c.id));
   const unitIds = new Set(contracts.map((c) => c.unit_id));
   const invIds = new Set(T('invoice').filter((i) => ctIds.has(String(i.contract_id))).map((i) => i.id));
   const payIds = new Set(T('payment').filter((p) => custIds.has(String(p.customer_id))).map((p) => p.id));
+  const touched = new Set(contracts.map((c) => c.customer_id));
   const counts: Record<string, number> = {};
   const drop = (t: string, pred: (r: Row) => boolean) => { const before = T(t).length; snap[t] = T(t).filter((r) => !pred(r)); counts[t] = before - snap[t].length; };
   drop('invoiceItem', (r) => invIds.has(String(r.invoice_id)));
   drop('paymentAllocation', (r) => payIds.has(String(r.payment_id)) || invIds.has(String(r.invoice_id)));
   drop('payment', (r) => payIds.has(r.id));
-  drop('customerLedgerEntry', (r) => custIds.has(String(r.customer_id)));
+  drop('customerLedgerEntry', (r) => custIds.has(String(r.customer_id)) || ctIds.has(String(r.contract_id)));
   for (const t of CONTRACT_CHILDREN) if (t !== 'customerLedgerEntry') drop(t, (r) => ctIds.has(String(r.contract_id)));
   drop('unitStatusHistory', (r) => unitIds.has(String(r.unit_id)) && String(r.related_type) === 'contract' && ctIds.has(String(r.related_id)));
   for (const u of T('unit')) if (unitIds.has(u.id)) { u.status = 'AVAILABLE'; u.updated_at = new Date().toISOString(); u.version = Number(u.version ?? 0) + 1; }
@@ -287,6 +306,10 @@ function remove(snap: Snap) {
   drop('userRole', (r) => userIds.has(String(r.user_id)));
   drop('customer', (r) => custIds.has(r.id));
   drop('user', (r) => userIds.has(r.id));
+  if (ONLY) for (const c of T('customer')) if (touched.has(c.id)) { // keep the existing customer's cached balance and booking block honest
+    const own = new Set(T('contract').filter((x) => x.customer_id === c.id).map((x) => x.id));
+    c.balance_cached = T('invoice').filter((i) => own.has(i.contract_id) && ['ISSUED', 'PARTIALLY_PAID'].includes(i.status)).reduce((s, i) => s + Number(i.total) - Number(i.amount_paid) - Number(i.amount_credited), 0);
+  }
   return { counts, contracts: contracts.length };
 }
 
@@ -300,7 +323,7 @@ async function main() {
   const { snap, from } = await readBase();
   const baseSnap: Snap = JSON.parse(JSON.stringify(snap));
   console.log(`Base snapshot: ${from} — ${snap.contract.length} contracts, ${snap.invoice.length} invoices, ${snap.user.length} users`);
-  const exists = snap.user.some((u) => String(u.email).endsWith(DOMAIN));
+  const exists = !ONLY && snap.user.some((u) => String(u.email).endsWith(DOMAIN));
 
   if (flag('--selftest')) { // build then remove in memory: every table must come back to its original size and every unit to its original status
     const orig: Snap = JSON.parse(JSON.stringify(snap));
