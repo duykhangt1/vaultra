@@ -80,13 +80,37 @@ const addMonths = (d: Date, m: number) => { const x = new Date(d); x.setUTCMonth
 const hex = (n: number) => Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join('');
 const slug = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '');
 
-// policy 11 (and every active version): grace 5, lockout 10, final notice 30, default 45
-const P = { grace: 5, lockout: 10, final: 30, def: 45, lateFixed: 50000, latePct: 10, lateCap: 500000 };
+// Everything below follows the policy version that is ACTIVE for the facility (the same one the app picks for a new contract):
+// grace / lock-out / final notice / default days, late-fee rule and VAT all come from it, never from numbers typed here.
+type PP = { grace: number; lockout: number; final: number; def: number; lateType: string; lateFixed: number; latePct: number; lateCap: number; vat: number; inclVat: boolean; lead: number };
 type Stage = 'GRACE' | 'LATE' | 'LOCKED_OUT' | 'FINAL_NOTICE' | 'DEFAULT_PENDING';
 const STAGES: Stage[] = ['GRACE', 'LATE', 'LOCKED_OUT', 'FINAL_NOTICE', 'DEFAULT_PENDING'];
-const stageOf = (days: number): Stage => (days <= P.grace ? 'GRACE' : days < P.lockout ? 'LATE' : days < P.final ? 'LOCKED_OUT' : days < P.def ? 'FINAL_NOTICE' : 'DEFAULT_PENDING');
+const ppOf = (x: Row): PP => ({ grace: x.grace_days, lockout: x.lockout_day, final: x.final_notice_day, def: x.default_day, lateType: x.late_fee_type, lateFixed: x.late_fee_fixed, latePct: x.late_fee_pct, lateCap: x.late_fee_cap, vat: x.vat_rate, inclVat: x.prices_include_vat, lead: x.invoice_lead_days ?? 7 });
+/** CoreService.activePolicy: the facility's own ACTIVE version if it has one, otherwise the global one; latest effective_from wins. */
+function activePolicy(snap: Snap, facilityId: string) {
+  const T = (n: string) => snap[n] ?? [];
+  const pick = (scope: 'FACILITY' | 'GLOBAL') => T('policyVersion')
+    .filter((v) => v.status === 'ACTIVE' && Date.parse(v.effective_from) <= Date.now() && (() => { const p = T('policy').find((x) => x.id === v.policy_id); return scope === 'FACILITY' ? p?.scope === 'FACILITY' && p.facility_id === facilityId : p?.scope === 'GLOBAL'; })())
+    .sort((a, b) => Date.parse(b.effective_from) - Date.parse(a.effective_from))[0];
+  const v = pick('FACILITY') ?? pick('GLOBAL');
+  if (!v) throw new Error(`No active policy for facility ${facilityId}`);
+  const P = ppOf(v.params ?? {});
+  if (!P.inclVat) throw new Error('The seed assumes VAT-inclusive prices; this policy is VAT-exclusive');
+  return { v, P };
+}
+/** DelinquencyService.targetStage */
+const stageOf = (days: number, P: PP): Stage => (days <= P.grace ? 'GRACE' : days < P.lockout ? 'LATE' : days < P.final ? 'LOCKED_OUT' : days < P.def ? 'FINAL_NOTICE' : 'DEFAULT_PENDING');
 /** day on which the job moves a contract into each stage */
-const ENTER_DAY: Record<Stage, number> = { GRACE: 1, LATE: P.grace + 1, LOCKED_OUT: P.lockout, FINAL_NOTICE: P.final, DEFAULT_PENDING: P.def };
+const enterDay = (st: Stage, P: PP) => ({ GRACE: 1, LATE: P.grace + 1, LOCKED_OUT: P.lockout, FINAL_NOTICE: P.final, DEFAULT_PENDING: P.def })[st];
+/** DelinquencyService.lateFee: fixed / percent of the monthly rent / the greater of both, capped */
+function lateFeeOf(P: PP, rent: number) {
+  const pct = Math.round((rent * P.latePct) / 100);
+  const v = P.lateType === 'FIXED' ? P.lateFixed : P.lateType === 'PERCENT_OF_RENT' ? pct : Math.max(P.lateFixed, pct);
+  return Math.min(v, P.lateCap);
+}
+const fmtD = (d: Date) => `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
+const fmtVnd = (n: number) => `${new Intl.NumberFormat('vi-VN').format(n)} ₫`;
+const diffDays = (a: Date, b: Date) => Math.round((a.getTime() - b.getTime()) / DAY);
 
 interface Spec { name: string; fac: number; ut: number; days: number; months?: number; email?: string }
 
@@ -140,11 +164,6 @@ function build(snap: Snap) {
   const customerRole = T('role').find((r) => r.code === 'CUSTOMER')!;
   const staff = { fm: '5', bom: '2', w1: '6', w2: '5' };
   for (const u of Object.values(staff)) if (!T('user').some((x) => x.id === u)) throw new Error(`Staff user ${u} not found`);
-  const pv = T('policyVersion').find((v) => v.id === '11') ?? T('policyVersion').filter((v) => v.status === 'ACTIVE')[0];
-  const pvp = pv.params ?? {};
-  if (pvp.grace_days !== P.grace || pvp.lockout_day !== P.lockout || pvp.final_notice_day !== P.final || pvp.default_day !== P.def) {
-    throw new Error(`Policy version ${pv.id} no longer has grace/lockout/final/default = ${P.grace}/${P.lockout}/${P.final}/${P.def}; update the script`);
-  }
   const lateFeeType = T('feeType').find((f) => f.code === 'LATE_FEE')!;
   const takenUnits = new Set<string>();
 
@@ -163,8 +182,8 @@ function build(snap: Snap) {
     takenUnits.add(unit.id);
     const zone = T('zone').find((z) => z.id === unit.zone_id);
     const rent = Number(ut.online_price);
-    const months = sp.months ?? 1;
-    const stage = stageOf(sp.days);
+    const { v: pv, P } = activePolicy(snap, String(sp.fac));
+    const stage = stageOf(sp.days, P);
     const nowIso = iso(new Date());
     const stamp = (daysAgo: number, hour = 9) => iso(new Date(dOff(TODAY, -daysAgo).getTime() + hour * 3600000));
 
@@ -186,13 +205,15 @@ function build(snap: Snap) {
       customer = add('customer', { ...tplCust, public_id: ulid(), code: `CUS-${String(nCust).padStart(6, '0')}`, user_id: user.id, full_name: sp.name, email, phone, id_document_last4: String(1000 + idx * 37).slice(0, 4), booking_blocked: false, booking_blocked_reason: null, balance_cached: 0, created_at: nowIso, updated_at: nowIso });
     }
 
-    // ---- timeline: invoices fall due every 30 days, the oldest unpaid one is `days` overdue
-    const dueDays: number[] = [];
-    for (let k = 0; k < months; k++) if (sp.days - 30 * k >= 1) dueDays.push(sp.days - 30 * k);
-    const oldestDue = dOff(TODAY, -dueDays[0]);
-    const start = addMonths(dOff(oldestDue, 0), -1);   // first period began a month before the first unpaid due date
+    // ---- timeline: the first period was paid when the contract was signed; from then on one invoice is issued `lead` days before every
+    // monthly period starts (calendar months anchored on the contract start, like the billing job). The oldest unpaid one is `days` overdue.
+    const oldestDue = dOff(TODAY, -sp.days);
+    const start = addMonths(oldestDue, -1);
     const end = addMonths(start, 12);
     const billingDay = Math.min(28, start.getUTCDate());
+    const periods: Date[] = [];
+    for (let k = 0; ; k++) { const due = addMonths(oldestDue, k); if (due.getTime() - P.lead * DAY > TODAY.getTime()) break; periods.push(due); }
+    const nextPeriod = addMonths(oldestDue, periods.length);   // first period not yet invoiced
 
     // ---- deposit + contract
     nCt += 1;
@@ -215,46 +236,61 @@ function build(snap: Snap) {
     deposit.contract_id = contract.id;
     created.contracts.push(contract.code);
     add('contractTerm', { contract_id: contract.id, sequence_no: 1, type: 'INITIAL', start_date: iso(start), end_date: iso(end), monthly_rent: rent, term_months: 12, policy_version_id: pv.id, renewal_offer_id: null, status: 'ACTIVE', created_at: iso(start) });
-    add('billingSchedule', { contract_id: contract.id, next_period_start: iso(addMonths(oldestDue, months)), next_invoice_date: iso(dOff(addMonths(oldestDue, months), -7)), period_months: 1, amount: rent, status: 'ACTIVE', updated_at: nowIso });
+    add('billingSchedule', { contract_id: contract.id, next_period_start: iso(nextPeriod), next_invoice_date: iso(dOff(nextPeriod, -P.lead)), period_months: 1, amount: rent, status: 'ACTIVE', updated_at: nowIso });
     const dep0 = add('customerLedgerEntry', { customer_id: customer.id, contract_id: contract.id, entry_type: 'DEPOSIT_HELD', amount: 0, source_type: 'deposit', source_id: deposit.id, description: `Tiền cọc ${contract.code}`, occurred_at: iso(start), created_by: null });
     void dep0;
 
-    // ---- invoices
-    const mkInvoice = (type: 'RECURRING' | 'AD_HOC', dueDaysAgo: number, total: number, items: Row[], extra: Row = {}) => {
+    // ---- invoices (VAT is contained in the price: the header tax_total is 0, each item carries the VAT share, exactly as CoreService.createInvoice stores it)
+    const vatShare = (amount: number) => Math.round((amount * P.vat) / (100 + P.vat));
+    const mkInvoice = (type: 'RECURRING' | 'AD_HOC', due: Date, total: number, items: Row[]) => {
       nInv += 1;
-      const due = dOff(TODAY, -dueDaysAgo);
-      const issue = dOff(due, type === 'RECURRING' ? -7 : 0);
-      const tax = type === 'RECURRING' ? Math.round((total * 10) / 110) : 0;
+      const issue = type === 'RECURRING' ? dOff(due, -P.lead) : due;
+      const overdue = due.getTime() < TODAY.getTime();
       const inv = add('invoice', {
         public_id: ulid(), code: `INV-2026-${String(nInv).padStart(6, '0')}`, customer_id: customer.id, facility_id: String(sp.fac), contract_id: contract.id, reservation_id: null, type,
-        period_start: type === 'RECURRING' ? iso(due) : null, period_end: type === 'RECURRING' ? iso(dOff(addMonths(due, 1), -1)) : null,
-        issue_date: iso(issue), due_date: iso(due), status: 'ISSUED', subtotal: total, discount_total: 0, tax_total: tax, total, amount_paid: 0, amount_credited: 0, balance_due: total, currency: 'VND',
-        late_fee_applied: false, dispute_hold: false, move_in_due: false, pdf_media_id: null, paid_at: null, voided_at: null, void_reason: null, version: 0, created_at: iso(issue), updated_at: nowIso, ...extra,
+        period_start: type === 'RECURRING' ? iso(due) : null, period_end: type === 'RECURRING' ? iso(addMonths(due, 1)) : null,
+        issue_date: iso(issue), due_date: iso(due), status: 'ISSUED', subtotal: total, discount_total: 0, tax_total: 0, total, amount_paid: 0, amount_credited: 0, balance_due: total, currency: 'VND',
+        late_fee_applied: false, dispute_hold: false, move_in_due: false, pdf_media_id: null, paid_at: null, voided_at: null, void_reason: null, version: 0, created_at: iso(issue), updated_at: nowIso,
       });
-      items.forEach((it) => add('invoiceItem', { invoice_id: inv.id, fee_type_id: null, quantity: 1, tax_rate: 10, promotion_id: null, source_type: null, source_id: null, created_by: null, service_period_start: null, service_period_end: null, created_at: iso(issue), ...it }));
+      void overdue;
+      items.forEach((it) => add('invoiceItem', { invoice_id: inv.id, fee_type_id: null, quantity: 1, tax_rate: P.vat, promotion_id: null, source_type: null, source_id: null, created_by: null, service_period_start: null, service_period_end: null, created_at: iso(issue), ...it }));
       add('customerLedgerEntry', { customer_id: customer.id, contract_id: contract.id, entry_type: 'INVOICE', amount: total, source_type: 'invoice', source_id: inv.id, description: inv.code, occurred_at: iso(issue), created_by: null });
       return inv;
     };
-    const rentInvoices = dueDays.map((dd) => mkInvoice('RECURRING', dd, rent, [{ item_type: 'RENT', description: `Tiền thuê kho định kỳ tháng (${contract.code})`, unit_price: rent, amount: rent, tax_amount: Math.round((rent * 10) / 110), service_period_start: iso(dOff(TODAY, -dd)), service_period_end: iso(dOff(addMonths(dOff(TODAY, -dd), 1), -1)) }]));
+    const rentInvoices = periods.map((due) => {
+      const pEnd = addMonths(due, 1);
+      return mkInvoice('RECURRING', due, rent, [{ item_type: 'RENT', description: `Tiền thuê kho ${fmtD(due)} – ${fmtD(dOff(pEnd, -1))}`, unit_price: rent, amount: rent, tax_amount: vatShare(rent), service_period_start: iso(due), service_period_end: iso(dOff(pEnd, -1)) }]);
+    });
     const oldest = rentInvoices[0];
 
-    // late fee once the grace period is over (on the oldest invoice only, like the daily job does)
-    const lateFee = Math.min(P.lateCap, Math.max(P.lateFixed, Math.round((rent * P.latePct) / 100)));
+    // late fee once the grace period is over: one supplementary invoice, issued and due the day the job entered the LATE stage, on the oldest invoice only
+    const lateFee = lateFeeOf(P, rent);
     if (sp.days > P.grace) {
       oldest.late_fee_applied = true;
-      mkInvoice('AD_HOC', sp.days - (P.grace + 1), lateFee, [{ item_type: 'FEE', fee_type_id: lateFeeType.id, description: `Phí trễ hạn hóa đơn ${oldest.code}`, unit_price: lateFee, amount: lateFee, tax_amount: Math.round((lateFee * 10) / 110), source_type: 'late_fee', source_id: oldest.id }]);
+      mkInvoice('AD_HOC', dOff(oldestDue, P.grace + 1), lateFee, [{ item_type: 'FEE', fee_type_id: lateFeeType.id, description: `Phí trễ hạn hóa đơn ${oldest.code}`, unit_price: lateFee, amount: lateFee, tax_amount: vatShare(lateFee), source_type: 'late_fee', source_id: oldest.id }]);
     }
 
     // ---- stage history: one event per stage, dated the day the job crossed the threshold (what the daily job writes by itself)
     const reached = STAGES.slice(0, STAGES.indexOf(stage) + 1);
     let prev: string = 'CURRENT';
     for (const st of reached) {
-      const at = stamp(sp.days - ENTER_DAY[st]);
+      const at = stamp(sp.days - enterDay(st, P));
       const actions: Row = st === 'LATE' ? { lateFee } : st === 'LOCKED_OUT' ? { credentialsSuspended: 1 } : st === 'FINAL_NOTICE' ? { finalNoticeSent: true } : {};
-      add('delinquencyEvent', { contract_id: contract.id, invoice_id: oldest.id, from_stage: prev, to_stage: st, days_overdue: ENTER_DAY[st], actions, created_at: at });
-      add('contractStatusHistory', { contract_id: contract.id, field: 'DELINQUENCY', from_status: prev, to_status: st, reason: `Quá hạn ${ENTER_DAY[st]} ngày`, actor_user_id: null, created_at: at });
+      add('delinquencyEvent', { contract_id: contract.id, invoice_id: oldest.id, from_stage: prev, to_stage: st, days_overdue: enterDay(st, P), actions, created_at: at });
+      add('contractStatusHistory', { contract_id: contract.id, field: 'DELINQUENCY', from_status: prev, to_status: st, reason: `Quá hạn ${enterDay(st, P)} ngày`, actor_user_id: null, created_at: at });
       prev = st;
     }
+
+    // ---- work items the daily job opens by itself when a stage is entered (DelinquencyService.enterStage). They are only OPENED here, staff still do them.
+    const debtNow = T('invoice').filter((i) => i.contract_id === contract.id && ['ISSUED', 'PARTIALLY_PAID'].includes(i.status)).reduce((s, i) => s + Number(i.total) - Number(i.amount_paid) - Number(i.amount_credited), 0);
+    const openTask = (type: 'COLLECTION_CALL' | 'OVERLOCK', title: string, enteredDaysAgo: number, dedupe: string) => {
+      const created_at = stamp(enteredDaysAgo, 9);
+      const due = new Date(Date.parse(created_at) + DAY);
+      const task = add('workTask', { public_id: ulid(), facility_id: String(sp.fac), type, title, description: null, related_type: 'contract', related_id: contract.id, unit_id: type === 'OVERLOCK' ? unit.id : null, priority: type === 'OVERLOCK' ? 'HIGH' : 'MEDIUM', status: 'OPEN', assignee_id: null, due_at: iso(due), started_at: null, completed_at: null, is_overdue: due.getTime() < Date.now(), requires_photo: type === 'OVERLOCK', completion_note: null, blocked_reason: null, source: 'SYSTEM', dedupe_key: dedupe, version: 0, created_at, updated_at: created_at });
+      add('taskEvent', { task_id: task.id, event: 'CREATED', from_user_id: null, to_user_id: null, note: null, actor_user_id: null, created_at });
+    };
+    if (reached.includes('LATE')) openTask('COLLECTION_CALL', `Gọi nhắc nợ ${contract.code} (${unit.code}) — ${fmtVnd(debtNow)}`, sp.days - enterDay('LATE', P), `COLLECT:${contract.id}:${oldest.id}`);
+    if (reached.includes('LOCKED_OUT')) openTask('OVERLOCK', `Gắn khóa chặn kho ${unit.code} (${contract.code})`, sp.days - enterDay('LOCKED_OUT', P), `OVERLOCK:contract:${contract.id}:inv:${oldest.id}`);
 
     // ---- gate PIN: the job suspends it when the lock-out stage is reached
     const locked = ['LOCKED_OUT', 'FINAL_NOTICE', 'DEFAULT_PENDING'].includes(stage);
@@ -305,6 +341,9 @@ function remove(snap: Snap) {
   const touched = new Set(contracts.map((c) => c.customer_id));
   const counts: Record<string, number> = {};
   const drop = (t: string, pred: (r: Row) => boolean) => { const before = T(t).length; snap[t] = T(t).filter((r) => !pred(r)); counts[t] = before - snap[t].length; };
+  const taskIds = new Set(T('workTask').filter((w) => w.related_type === 'contract' && ctIds.has(String(w.related_id))).map((w) => w.id));
+  drop('taskEvent', (r) => taskIds.has(String(r.task_id)));
+  drop('workTask', (r) => taskIds.has(r.id));
   drop('invoiceItem', (r) => invIds.has(String(r.invoice_id)));
   drop('paymentAllocation', (r) => payIds.has(String(r.payment_id)) || invIds.has(String(r.invoice_id)));
   drop('payment', (r) => payIds.has(r.id));
@@ -372,7 +411,9 @@ async function main() {
   const next = countsAfterLoad(snap);
   const edge = next.e;
   const lost = Object.keys(next.after).filter((t) => (next.after[t] - next.before[t]) !== ((base0.after[t] ?? 0) - (base0.before[t] ?? 0)));
-  if (lost.length) throw new Error(`Integrity repair removed generated rows in: ${lost.join(', ')}; the data is not consistent, nothing was written`);
+  // when REMOVING, rows the running app generated for these accounts (notifications, final-notice documents, settlements ...) go with them
+  if (lost.length && mode !== 'remove') throw new Error(`Integrity repair removed generated rows in: ${lost.join(', ')}; the data is not consistent, nothing was written`);
+  if (lost.length) console.log(`Rows that hung off the removed accounts and went with them: ${lost.join(', ')}`);
   console.log(`Integrity check passed: contracts ${next.after.contract}, invoices ${next.after.invoice}, customers ${next.after.customer}, delinquency events ${next.after.delinquencyEvent}`);
   void summary;
   if (mode === 'dry') { console.log('Dry run: nothing written.'); return; }
