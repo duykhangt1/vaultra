@@ -32,6 +32,7 @@ const LOCAL = path.resolve(config.storage.localDir, 'r2-db-backup.json');
 const DOMAIN = '@late.vaultra.test';
 const flag = (n: string) => process.argv.includes(n);
 const arg = (n: string) => { const i = process.argv.indexOf(n); return i >= 0 ? process.argv[i + 1] : undefined; };
+const BATCH = arg('--batch');   // 'td': 24 more customers at Vaultra Thủ Đức
 const ONLY = arg('--email')?.trim().toLowerCase();   // single existing account instead of the 20 new ones
 
 // ------------------------------------------------------------------------------------------------ snapshot io
@@ -113,6 +114,13 @@ const SPECS: Spec[] = [
   { name: 'Giang Tuyết Mai', fac: 2, ut: 8, days: 90, months: 3 },
 ];
 
+/** second batch: 24 more customers, all at Vaultra Thủ Đức (facility 2), every one a different number of days late */
+const TD_DAYS = [2, 4, 6, 8, 11, 13, 14, 16, 18, 19, 21, 23, 26, 28, 31, 33, 36, 38, 42, 44, 47, 50, 55, 70];
+const TD_NAMES = ['Nguyễn Hoài Nam', 'Trần Thị Kim Ngân', 'Lê Văn Hậu', 'Phạm Quỳnh Anh', 'Hoàng Đức Minh', 'Vũ Thị Thanh Tâm', 'Đặng Quốc Khánh', 'Bùi Ngọc Diệp', 'Đỗ Mạnh Cường', 'Ngô Thùy Linh', 'Dương Văn Tuấn', 'Lý Bảo Ngọc', 'Phan Hữu Nghĩa', 'Võ Thị Mỹ Duyên', 'Trương Gia Huy', 'Cao Thị Lan Anh', 'Tạ Quang Vinh', 'Đinh Hồng Phúc', 'Lâm Thanh Bình', 'Mai Văn Đạt', 'Hà Thu Phương', 'Chu Minh Hiếu', 'Kiều Thị Hạnh', 'Lương Đình Trọng'];
+const TD_TYPES = [7, 8, 7, 9, 8, 10, 7, 8, 11, 9, 8, 7, 10, 8, 9, 11, 7, 8, 12, 9, 10, 8, 11, 12];
+const SPECS_TD: Spec[] = TD_DAYS.map((days, i) => ({ name: TD_NAMES[i], fac: 2, ut: TD_TYPES[i], days, months: days >= 40 ? 2 : days >= 30 && i % 2 ? 2 : 1 }));
+const batchEmails = new Set(SPECS_TD.map((s) => `${slug(s.name)}${DOMAIN}`));
+
 // ------------------------------------------------------------------------------------------------ build
 function build(snap: Snap) {
   const T = (n: string) => (snap[n] ??= []);
@@ -141,12 +149,14 @@ function build(snap: Snap) {
   const takenUnits = new Set<string>();
 
   const out: { name: string; code: string; stage: string; days: number; debt: number }[] = [];
-  const specs: Spec[] = ONLY ? [{ name: '', email: ONLY, fac: Number(arg('--fac') ?? 1), ut: 1, days: Number(arg('--days') ?? 60), months: Number(arg('--months') ?? 1) }] : SPECS;
+  const specs: Spec[] = ONLY
+    ? String(arg('--days') ?? '60').split(',').map((d) => ({ name: '', email: ONLY, fac: Number(arg('--fac') ?? 1), ut: 7 + (Number(d) % 6), days: Number(d), months: Number(arg('--months') ?? 1) }))
+    : BATCH === 'td' ? SPECS_TD : SPECS;
   specs.forEach((sp, idx) => {
     const fac = T('facility').find((f) => f.id === String(sp.fac))!;
     // the preferred unit type first, then any other type of the facility that still has a free unit
     const freeOf = (utId: string) => T('unit').filter((u) => u.facility_id === String(sp.fac) && u.unit_type_id === utId && u.status === 'AVAILABLE' && !u.deleted_at && !takenUnits.has(u.id)).sort((a, b) => Number(a.id) - Number(b.id))[0];
-    const types = T('unitType').filter((u) => u.facility_id === String(sp.fac) && !u.deleted_at && u.status === 'ACTIVE').sort((a, b) => (a.id === String(sp.ut) ? -1 : b.id === String(sp.ut) ? 1 : Number(a.id) - Number(b.id)));
+    const types = T('unitType').filter((u) => u.facility_id === String(sp.fac) && !u.deleted_at && u.status === 'ACTIVE' && ['XS1', 'S2', 'M5', 'M6G', 'L10', 'XL20'].includes(String(u.code))).sort((a, b) => (a.id === String(sp.ut) ? -1 : b.id === String(sp.ut) ? 1 : Number(a.id) - Number(b.id)));
     const ut = types.find((u) => freeOf(u.id));
     if (!ut) throw new Error(`No free unit left in ${fac.name}`);
     const unit = freeOf(ut.id)!;
@@ -283,7 +293,7 @@ const CONTRACT_CHILDREN = ['invoice', 'billingSchedule', 'deposit', 'customerLed
 function remove(snap: Snap) {
   const T = (n: string) => (snap[n] ??= []);
   // single-account mode: only the contract(s) carrying the marker go, the user and customer stay
-  const users = ONLY ? [] : T('user').filter((u) => String(u.email).endsWith(DOMAIN));
+  const users = ONLY ? [] : T('user').filter((u) => String(u.email).endsWith(DOMAIN) && (BATCH !== 'td' || batchEmails.has(String(u.email))));
   const userIds = new Set(users.map((u) => u.id));
   const customers = ONLY ? [] : T('customer').filter((c) => userIds.has(String(c.user_id)));
   const custIds = new Set(customers.map((c) => c.id));
@@ -323,7 +333,7 @@ async function main() {
   const { snap, from } = await readBase();
   const baseSnap: Snap = JSON.parse(JSON.stringify(snap));
   console.log(`Base snapshot: ${from} — ${snap.contract.length} contracts, ${snap.invoice.length} invoices, ${snap.user.length} users`);
-  const exists = !ONLY && snap.user.some((u) => String(u.email).endsWith(DOMAIN));
+  const exists = !ONLY && snap.user.some((u) => (BATCH === 'td' ? batchEmails.has(String(u.email)) : String(u.email).endsWith(DOMAIN) && !batchEmails.has(String(u.email))));
 
   if (flag('--selftest')) { // build then remove in memory: every table must come back to its original size and every unit to its original status
     const orig: Snap = JSON.parse(JSON.stringify(snap));

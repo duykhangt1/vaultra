@@ -24,6 +24,7 @@ type Snap = Record<string, Row[]>;
 const KEY = '_db/vaultra-diff-v1.json';
 const LOCAL = path.resolve(config.storage.localDir, 'r2-db-backup.json');
 const flag = (n: string) => process.argv.includes(n);
+const arg = (n: string) => { const i = process.argv.indexOf(n); return i >= 0 ? process.argv[i + 1] : undefined; };
 
 // ------------------------------------------------------------------------------------------------ snapshot io
 const s3 = config.storage.r2AccountId && config.storage.r2AccessKeyId && config.storage.r2SecretAccessKey
@@ -60,6 +61,7 @@ function portBusy(port: number): Promise<boolean> {
 const NOTE = 'demo:more-units';
 /** free units wanted per unit type (by size category); the script only tops up what is missing */
 const WANT: Record<string, number> = { XS: 6, S: 6, M: 5, L: 3, XL: 2 };
+const EXTRA = Number(arg('--extra') ?? 0), EXTRA_FAC = arg('--fac');   // --fac 2 --extra 6: keep 6 more free units per type than usual in that facility
 const wantFor = (ut: Row) => (ut.code === 'M6G' ? 3 : WANT[ut.size_category] ?? 0);
 
 function build(snap: Snap) {
@@ -76,7 +78,7 @@ function build(snap: Snap) {
     let flip = 0;
     const created: { unit: Row; ut: Row }[] = [];
     for (const ut of T('unitType').filter((u) => u.facility_id === f.id && !u.deleted_at && u.status === 'ACTIVE' && ['XS1', 'S2', 'M5', 'M6G', 'L10', 'XL20'].includes(String(u.code)))) {
-      const want = wantFor(ut);
+      const want = wantFor(ut) + (EXTRA && f.id === EXTRA_FAC ? EXTRA : 0);
       if (!want) continue;
       const units = T('unit').filter((u) => u.unit_type_id === ut.id && !u.deleted_at);
       const free = units.filter((u) => u.status === 'AVAILABLE').length;
@@ -118,7 +120,8 @@ function build(snap: Snap) {
 
 function remove(snap: Snap) {
   const T = (n: string) => (snap[n] ??= []);
-  const ids = new Set(T('unit').filter((u) => u.notes === NOTE).map((u) => u.id));
+  // only units that are still free: one that has since been rented must stay
+  const ids = new Set(T('unit').filter((u) => u.notes === NOTE && u.status === 'AVAILABLE').map((u) => u.id));
   const drop = (t: string, pred: (r: Row) => boolean) => { const b = T(t).length; snap[t] = T(t).filter((r) => !pred(r)); return b - snap[t].length; };
   const shapes = drop('unitShape', (r) => ids.has(r.unit_id));
   const units = drop('unit', (r) => ids.has(r.id));
@@ -133,7 +136,6 @@ async function main() {
   console.log(`Base snapshot: ${from} — ${snap.unit.length} units, ${snap.unitShape.length} floor-plan shapes`);
   if (flag('--remove')) console.log('Removed:', remove(snap));
   else {
-    if (snap.unit.some((u) => u.notes === NOTE)) throw new Error('The extra units already exist. Run --remove --apply first to rebuild them.');
     console.table(build(snap));
   }
   const e = new EdgePrismaService();
